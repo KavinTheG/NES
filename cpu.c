@@ -15,7 +15,7 @@ uint8_t status;
 
 // int to hold lower byte of memory address
 uint8_t LB, HB;
-uint16_t address;
+uint16_t address, zpg_addr;
 
 char new_carry;
 
@@ -101,9 +101,17 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x01
                 // ORA X,ind
                 case 0x1:
+                    // Increment to get the lower byte
+                    cpu->PC++;
 
-                    // OR accumulator with X
-                    cpu->A |= cpu->X;
+                    // Ignore carry if it exists
+                    uint8_t zpg_addr = (memory[cpu->PC] + cpu->X);
+
+                    LB = memory[zpg_addr];
+                    HB = memory[zpg_addr + 1];
+
+                    address = HB << 8 | LB;
+                    cpu->A |= memory[address];
 
                     // Zero and Negative Flag
                     cpu->P[1] = cpu->A == 0;
@@ -268,14 +276,15 @@ void cpu_execute(Cpu6502 *cpu) {
                 case 0x1:
                     // Increment to get the lower byte
                     cpu->PC++;
-                    HB = memory[cpu->PC];
+                    LB = memory[cpu->PC];
 
-                    cpu->PC++;
+                    // Higher byte is memory[LB]
+                    // Lower byte is memory[LB + 1]
 
                     // Pointer to the address
-                    address = (HB >> 8 | memory[cpu->PC]) +  cpu->Y;
+                    address = (LB << 8 | memory[LB + 1]) +  cpu->Y;
 
-                    cpu->A |= memory[memory[address]];
+                    cpu->A |= memory[address];
 
                     // Set zero flag and negative flag
                     cpu->P[1] = cpu->A == 0;
@@ -546,6 +555,22 @@ void cpu_execute(Cpu6502 *cpu) {
 
                         break;
 
+                // 0x2C
+                // BIT abs
+                case 0xC:
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    // Negative flag set to 7 bit of memory
+                    cpu->P[7] = memory[LB] >> 7;
+
+                    // Overflow flag set to 6th bit of memory
+                    cpu->P[6] = memory[LB] >> 6 & 0x1;
+
+                    // Zero flag
+                    cpu->P[1] = (cpu->A | memory[LB]) == 0;
+                    break;
+
                 // 0x2D
                 // AND abs
                 case 0xD:
@@ -617,12 +642,13 @@ void cpu_execute(Cpu6502 *cpu) {
                 case 0x1:
                     // Increment to get the lower byte
                     cpu->PC++;
-                    HB = memory[cpu->PC];
+                    LB = memory[cpu->PC];
 
-                    cpu->PC++;
+                    // Higher byte is memory[LB]
+                    // Lower byte is memory[LB + 1]
 
                     // Pointer to the address
-                    address = (HB >> 8 | memory[cpu->PC]) +  cpu->Y;
+                    address = (LB << 8 | memory[LB + 1]) +  cpu->Y;
 
                     cpu->A &= memory[memory[address]];
 
@@ -746,10 +772,190 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[7] = memory[address] >> 7;
                     break;
                 }
-
             break;
 
         case 0x4:
+
+            switch (instr & 0x0F) {
+                // 0x40
+                // RTI impl
+                case 0x0:
+
+                    // Return from Interrupt
+                    // Pull S, then pull PC
+                    cpu->S++;
+                    uint8_to_char_array(memory[0x0100 | cpu->S], cpu->P);
+
+                    // LIFO stack, push LB last so LB comes out first
+                    cpu->S++;
+                    LB = memory[cpu->S];
+
+                    // HB pushed first so comes out last
+                    cpu-S++;
+                    // Using address variable, but this is the PC value
+                    address = memory[cpu->S] << 8 | LB;
+
+                    cpu->PC = address;
+
+                    break;
+
+                // 0x41
+                // EOR X,ind
+                case 0x1:
+                    // Increment to get the lower byte
+                    cpu->PC++;
+
+                    // Ignore carry if it exists
+                    uint8_t zpg_addr = (memory[cpu->PC] + cpu->X);
+
+                    LB = memory[zpg_addr];
+                    HB = memory[zpg_addr + 1];
+
+                    address = HB << 8 | LB;
+
+                    cpu->A ^= memory[address];
+
+                    // Set zero flag and negative flag
+                    cpu->P[1] = cpu->A == 0;
+                    cpu->P[7] = cpu->A >> 7;
+
+                    break;
+
+
+                // 0x45
+                // EOR zpg
+                case 0x5:
+                    cpu->PC++;
+
+                    // Get zpg addr
+                    LB = memory[cpu->PC];
+
+                    cpu->A ^= memory[LB];
+
+                    // Set zero flag and negative flag
+                    cpu->P[1] = cpu->A == 0;
+                    cpu->P[7] = cpu->A >> 7;
+                    break;
+
+                // 0x46
+                // LSR zpg
+                case 0x6:
+
+                    // Logical Shift Right
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    // Store 7th bit of memory as new carry value
+                    cpu->P[0] = memory[LB] & 0x01;
+
+                    memory[LB] = memory[LB] >> 1;
+
+
+                    // Set zero flag and negative flag
+                    cpu->P[1] = memory[LB] == 0;
+                    // Inserting 0, so it cannot be negative
+                    cpu->P[7] = 0;
+
+                    break;
+
+                // 0x48
+                // PHA impl
+                case 0x8:
+                    // Push accumulator on stack
+                    push_stack(cpu->S, cpu->A);
+                    cpu->S--;
+                    break;
+
+                // 0x49
+                // EOR #
+                case 0x9:
+
+                    // Increment to get location of immediate byte
+                    cpu->PC += 1;
+
+                    cpu->A ^= memory[cpu->PC];
+
+                    // Set zero flag and negative flag
+                    cpu->P[1] = cpu->A == 0;
+                    cpu->P[7] = cpu->A >> 7;
+                    break;
+
+                // 0x4A
+                // LSR A
+                case 0xA:
+
+                    // Store 7th bit of memory as new carry value
+                    cpu->P[0] = cpu->A & 0x01;
+
+                    cpu->A = cpu->A >> 1;
+
+                    // Set zero flag and negative flag
+                    cpu->P[1] = cpu->A == 0;
+                    cpu->P[7] = 0;
+
+                        break;
+
+                // 0x4C
+                // JMP abs
+                case 0xC:
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    cpu->PC++;
+                    // New opcode to jump to.
+                    address = memory[cpu->PC] << 8 | LB;
+
+                    cpu->PC = memory[address];
+
+
+                    break;
+
+                // 0x4D
+                // EOR abs
+                case 0xD:
+
+                    // Increment to get the lower byte
+                    cpu->PC += 1;
+                    LB = memory[cpu->PC];
+
+                    // Increment to get the upper byte
+                    cpu->PC += 1;
+                    address = memory[cpu->PC] << 8 | LB;
+
+                    cpu->A ^= memory[address];
+
+                    // Set zero flag and negative flag
+                    cpu->P[1] = cpu->A == 0;
+                    cpu->P[7] = cpu->A >> 7;
+                    break;
+
+                // 0x4E
+                // LSR abs
+                case 0xE:
+
+                    // Increment to get the lower byte
+                    cpu->PC += 1;
+                    LB = memory[cpu->PC];
+
+                    // Increment to get the upper byte
+                    cpu->PC += 1;
+                    address = memory[cpu->PC] << 8 | LB;
+
+                    cpu->PC = memory[address] & 0x01;
+
+                    memory[address]  = memory[address] >> 1;
+
+
+                    // Set zero flag and negative flag
+                    cpu->P[1] = memory[address] == 0;
+                    cpu->P[7] = 0;
+                    break;
+                }
+
+            break;
+
+
+
             break;
 
         case 0x5:
