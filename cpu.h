@@ -6,8 +6,8 @@ typedef struct Cpu6502 {
     uint8_t A;
 
     // X and Y register
-    uint8_t XR;
-    uint8_t YR;
+    uint8_t X;
+    uint8_t Y;
 
     // Program Counter
     uint16_t PC;
@@ -26,7 +26,8 @@ typedef struct Cpu6502 {
     Bit 1 - Z: Zero
     Bit 0 - C: Carry
     **/
-    uint8_t P;
+    unsigned char P[8];
+    //uint8_t P;
 
 
 
