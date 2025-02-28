@@ -8,16 +8,13 @@ uint8_t memory[MEMORY_SIZE] = {0};
 
 
 // stack memory
-//uint8_t stack[0xFF] = {0}; 
-
-// zero page memory {$0000 - $00FF}
-uint8_t zero_page[0xFF];
+//uint8_t stack[0xFF] = {0};
 
 // int to hold status flags
 uint8_t status;
 
 // int to hold lower byte of memory address
-uint8_t LB;
+uint8_t LB, HB;
 uint16_t address;
 
 
@@ -34,7 +31,7 @@ void join_char_array(uint8_t val, unsigned char arr[8]) {
     for (int i = 0; i < 8; i++) {
         val |= arr[i] << i;
     }
-}   
+}
 
 void uint8_to_char_array(uint8_t val, char arr[8]) {
 
@@ -58,7 +55,7 @@ void cpu_init(Cpu6502 *cpu) {
     for (int i = 0; i < 8; i++) {
         cpu->P[i] = 0x0;
     }
-} 
+}
 
 
 void cpu_execute(Cpu6502 *cpu) {
@@ -68,7 +65,7 @@ void cpu_execute(Cpu6502 *cpu) {
 
     // Compare the upper 4 bits
     switch ((instr >> 4) & 0x0F) {
-        
+
         // 0x0X
         case 0x0:
 
@@ -89,10 +86,10 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->S -= 1;
 
                     // Set Break flag to 1
-                    cpu->P[4] = 1; 
+                    cpu->P[4] = 1;
 
                     // Merging Status flags to save it on stack
-                    
+
                     join_char_array(status, cpu->P);
 
                     push_stack(cpu->S, status);
@@ -118,8 +115,14 @@ void cpu_execute(Cpu6502 *cpu) {
                 // ORA zpg
                 case 0x5:
 
-                    cpu->A |= zero_page[0];
-                    
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    // Get the lower byte and put it
+                    // in 16 bit address {00LB}
+                    address = (uint16_t) LB;
+                    cpu->A |= memory[address];
+
                     // Set the zero flag or negative flag
                     cpu->P[1] = cpu->A == 0;
                     cpu->P[7] = cpu->A >> 7;
@@ -130,18 +133,23 @@ void cpu_execute(Cpu6502 *cpu) {
                 // ASL zpg
                 case 0x6:
 
-                    // Set the carry flag to the 7th bit of zero_page[0].
-                    cpu->P[0] = (zero_page[0] & 0x80) >> 7;
-                    
-                    // Arithmetic Shift Left to Zero Page
-                    zero_page[0] = zero_page[0] << 1;
-                    
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    address = (uint16_t) LB;
+
+                    // Set the carry flag to the 7th bit of zpg address.
+                    cpu->P[0] = (memory[address] & 0x80) >> 7;
+
+                    // Arithmetic Shift Left to zpg
+                    memory[address] = memory[address] << 1;
+
                     // Set zero flag and negative flag
-                    cpu->P[1] = zero_page[0] == 0;
-                    cpu->P[7] = zero_page[0] >> 7;
+                    cpu->P[1] = memory[address] == 0;
+                    cpu->P[7] = memory[address] >> 7;
 
                     break;
-                
+
                 // 0x08
                 // PHP impl
                 case 0x8:
@@ -182,7 +190,7 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     // Arithmetic Shift Left to Accumulator
                     cpu->A = cpu->A << 1;
-                    
+
                     // Set zero flag and negative flag
                     cpu->P[1] = cpu->A == 0;
                     cpu->P[7] = cpu->A >> 7;
@@ -201,7 +209,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->PC += 1;
                     address = memory[cpu->PC] << 8 | LB;
 
-                    // OR accumulator with the byte 
+                    // OR accumulator with the byte
                     // in memory pointed to by address
                     cpu->A |= memory[address];
 
@@ -243,48 +251,145 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x10
                 // BPL rel
                 case 0x0:
+
+                    // Increment PC by to get signed offset
+                    cpu->PC += 1;
+                    int16_t signed_offset = (int16_t)memory[cpu->PC];
+
+                    //Branch if negative flag is clear
+                    if (!cpu->P[7]) {
+                        cpu->PC += 1 + signed_offset;
+                    }
                     break;
 
                 // 0x11
                 // ORA ind,Y
                 case 0x1:
+                    // Increment to get the lower byte
+                    cpu->PC++;
+                    HB = memory[cpu->PC];
+
+                    cpu->PC++;
+
+                    // Pointer to the address
+                    address = (HB >> 8 | memory[cpu->PC]) +  cpu->Y;
+
+                    cpu->A |= memory[memory[address]];
+
+                    // Set zero flag and negative flag
+                    cpu->P[1] = cpu->A == 0;
+                    cpu->P[7] = cpu->A >> 7;
+
                     break;
 
                 // 0x15
                 // ORA zpg,X
                 case 0x5:
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    // Discard carry, zpg should not exceed 0x00FF
+                    address = (uint16_t) ((LB + cpu->X) & 0xFF);
+
+                    cpu->A |= memory[address];
+
+                    // Set zero flag and negative flag
+                    cpu->P[1] = cpu->A == 0;
+                    cpu->P[7] = cpu->A >> 7;
                     break;
 
                 // 0x16
                 // ASL zpg,X
                 case 0x6:
+
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    // Discard carry, zpg should not exceed 0x00FF
+                    address = (uint16_t) ((LB + cpu->X) & 0xFF);
+
+                    // Set the carry flag to the 7th bit of zpg address.
+                    cpu->P[0] = (memory[address] & 0x80) >> 7;
+
+                    // Arithmetic Shift Left to zpg
+                    memory[address] = memory[address] << 1;
+
+                    // Set zero flag and negative flag
+                    cpu->P[1] = memory[address] == 0;
+                    cpu->P[7] = memory[address] >> 7;
+
                     break;
-                
+
                 // 0x18
                 // CLC impl
                 case 0x8:
+
+                    // clear carry flag
+                    cpu->P[0] = 0;
                     break;
 
-                // 0x09
+                // 0x19
                 // ORA abs,Y
                 case 0x9:
+
+                    // Increment to get the lower byte
+                    cpu->PC += 1;
+                    LB = memory[cpu->PC];
+
+                    // Increment to get the upper byte
+                    cpu->PC += 1;
+                    address = (memory[cpu->PC] << 8 | LB) + cpu->Y;
+
+                    // OR accumulator with the byte
+                    // in memory pointed to by address
+                    cpu->A |= memory[address];
+
+                    // Set zero flag and negative flag
+                    cpu->P[1] = cpu->A == 0;
+                    cpu->P[7] = cpu->A >> 7;
                     break;
 
-                // 0x0A
-                // ASL A
-                case 0xA:
-                    break;
-
-                // 0x0D
-                // ORA abs
+                // 0x1D
+                // ORA abs, X
                 case 0xD:
+
+                    // Increment to get the lower byte
+                    cpu->PC += 1;
+                    LB = memory[cpu->PC];
+
+                    // Increment to get the upper byte
+                    cpu->PC += 1;
+                    address = (memory[cpu->PC] << 8 | LB) + cpu->X;
+
+                    // OR accumulator with the byte
+                    // in memory pointed to by address
+                    cpu->A |= memory[address];
+
+                    // Set zero flag and negative flag
+                    cpu->P[1] = cpu->A == 0;
+                    cpu->P[7] = cpu->A >> 7;
                     break;
 
-                // 0x0E
-                // ASL abs
+                // 0x1E
+                // ASL abs, X
                 case 0xE:
-                    break;
 
+                    // Increment to get the lower byte
+                    cpu->PC += 1;
+                    LB = memory[cpu->PC];
+
+                    // Increment to get the upper byte
+                    cpu->PC += 1;
+                    address = memory[cpu->PC] << 8 | LB + cpu->X;
+
+                    // Set the carry flag to the 7th bit of memory[address]
+                    cpu->P[0] = (memory[address] & 0x80) >> 7;
+
+                    memory[address] = memory[address] << 1;
+
+                    cpu->P[1] = memory[address] == 0;
+                    cpu->P[7] = memory[address] >> 7;
+                    break;
             }
             break;
 
@@ -333,4 +438,3 @@ void cpu_execute(Cpu6502 *cpu) {
     }
 
 }
-
