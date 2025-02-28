@@ -745,7 +745,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[7] = cpu->A >> 7;
                     break;
 
-                // 0x2E
+                // 0x3E
                 // ROL abs,X
                 case 0xE:
 
@@ -954,11 +954,148 @@ void cpu_execute(Cpu6502 *cpu) {
 
             break;
 
-
-
-            break;
-
         case 0x5:
+
+            switch (instr & 0x0F) {
+                // 0x50
+                // BVC rel
+                case 0x0:
+
+                    // Increment PC by to get signed offset
+                    cpu->PC += 1;
+                    int16_t signed_offset = (int16_t)memory[cpu->PC];
+
+                    //Branch if negative flag is set
+                    if (!cpu->P[6]) {
+                        cpu->PC += 1 + signed_offset;
+                    }
+
+                    break;
+
+                // 0x51
+                // EOR ind,Y
+                case 0x1:
+                    // Increment to get the lower byte
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    // Higher byte is memory[LB]
+                    // Lower byte is memory[LB + 1]
+
+                    // Pointer to the address
+                    address = (LB << 8 | memory[LB + 1]) +  cpu->Y;
+
+                    cpu->A ^= memory[memory[address]];
+
+                    // Set zero flag and negative flag
+                    cpu->P[1] = cpu->A == 0;
+                    cpu->P[7] = cpu->A >> 7;
+
+                    break;
+
+
+                // 0x55
+                // EOR zpg,X
+                case 0x5:
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    // Discard carry, zpg should not exceed 0x00FF
+                    address = (uint16_t) ((LB + cpu->X) & 0xFF);
+
+                    cpu->A ^= memory[address];
+
+                    // Set zero flag and negative flag
+                    cpu->P[1] = cpu->A == 0;
+                    cpu->P[7] = cpu->A >> 7;
+                    break;
+
+                // 0x56
+                // LSR zpg, X
+                case 0x6:
+
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    address = (LB + cpu->X) & 0xFF;
+
+                    cpu->P[0] = memory[address] & 0x01;
+                    memory[address] = memory[address] >> 1;
+
+
+                    // Set zero flag and negative flag
+                    cpu->P[1] = memory[address] == 0;
+                    cpu->P[7] = 0;
+
+                    break;
+
+                // 0x58
+                // CLI impl
+                case 0x8:
+                    // Clear Interrupt
+                    cpu->P[2] = 0;
+                    break;
+
+                // 0x59
+                // EOR abs,Y
+                case 0x9:
+                    // Increment to get the lower byte
+                    cpu->PC += 1;
+                    LB = memory[cpu->PC];
+
+                    // Increment to get the upper byte
+                    cpu->PC += 1;
+                    address = (memory[cpu->PC] << 8 | LB) + cpu->Y;
+
+                    cpu->A ^= memory[address];
+
+                    // Set zero flag and negative flag
+                    cpu->P[1] = cpu->A == 0;
+                    cpu->P[7] = cpu->A >> 7;
+                    break;
+
+                // 0x5D
+                // EOR abs,X
+                case 0xD:
+
+                    // Increment to get the lower byte
+                    cpu->PC += 1;
+                    LB = memory[cpu->PC];
+
+                    // Increment to get the upper byte
+                    cpu->PC += 1;
+                    address = (memory[cpu->PC] << 8 | LB) + cpu->X;
+
+                    cpu->A ^= memory[address];
+
+                    // Set zero flag and negative flag
+                    cpu->P[1] = cpu->A == 0;
+                    cpu->P[7] = cpu->A >> 7;
+                    break;
+
+                // 0x5E
+                // ROL LSR,X
+                case 0xE:
+
+                    // Increment to get the lower byte
+                    cpu->PC += 1;
+                    LB = memory[cpu->PC];
+
+                    // Increment to get the upper byte
+                    cpu->PC += 1;
+                    address = (memory[cpu->PC] << 8 | LB) + cpu->X;
+
+                    cpu->P[0] = memory[address] & 0x01;
+                    memory[address] = memory[address] >> 1;
+
+
+                    // Set zero flag and negative flag
+                    cpu->P[1] = memory[address] == 0;
+                    cpu->P[7] = 0;
+
+                    break;
+                }
+
             break;
 
         case 0x6:
