@@ -1,5 +1,4 @@
 #include "cpu.h"
-#include <cstdint>
 #include <stdint.h>
 
 #define MEMORY_SIZE 65536 // 64 KB
@@ -258,7 +257,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->PC += 1;
                     int16_t signed_offset = (int16_t)memory[cpu->PC];
 
-                    //Branch if negative flag is clear
+                    //Branch if negative flag is set
                     if (!cpu->P[7]) {
                         cpu->PC += 1 + signed_offset;
                     }
@@ -352,7 +351,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     break;
 
                 // 0x1D
-                // ORA abs, X
+                // ORA abs,X
                 case 0xD:
 
                     // Increment to get the lower byte
@@ -471,10 +470,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->PC++;
                     LB = memory[cpu->PC];
 
-                    // Discard carry, zpg should not exceed 0x00FF
-                    address = (uint16_t) ((LB + cpu->X) & 0xFF);
-
-                    cpu->A &= memory[address];
+                    cpu->A &= memory[LB];
 
                     // Set zero flag and negative flag
                     cpu->P[1] = cpu->A == 0;
@@ -489,19 +485,19 @@ void cpu_execute(Cpu6502 *cpu) {
                     LB = memory[cpu->PC];
 
                     // Store 7th bit of memory as new carry value
-                    new_carry = memory[address] >> 7;
+                    new_carry = memory[LB] >> 7;
 
-                    memory[address] = memory[address] << 1;
+                    memory[LB] = memory[LB] << 1;
 
                     // change last bit to value of old carry
-                    memory[address] = (memory[address] & ~1) | (cpu->P[0] & 1);
+                    memory[LB] = (memory[LB] & ~1) | (cpu->P[0] & 1);
 
                     // Set carry bit to the 7th bit of the old value of memory
                     cpu->P[0] = new_carry;
 
                     // Set zero flag and negative flag
-                    cpu->P[1] = memory[address] == 0;
-                    cpu->P[7] = memory[address] >> 7;
+                    cpu->P[1] = memory[LB] == 0;
+                    cpu->P[7] = memory[LB] >> 7;
 
                     break;
 
@@ -597,10 +593,160 @@ void cpu_execute(Cpu6502 *cpu) {
                     break;
                 }
 
-
             break;
 
         case 0x3:
+            switch (instr & 0x0F) {
+                // 0x30
+                // BMI rel
+                case 0x0:
+
+                    // Increment PC by to get signed offset
+                    cpu->PC += 1;
+                    int16_t signed_offset = (int16_t)memory[cpu->PC];
+
+                    //Branch if negative flag is set
+                    if (cpu->P[7]) {
+                        cpu->PC += 1 + signed_offset;
+                    }
+
+                    break;
+
+                // 0x31
+                // AND ind,Y
+                case 0x1:
+                    // Increment to get the lower byte
+                    cpu->PC++;
+                    HB = memory[cpu->PC];
+
+                    cpu->PC++;
+
+                    // Pointer to the address
+                    address = (HB >> 8 | memory[cpu->PC]) +  cpu->Y;
+
+                    cpu->A &= memory[memory[address]];
+
+                    // Set zero flag and negative flag
+                    cpu->P[1] = cpu->A == 0;
+                    cpu->P[7] = cpu->A >> 7;
+
+                    break;
+
+
+                // 0x35
+                // AND zpg,X
+                case 0x5:
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    // Discard carry, zpg should not exceed 0x00FF
+                    address = (uint16_t) ((LB + cpu->X) & 0xFF);
+
+                    cpu->A &= memory[address];
+
+                    // Set zero flag and negative flag
+                    cpu->P[1] = cpu->A == 0;
+                    cpu->P[7] = cpu->A >> 7;
+                    break;
+
+                // 0x36
+                // ROL zpg, X
+                case 0x6:
+
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    address = (LB + cpu->X) &0xFF;
+
+                    // Store 7th bit of memory as new carry value
+                    new_carry = memory[address] >> 7;
+
+                    memory[address] = memory[address] << 1;
+
+                    // change last bit to value of old carry
+                    memory[address] = (memory[address] & ~1) | (cpu->P[0] & 1);
+
+                    // Set carry bit to the 7th bit of the old value of memory
+                    cpu->P[0] = new_carry;
+
+                    // Set zero flag and negative flag
+                    cpu->P[1] = memory[address] == 0;
+                    cpu->P[7] = memory[address] >> 7;
+
+                    break;
+
+                // 0x38
+                // SEC impl
+                case 0x8:
+                    // Set Carry Flag
+                    cpu->P[0] = 1;
+                    break;
+
+                // 0x39
+                // AND abs,Y
+                case 0x9:
+                    // Increment to get the lower byte
+                    cpu->PC += 1;
+                    LB = memory[cpu->PC];
+
+                    // Increment to get the upper byte
+                    cpu->PC += 1;
+                    address = (memory[cpu->PC] << 8 | LB) + cpu->Y;
+
+                    cpu->A &= memory[address];
+
+                    // Set zero flag and negative flag
+                    cpu->P[1] = cpu->A == 0;
+                    cpu->P[7] = cpu->A >> 7;
+                    break;
+
+                // 0x3D
+                // AND abs,X
+                case 0xD:
+
+                    // Increment to get the lower byte
+                    cpu->PC += 1;
+                    LB = memory[cpu->PC];
+
+                    // Increment to get the upper byte
+                    cpu->PC += 1;
+                    address = (memory[cpu->PC] << 8 | LB) + cpu->X;
+
+                    cpu->A &= memory[address];
+
+                    // Set zero flag and negative flag
+                    cpu->P[1] = cpu->A == 0;
+                    cpu->P[7] = cpu->A >> 7;
+                    break;
+
+                // 0x2E
+                // ROL abs,X
+                case 0xE:
+
+                    // Increment to get the lower byte
+                    cpu->PC += 1;
+                    LB = memory[cpu->PC];
+
+                    // Increment to get the upper byte
+                    cpu->PC += 1;
+                    address = (memory[cpu->PC] << 8 | LB) + cpu->X;
+
+                    new_carry = memory[address] >> 7;
+
+                    memory[address]  = memory[address] << 1;
+
+                    // change last bit to value of old carry
+                    memory[address] = (memory[address] & ~1) | (cpu->P[0] & 1);
+
+                    // Set carry bit to the 7th bit of the old value of memory
+                    cpu->P[0] = new_carry;
+
+                    // Set zero flag and negative flag
+                    cpu->P[1] = memory[address] == 0;
+                    cpu->P[7] = memory[address] >> 7;
+                    break;
+                }
+
             break;
 
         case 0x4:
