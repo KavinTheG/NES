@@ -813,7 +813,7 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     address = HB << 8 | LB;
 
-                    cpu->A ^= memory[address];
+                    cpu->A ^= memory[memory[address]];
 
                     // Set zero flag and negative flag
                     cpu->P[1] = cpu->A == 0;
@@ -1132,7 +1132,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     address = HB << 8 | LB;
 
                     // Reuse zpg variable (in case it overflows)
-                    zpg_addr = (uint16_t)(cpu->A + memory[address] + cpu->P[0]);
+                    zpg_addr = (uint16_t)(cpu->A + memory[memory[address]] + cpu->P[0]);
 
                     // Use lower byte for A
                     cpu->A = zpg_addr & 0xFF;
@@ -1361,7 +1361,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     address = (LB << 8 | memory[LB + 1]) +  cpu->Y;
 
                     // Reuse zpg variable (in case it overflows)
-                    zpg_addr = (uint16_t)(cpu->A + memory[address] + cpu->P[0]);
+                    zpg_addr = (uint16_t)(cpu->A + memory[memory[address]] + cpu->P[0]);
 
                     // Use lower byte for A
                     cpu->A = zpg_addr & 0xFF;
@@ -1541,7 +1541,7 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     address = HB << 8 | LB;
 
-                    memory[address] = cpu->A;
+                    memory[memory[address]] = cpu->A;
 
                     break;
 
@@ -1642,6 +1642,115 @@ void cpu_execute(Cpu6502 *cpu) {
             break;
 
         case 0x9:
+            switch (instr & 0x0F) {
+                // 0x90
+                // BCC rel
+                case 0x0:
+
+                    // Increment PC by to get signed offset
+                    cpu->PC += 1;
+                    int16_t signed_offset = (int16_t)memory[cpu->PC];
+
+                    //Branch if overflow flag is set
+                    if (!cpu->P[0]) {
+                        cpu->PC += 1 + signed_offset;
+                    }
+
+                    break;
+
+                // 0x91
+                // STA ind,Y
+                case 0x1:
+                    // Increment to get the lower byte
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    // Higher byte is memory[LB]
+                    // Lower byte is memory[LB + 1]
+
+                    // Pointer to the address
+                    address = (LB << 8 | memory[LB + 1]) +  cpu->Y;
+
+                    memory[memory[address]] =  cpu->A;
+
+                    break;
+
+                // 0x94
+                // STY zpg,X
+                case 0x4:
+
+                    break;
+
+                // 0x95
+                // STA zpg,X
+                case 0x5:
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    // Discard carry, zpg should not exceed 0x00FF
+                    address = (uint16_t) ((LB + cpu->X) & 0xFF);
+
+                    memory[address] = cpu->A;
+
+                    break;
+
+                // 0x96
+                // STX zpg,Y
+                case 0x6:
+
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    address = (LB + cpu->Y) & 0xFF;
+
+                    memory[address] = cpu->X;
+
+                    break;
+
+                // 0x98
+                // TYA impl
+                case 0x8:
+                    // Transfer Index Y to Accumulator
+                    cpu->A = cpu->Y;
+                    break;
+
+                // 0x99
+                // STA abs,Y
+                case 0x9:
+                    // Increment to get the lower byte
+                    cpu->PC += 1;
+                    LB = memory[cpu->PC];
+
+                    // Increment to get the upper byte
+                    cpu->PC += 1;
+                    address = (memory[cpu->PC] << 8 | LB) + cpu->Y;
+
+                    memory[address] = cpu->A;
+                    break;
+
+                // 0x9A
+                // TXS impl
+                case 0xA:
+                    // Transfer Index X to Accumulator
+                    cpu->A = cpu->X;
+                    break;
+
+                // 0x9D
+                // STA abs,X
+                case 0xD:
+
+                    // Increment to get the lower byte
+                    cpu->PC += 1;
+                    LB = memory[cpu->PC];
+
+                    // Increment to get the upper byte
+                    cpu->PC += 1;
+                    address = (memory[cpu->PC] << 8 | LB) + cpu->X;
+
+                    memory[address] = cpu->X;
+                    break;
+            }
+
             break;
 
         case 0xA:
