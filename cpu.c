@@ -2038,6 +2038,184 @@ void cpu_execute(Cpu6502 *cpu) {
             break;
 
         case 0xC:
+
+            switch (instr & 0x0F) {
+
+                // 0xC0
+                // CPY #
+                case 0x0:
+                    // Compare Memory and Index Y
+                    cpu->PC++;
+
+                    // Carry Flag
+                    cpu->P[0] = cpu->Y >= memory[cpu->PC];
+
+                    // Zero flag
+                    cpu->P[1] = cpu->Y == memory[cpu->PC];
+
+                    // Negative Flag
+                    cpu->P[7] = cpu->Y < memory[cpu->PC];
+
+                    break;
+
+                // 0xC1
+                // CMP X,ind
+                case 0x1:
+                    // Increment to get the lower byte
+                    cpu->PC++;
+
+                    // Ignore carry if it exists
+                    zpg_addr = (memory[cpu->PC] + cpu->X) & 0xFF;
+
+                    LB = memory[zpg_addr];
+                    HB = memory[zpg_addr + 1];
+
+                    address = HB << 8 | LB;
+
+                    // Carry Flag
+                    cpu->P[0] = cpu->A >= memory[memory[cpu->PC]];
+
+                    // Zero flag
+                    cpu->P[1] = cpu->A == memory[memory[cpu->PC]];
+
+                    // Negative Flag
+                    cpu->P[7] = cpu->A < memory[memory[cpu->PC]];
+
+                    break;
+
+                // 0xC4
+                // CPY zpg
+                case 0x4:
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    // Carry Flag
+                    cpu->P[0] = cpu->Y >= memory[cpu->PC];
+
+                    // Zero flag
+                    cpu->P[1] = cpu->Y == memory[cpu->PC];
+
+                    // Negative Flag
+                    cpu->P[7] = cpu->Y < memory[cpu->PC];
+
+                    break;
+
+                // 0xC5
+                // CMP zpg
+                case 0x5:
+                    cpu->PC++;
+
+                    // Get zpg addr
+                    LB = memory[cpu->PC];
+
+                    // Carry Flag
+                    cpu->P[0] = cpu->A >= memory[LB];
+
+                    // Zero flag
+                    cpu->P[1] = cpu->A == memory[LB];
+
+                    // Negative Flag
+                    cpu->P[7] = cpu->A < memory[LB];
+
+                    break;
+
+                // 0xC6
+                // DEC zpg
+                case 0x6:
+                    // Decrement M by One
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    memory[LB]--;
+
+                    break;
+
+                // 0xC8
+                // INY impl
+                case 0x8:
+                    // Increment Y register by One
+                    cpu->Y++;
+                    break;
+
+                // 0xC9
+                // CMP #
+                case 0x9:
+                    // Compare accumulator with M
+                    cpu->PC++;
+
+                    // Carry Flag
+                    cpu->P[0] = cpu->A >= memory[cpu->PC];
+
+                    // Zero flag
+                    cpu->P[1] = cpu->A == memory[cpu->PC];
+
+                    // Negative Flag
+                    cpu->P[7] = cpu->A < memory[cpu->PC];
+                    break;
+
+                // 0xCA
+                // DEX impl
+                case 0xA:
+                    // Decrement Index by One
+                    cpu->X--;
+                    break;
+
+                // 0xCC
+                // CPY abs
+                case 0xC:
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    cpu->PC++;
+                    // Address of the location of new address
+                    address = memory[cpu->PC] << 8 | LB;
+
+                    // Carry Flag
+                    cpu->P[0] = cpu->Y >= memory[address];
+
+                    // Zero flag
+                    cpu->P[1] = cpu->Y == memory[address];
+
+                    // Negative Flag
+                    cpu->P[7] = cpu->Y < memory[address];
+                    break;
+
+                // 0xCD
+                // CMP abs
+                case 0xD:
+                    // Increment to get the lower byte
+                    cpu->PC += 1;
+                    LB = memory[cpu->PC];
+
+                    // Increment to get the upper byte
+                    cpu->PC += 1;
+                    address = memory[cpu->PC] << 8 | LB;
+
+                    // Carry Flag
+                    cpu->P[0] = cpu->A >= memory[address];
+
+                    // Zero flag
+                    cpu->P[1] = cpu->A == memory[address];
+
+                    // Negative Flag
+                    cpu->P[7] = cpu->A < memory[address];
+                    break;
+
+                // 0xCE
+                // DEC abs
+                case 0xE:
+
+                    // Increment to get the lower byte
+                    cpu->PC += 1;
+                    LB = memory[cpu->PC];
+
+                    // Increment to get the upper byte
+                    cpu->PC += 1;
+                    address = memory[cpu->PC] << 8 | LB;
+
+                    memory[address]--;
+                    break;
+            }
             break;
 
         case 0xD:
