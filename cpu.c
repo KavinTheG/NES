@@ -382,7 +382,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     break;
 
                 // 0x1E
-                // ASL abs, X
+                // ASL abs,X
                 case 0xE:
 
                     // Increment to get the lower byte
@@ -1551,7 +1551,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->PC++;
                     LB = memory[cpu->PC];
 
-                    cpu->Y = memory[LB];
+                    memory[LB] = cpu->Y;
 
                     break;
 
@@ -1563,7 +1563,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     // Get zpg addr
                     LB = memory[cpu->PC];
 
-                    cpu->A = memory[LB];
+                    memory[LB] = cpu->A;
 
                     break;
 
@@ -1575,7 +1575,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->PC++;
                     LB = memory[cpu->PC];
 
-                    cpu->X = memory[LB];
+                    memory[LB] = cpu->X;
 
                     break;
 
@@ -1603,7 +1603,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     // Address of the location of new address
                     address = memory[cpu->PC] << 8 | LB;
 
-                    cpu->Y = memory[address];
+                    memory[address] = cpu->Y;
                     break;
 
                 // 0x8D
@@ -1651,7 +1651,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->PC += 1;
                     int16_t signed_offset = (int16_t)memory[cpu->PC];
 
-                    //Branch if overflow flag is set
+                    //Branch if carry flag is clear
                     if (!cpu->P[0]) {
                         cpu->PC += 1 + signed_offset;
                     }
@@ -1678,7 +1678,13 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x94
                 // STY zpg,X
                 case 0x4:
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
 
+                    // Discard carry, zpg should not exceed 0x00FF
+                    address = (uint16_t) ((LB + cpu->X) & 0xFF);
+
+                    memory[address] = cpu->Y;
                     break;
 
                 // 0x95
@@ -1754,9 +1760,281 @@ void cpu_execute(Cpu6502 *cpu) {
             break;
 
         case 0xA:
+
+            switch (instr & 0x0F) {
+
+                // 0xA0
+                // LDY #
+                case 0x0:
+                    // Load Index Y with Memory
+                    cpu->PC++;
+                    cpu->Y = memory[cpu->PC];
+                    break;
+
+                // 0xA1
+                // LDA X,ind
+                case 0x1:
+                    // Increment to get the lower byte
+                    cpu->PC++;
+
+                    // Ignore carry if it exists
+                    zpg_addr = (memory[cpu->PC] + cpu->X) & 0xFF;
+
+                    LB = memory[zpg_addr];
+                    HB = memory[zpg_addr + 1];
+
+                    address = HB << 8 | LB;
+
+                    cpu->A = memory[memory[address]];
+
+                    break;
+
+                // 0xA2
+                // LDX #
+                case 0x2:
+                    // Load Index Y with Memory
+                    cpu->PC++;
+                    cpu->X = memory[cpu->PC];
+                    break;
+
+                // 0xA4
+                // LDY zpg
+                case 0x4:
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    cpu->Y = memory[LB];
+
+                    break;
+
+                // 0xA5
+                // LDA zpg
+                case 0x5:
+                    cpu->PC++;
+
+                    // Get zpg addr
+                    LB = memory[cpu->PC];
+
+                    cpu->A = memory[LB];
+
+                    break;
+
+                // 0xA6
+                // LDX zpg
+                case 0x6:
+                    // Rotate Shift Right
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    cpu->X = memory[LB];
+
+                    break;
+
+                // 0xA8
+                // TAY impl
+                case 0x8:
+                    // Transfer Accumulator to Y
+                    cpu->Y = cpu->A;
+                    break;
+
+                // 0xAA
+                // TAX impl
+                case 0xA:
+                    // Transfer Accumulator to Y
+                    cpu->X = cpu->A;
+                    break;
+
+                // 0xAC
+                // LDY abs
+                case 0xC:
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    cpu->PC++;
+                    // Address of the location of new address
+                    address = memory[cpu->PC] << 8 | LB;
+
+                    cpu->Y = memory[address];
+                    break;
+
+                // 0xAD
+                // LDA abs
+                case 0xD:
+
+                    // Increment to get the lower byte
+                    cpu->PC += 1;
+                    LB = memory[cpu->PC];
+
+                    // Increment to get the upper byte
+                    cpu->PC += 1;
+                    address = memory[cpu->PC] << 8 | LB;
+
+                    cpu->A = memory[address];
+
+                    break;
+
+                // 0xAE
+                // LDX abs
+                case 0xE:
+
+                    // Increment to get the lower byte
+                    cpu->PC += 1;
+                    LB = memory[cpu->PC];
+
+                    // Increment to get the upper byte
+                    cpu->PC += 1;
+                    address = memory[cpu->PC] << 8 | LB;
+
+                    cpu->X = memory[address];
+
+                    break;
+            }
+
             break;
 
         case 0xB:
+
+            switch (instr & 0x0F) {
+                // 0xB0
+                // BCS rel
+                case 0x0:
+
+                    // Increment PC by to get signed offset
+                    cpu->PC += 1;
+                    int16_t signed_offset = (int16_t)memory[cpu->PC];
+
+                    //Branch if overflow flag is set
+                    if (cpu->P[0]) {
+                        cpu->PC += 1 + signed_offset;
+                    }
+
+                    break;
+
+                // 0xB1
+                // LDA ind,Y
+                case 0x1:
+                    // Increment to get the lower byte
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    // Higher byte is memory[LB]
+                    // Lower byte is memory[LB + 1]
+
+                    // Pointer to the address
+                    address = (LB << 8 | memory[LB + 1]) +  cpu->Y;
+
+                    cpu->A = memory[memory[address]];
+
+                    break;
+
+                // 0xB4
+                // LDY zpg,X
+                case 0x4:
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    // Discard carry, zpg should not exceed 0x00FF
+                    address = (uint16_t) ((LB + cpu->X) & 0xFF);
+
+                    cpu->Y = memory[address];
+                    break;
+
+                // 0xB5
+                // LDA zpg,X
+                case 0x5:
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    // Discard carry, zpg should not exceed 0x00FF
+                    address = (uint16_t) ((LB + cpu->X) & 0xFF);
+
+                    cpu->A = memory[address];
+                    break;
+
+                // 0xB6
+                // LDX zpg,Y
+                case 0x6:
+
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    address = (LB + cpu->Y) & 0xFF;
+
+                    cpu->X = memory[address];
+                    break;
+
+                // 0xB8
+                // CLV impl
+                case 0x8:
+                    // Clear Overflow Flag
+                    cpu->P[6] = 0;
+                    break;
+
+                // 0xB9
+                // LDA abs,Y
+                case 0x9:
+                    // Increment to get the lower byte
+                    cpu->PC += 1;
+                    LB = memory[cpu->PC];
+
+                    // Increment to get the upper byte
+                    cpu->PC += 1;
+                    address = (memory[cpu->PC] << 8 | LB) + cpu->Y;
+
+                    cpu->A = memory[address];
+                    break;
+
+                // 0xBA
+                // TSX impl
+                case 0xA:
+                    // Transfer stack pointer to X
+                    join_char_array(cpu->X, cpu->P);
+                    break;
+
+                // 0xBC
+                // LDY abs,X
+                case 0xC:
+                    // Increment to get the lower byte
+                    cpu->PC += 1;
+                    LB = memory[cpu->PC];
+
+                    // Increment to get the upper byte
+                    cpu->PC += 1;
+                    address = (memory[cpu->PC] << 8 | LB) + cpu->X;
+
+                    cpu->Y = memory[address];
+                    break;
+
+                // 0xBD
+                // LDA abs,X
+                case 0xD:
+
+                    // Increment to get the lower byte
+                    cpu->PC += 1;
+                    LB = memory[cpu->PC];
+
+                    // Increment to get the upper byte
+                    cpu->PC += 1;
+                    address = (memory[cpu->PC] << 8 | LB) + cpu->X;
+
+                    cpu->X = memory[address];
+                    break;
+
+                // 0xBE
+                // LDX abs,Y
+                case 0xE:
+                    // Increment to get the lower byte
+                    cpu->PC += 1;
+                    LB = memory[cpu->PC];
+
+                    // Increment to get the upper byte
+                    cpu->PC += 1;
+                    address = (memory[cpu->PC] << 8 | LB) + cpu->Y;
+
+                    cpu->X = memory[address];
+                    break;
+            }
+
             break;
 
         case 0xC:
