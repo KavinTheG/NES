@@ -2219,6 +2219,146 @@ void cpu_execute(Cpu6502 *cpu) {
             break;
 
         case 0xD:
+
+            switch (instr & 0x0F) {
+
+                // 0xD0
+                // BNE rel
+                case 0x0:
+                    // Increment PC by to get signed offset
+                    cpu->PC += 1;
+                    int16_t signed_offset = (int16_t)memory[cpu->PC];
+
+                    //Branch if negative flag is set
+                    if (!cpu->P[1]) {
+                        cpu->PC += 1 + signed_offset;
+                    }
+                    break;
+
+                // 0xD1
+                // CMP ind,Y
+                case 0x1:
+                    // Increment to get the lower byte
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    // Higher byte is memory[LB]
+                    // Lower byte is memory[LB + 1]
+
+                    // Pointer to the address
+                    address = (LB << 8 | memory[LB + 1]) +  cpu->Y;
+
+                    // Carry Flag
+                    cpu->P[0] = cpu->A >= memory[memory[cpu->PC]];
+
+                    // Zero flag
+                    cpu->P[1] = cpu->A == memory[memory[cpu->PC]];
+
+                    // Negative Flag
+                    cpu->P[7] = cpu->A < memory[memory[cpu->PC]];
+
+                    break;
+
+                // 0xD5
+                // CMP zpg,X
+                case 0x5:
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    // Discard carry, zpg should not exceed 0x00FF
+                    address = (uint16_t) ((LB + cpu->X) & 0xFF);
+
+                    // Carry Flag
+                    cpu->P[0] = cpu->A >= memory[LB];
+
+                    // Zero flag
+                    cpu->P[1] = cpu->A == memory[LB];
+
+                    // Negative Flag
+                    cpu->P[7] = cpu->A < memory[LB];
+
+                    break;
+
+                // 0xD6
+                // DEC zpg,X
+                case 0x6:
+                    // Decrement M by One
+                    cpu->PC++;
+                    LB = memory[cpu->PC];
+
+                    // Discard carry, zpg should not exceed 0x00FF
+                    address = (uint16_t) ((LB + cpu->X) & 0xFF);
+
+                    memory[address]--;
+
+                    break;
+
+                // 0xD8
+                // CLD impl
+                case 0x8:
+                    // Clear Decimal Flag
+                    cpu->P[3] = 0;
+                    break;
+
+                // 0xD9
+                // CMP abs,Y
+                case 0x9:
+                    // Compare accumulator with M
+                    // Increment to get the lower byte
+                    cpu->PC += 1;
+                    LB = memory[cpu->PC];
+
+                    // Increment to get the upper byte
+                    cpu->PC += 1;
+                    address = (memory[cpu->PC] << 8 | LB) + cpu->Y;
+
+                    // Carry Flag
+                    cpu->P[0] = cpu->A >= memory[address];
+
+                    // Zero flag
+                    cpu->P[1] = cpu->A == memory[address];
+
+                    // Negative Flag
+                    cpu->P[7] = cpu->A < memory[address];
+                    break;
+
+                // 0xDD
+                // CMP abs,X
+                case 0xD:
+                    // Increment to get the lower byte
+                    cpu->PC += 1;
+                    LB = memory[cpu->PC];
+
+                    // Increment to get the upper byte
+                    cpu->PC += 1;
+                    address = (memory[cpu->PC] << 8 | LB) + cpu->X;
+
+                    // Carry Flag
+                    cpu->P[0] = cpu->A >= memory[address];
+
+                    // Zero flag
+                    cpu->P[1] = cpu->A == memory[address];
+
+                    // Negative Flag
+                    cpu->P[7] = cpu->A < memory[address];
+                    break;
+
+                // 0xDE
+                // DEC abs,X
+                case 0xE:
+
+                    // Increment to get the lower byte
+                    cpu->PC += 1;
+                    LB = memory[cpu->PC];
+
+                    // Increment to get the upper byte
+                    cpu->PC += 1;
+                    address = (memory[cpu->PC] << 8 | LB) + cpu->X;
+
+                    memory[address]--;
+                    break;
+            }
+
             break;
 
         case 0xE:
