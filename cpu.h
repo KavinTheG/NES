@@ -1,7 +1,12 @@
 #include <stdint.h>
+#include <stdio.h>
 
 typedef struct Cpu6502 {
-    
+
+    int cycles;
+
+    uint8_t instr;
+
     // Accumulator
     uint8_t A;
 
@@ -37,3 +42,8 @@ typedef struct Cpu6502 {
 void cpu_init(Cpu6502 *cpu);
 void load_rom(Cpu6502 *cpu, char *filename);
 void cpu_execute(Cpu6502 *cpu);
+
+void push_stack(uint8_t lower_addr, uint8_t val);
+//void dump_test_output();
+
+void dump_log(Cpu6502 *cpu, FILE *log);
