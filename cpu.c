@@ -3270,6 +3270,10 @@ void cpu_execute(Cpu6502 *cpu) {
                     memory[LB]++;
 
                     cpu->PC++;
+
+                    cpu->P[1] = memory[LB] == 0;
+                    cpu->P[7] = (memory[LB] & 0x80) == 0x80;
+
                     emulate_6502_cycle(5);
                     cpu->cycles += 5;
                     break;
@@ -3277,9 +3281,12 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xE8
                 // INX impl
                 case 0x8:
-                    // Increment Y register by One
+                    // Increment X register by One
                     cpu->X++;
                     cpu->PC++;
+
+                    cpu->P[1] = cpu->X == 0;
+                    cpu->P[7] = (cpu->X & 0x80 )== 0x80;
 
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
@@ -3406,6 +3413,9 @@ void cpu_execute(Cpu6502 *cpu) {
                     address = memory[cpu->PC] << 8 | LB;
 
                     memory[address]++;
+
+                    cpu->P[1] = memory[address] == 0;
+                    cpu->P[7] = (memory[address] & 0x80 )== 0x80;
 
                     cpu->PC++;
                     emulate_6502_cycle(6);
@@ -3559,6 +3569,10 @@ void cpu_execute(Cpu6502 *cpu) {
                     memory[address]++;
 
                     cpu->PC++;
+
+                    cpu->P[1] = memory[address] == 0;
+                    cpu->P[7] = (memory[address] & 0x80 )== 0x80;
+
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
                     break;
@@ -3675,6 +3689,9 @@ void cpu_execute(Cpu6502 *cpu) {
                     address = (memory[cpu->PC] << 8 | LB) + cpu->X;
 
                     memory[address]++;
+
+                    cpu->P[1] = memory[address] == 0;
+                    cpu->P[7] = (memory[address] & 0x80 )== 0x80;
 
                     cpu->PC++;
                     emulate_6502_cycle(7);
