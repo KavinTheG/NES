@@ -1573,18 +1573,19 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     // Reuse zpg variable (in case it overflows)
                     zpg_addr = (uint16_t)(cpu->A + memory[memory[address]] + cpu->P[0]);
+                    LB = cpu->A;
 
                     // Use lower byte for A
                     cpu->A = zpg_addr & 0xFF;
 
                     // Set carry bit if upper byte is 1
-                    cpu->P[0] = zpg_addr >> 7;
+                    cpu->P[0] = zpg_addr > 0xFF;
 
                     // Set zero flag and negative flag
                     cpu->P[1] = cpu->A == 0;
                     cpu->P[7] = cpu->A >> 7;
 
-                    cpu->P[6] = ((cpu->A ^ zpg_addr) & (cpu->A ^ memory[cpu->PC]) & 0x80) == 0x80;
+                    cpu->P[6] = ((LB ^ zpg_addr) & (zpg_addr ^ memory[memory[address]]) & 0x80) == 0x80;
 
                     cpu->PC++;
                     emulate_6502_cycle(6);
@@ -1601,18 +1602,20 @@ void cpu_execute(Cpu6502 *cpu) {
                     LB = memory[cpu->PC];
 
                     zpg_addr = (uint16_t)(cpu->A + memory[LB] + cpu->P[0]);
+                    LB = cpu->A;
 
                     // Use lower byte for A
                     cpu->A = zpg_addr & 0xFF;
 
                     // Set carry bit if upper byte is 1
-                    cpu->P[0] = zpg_addr >> 7;
+                    cpu->P[0] = zpg_addr > 0xFF;
+
 
                     // Set zero flag and negative flag
                     cpu->P[1] = cpu->A == 0;
                     cpu->P[7] = cpu->A >> 7;
 
-                    cpu->P[6] = ((cpu->A ^ zpg_addr) & (cpu->A ^ memory[cpu->PC]) & 0x80) == 0x80;
+                    cpu->P[6] = ((LB ^ zpg_addr) & (zpg_addr ^ memory[cpu->PC]) & 0x80) == 0x80;
 
                     cpu->PC++;
                     emulate_6502_cycle(3);
@@ -1672,22 +1675,29 @@ void cpu_execute(Cpu6502 *cpu) {
                 case 0x9:
 
                     // Increment to get location of immediate byte
-                    cpu->PC += 1;
+                    cpu->PC++;
 
                     zpg_addr = (uint16_t)(cpu->A + memory[cpu->PC] + cpu->P[0]);
+                    LB = cpu->A;
 
                     // Use lower byte for A
                     cpu->A = zpg_addr & 0xFF;
 
                     // Set carry bit if upper byte is 1
-                    cpu->P[0] = zpg_addr >> 7;
+                    cpu->P[0] = zpg_addr > 0xFF;
 
                     // Set zero flag and negative flag
                     cpu->P[1] = cpu->A == 0;
                     cpu->P[7] = cpu->A >> 7;
 
                     // Overflow flag
-                    cpu->P[6] = ((cpu->A ^ zpg_addr) & (cpu->A ^ memory[cpu->PC]) & 0x80) == 0x80;
+                    cpu->P[6] = ((LB ^ zpg_addr) & (zpg_addr ^ memory[cpu->PC]) & 0x80) == 0x80;
+
+
+                    //printf("\nResult: %x", zpg_addr);
+                    //printf("\nCarry Formula: %x\n\n", ((cpu->A ^ zpg_addr) & (zpg_addr ^ memory[cpu->PC]) & 0x80) );
+
+                    //sleep(3);
 
                     cpu->PC++;
                     emulate_6502_cycle(4);
@@ -1752,18 +1762,19 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     // Reuse zpg variable (in case it overflows)
                     zpg_addr = (uint16_t)(cpu->A + memory[address] + cpu->P[0]);
+                    LB = cpu->A;
 
                     // Use lower byte for A
                     cpu->A = zpg_addr & 0xFF;
 
                     // Set carry bit if upper byte is 1
-                    cpu->P[0] = zpg_addr >> 7;
+                    cpu->P[0] = zpg_addr > 0xFF;
 
                     // Set zero flag and negative flag
                     cpu->P[1] = cpu->A == 0;
                     cpu->P[7] = cpu->A >> 7;
 
-                    cpu->P[6] = ((cpu->A ^ zpg_addr) & (cpu->A ^ memory[cpu->PC]) & 0x80) == 0x80;
+                    cpu->P[6] = ((LB ^ zpg_addr) & (zpg_addr ^ memory[cpu->PC]) & 0x80) == 0x80;
 
                     cpu->PC++;
                     emulate_6502_cycle(4);
@@ -1866,18 +1877,20 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     // Reuse zpg variable (in case it overflows)
                     zpg_addr = (uint16_t)(cpu->A + memory[memory[address]] + cpu->P[0]);
+                    LB = cpu->A;
 
                     // Use lower byte for A
                     cpu->A = zpg_addr & 0xFF;
 
                     // Set carry bit if upper byte is 1
-                    cpu->P[0] = zpg_addr >> 7;
+                    cpu->P[0] = zpg_addr > 0xFF;
+
 
                     // Set zero flag and negative flag
                     cpu->P[1] = cpu->A == 0;
                     cpu->P[7] = cpu->A >> 7;
 
-                    cpu->P[6] = ((cpu->A ^ zpg_addr) & (cpu->A ^ memory[cpu->PC]) & 0x80) == 0x80;
+                    cpu->P[6] = ((LB ^ zpg_addr) & (zpg_addr ^ memory[memory[address]]) & 0x80) == 0x80;
                     cpu->PC++;
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
@@ -1895,18 +1908,19 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     // Reuse zpg variable (in case it overflows)
                     zpg_addr = (uint16_t)(cpu->A + memory[address] + cpu->P[0]);
+                    LB = cpu->A;
 
                     // Use lower byte for A
                     cpu->A = zpg_addr & 0xFF;
 
                     // Set carry bit if upper byte is 1
-                    cpu->P[0] = zpg_addr >> 7;
+                    cpu->P[0] = zpg_addr > 0xFF;
 
                     // Set zero flag and negative flag
                     cpu->P[1] = cpu->A == 0;
                     cpu->P[7] = cpu->A >> 7;
 
-                    cpu->P[6] = ((cpu->A ^ zpg_addr) & (cpu->A ^ memory[cpu->PC]) & 0x80) == 0x80;
+                    cpu->P[6] = ((LB ^ zpg_addr) & (zpg_addr ^ memory[cpu->PC]) & 0x80) == 0x80;
 
                     cpu->PC++;
                     emulate_6502_cycle(4);
@@ -1976,18 +1990,19 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     // Reuse zpg variable (in case it overflows)
                     zpg_addr = (uint16_t)(cpu->A + memory[address] + cpu->P[0]);
+                    LB = cpu->A;
 
                     // Use lower byte for A
                     cpu->A = zpg_addr & 0xFF;
 
                     // Set carry bit if upper byte is 1
-                    cpu->P[0] = zpg_addr >> 7;
+                    cpu->P[0] = zpg_addr > 0xFF;
 
                     // Set zero flag and negative flag
                     cpu->P[1] = cpu->A == 0;
                     cpu->P[7] = cpu->A >> 7;
 
-                    cpu->P[6] = ((cpu->A ^ zpg_addr) & (cpu->A ^ memory[cpu->PC]) & 0x80) == 0x80;
+                    cpu->P[6] = ((LB ^ zpg_addr) & (zpg_addr ^ memory[cpu->PC]) & 0x80) == 0x80;
 
                     cpu->PC++;
                     emulate_6502_cycle(cyc);
@@ -2013,18 +2028,19 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     // Reuse zpg variable (in case it overflows)
                     zpg_addr = (uint16_t)(cpu->A + memory[address] + cpu->P[0]);
+                    LB = cpu->A;
 
                     // Use lower byte for A
                     cpu->A = zpg_addr & 0xFF;
 
                     // Set carry bit if upper byte is 1
-                    cpu->P[0] = zpg_addr >> 7;
+                    cpu->P[0] = zpg_addr > 0xFF;
 
                     // Set zero flag and negative flag
                     cpu->P[1] = cpu->A == 0;
                     cpu->P[7] = cpu->A >> 7;
 
-                    cpu->P[6] = ((cpu->A ^ zpg_addr) & (cpu->A ^ memory[cpu->PC]) & 0x80) == 0x80;
+                    cpu->P[6] = ((LB ^ zpg_addr) & (zpg_addr ^ memory[cpu->PC]) & 0x80) == 0x80;
 
                     cpu->PC++;
                     emulate_6502_cycle(cyc);
@@ -3359,7 +3375,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[7] = cpu->A >> 7;
 
                     // Overflow flag
-                    cpu->P[6] = (((cpu->A ^ memory[memory[address]]) & (cpu->A ^ zpg_addr)) & 0x80) != 0;
+                    cpu->P[6] = (((LB ^ zpg_addr) & (memory[memory[address]] ^ zpg_addr)) & 0x80) == 0x80;
 
                     cpu->PC++;
 
@@ -3416,7 +3432,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[7] = cpu->A >> 7;
 
                     // Overflow flag
-                    cpu->P[6] = (((cpu->A ^ memory[LB]) & (cpu->A ^ zpg_addr)) & 0x80) != 0;
+                    cpu->P[6] = ((HB ^ zpg_addr) & (memory[LB] ^ zpg_addr) & 0x80) == 0x80;
 
                     cpu->PC++;
                     emulate_6502_cycle(3);
@@ -3487,7 +3503,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[7] = cpu->A >> 7;
 
                     // Overflow flag
-                    cpu->P[6] = (((cpu->A ^ LB) & (cpu->A ^ zpg_addr)) & 0x80) != 0;
+                    cpu->P[6] = (((HB ^ zpg_addr) & (LB ^ zpg_addr)) & 0x80) != 0;
 
                     cpu->PC++;
                     emulate_6502_cycle(2);
@@ -3559,7 +3575,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[7] = cpu->A >> 7;
 
                     // Overflow flag
-                    cpu->P[6] = (((cpu->A ^ memory[address]) & (cpu->A ^ zpg_addr)) & 0x80) != 0;
+                    cpu->P[6] = ((HB ^ zpg_addr) & (memory[address] ^ zpg_addr) & 0x80) == 0x80;
 
                     cpu->PC++;
                     emulate_6502_cycle(4);
@@ -3675,7 +3691,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[7] = cpu->A >> 7;
 
                     // Overflow flag
-                    cpu->P[6] = (((cpu->A ^ memory[memory[address]]) & (cpu->A ^ zpg_addr)) & 0x80) != 0;
+                    cpu->P[6] = (((zpg_addr ^ memory[memory[address]]) & (HB ^ zpg_addr)) & 0x80) != 0;
 
                     cpu->PC++;
 
@@ -3791,7 +3807,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[7] = cpu->A >> 7;
 
                     // Overflow flag
-                    cpu->P[6] = (((cpu->A ^ memory[address]) & (cpu->A ^ zpg_addr)) & 0x80) != 0;
+                    cpu->P[6] = ((HB ^ zpg_addr) & (memory[address] ^ zpg_addr) & 0x80) != 0;
 
                     cpu->PC++;
                     emulate_6502_cycle(cyc);
@@ -3835,7 +3851,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[7] = cpu->A >> 7;
 
                     // Overflow flag
-                    cpu->P[6] = (((cpu->A ^ memory[address]) & (cpu->A ^ zpg_addr)) & 0x80) != 0;
+                    cpu->P[6] = ((HB ^ zpg_addr) & (memory[address] ^ zpg_addr) & 0x80) == 0x80;
 
                     cpu->PC++;
                     emulate_6502_cycle(cyc);

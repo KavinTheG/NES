@@ -17,8 +17,9 @@ int main() {
     fprintf(log, "Program started\n");
 
     while (1) {
-         dump_log(&cpu, log);
-         cpu_execute(&cpu);
+        //dump_log(&cpu, log);
+        cpu_execute(&cpu);
+        dump_log(&cpu, log);
 
     }
 
