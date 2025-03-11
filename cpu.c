@@ -2913,7 +2913,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[1] = cpu->A == memory[memory[cpu->PC]];
 
                     // Negative Flag
-                    cpu->P[7] = cpu->A < memory[memory[cpu->PC]];
+                    cpu->P[7] = ((cpu->A - memory[memory[cpu->PC]]) & 0x80) == 0x80;
 
                     cpu->PC++;
 
@@ -2957,7 +2957,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[1] = cpu->A == memory[LB];
 
                     // Negative Flag
-                    cpu->P[7] = cpu->A < memory[LB];
+                    cpu->P[7] = ((cpu->A - memory[LB]) & 0x80) == 0x80;
 
                     cpu->PC++;
 
@@ -3005,7 +3005,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[1] = cpu->A == memory[cpu->PC];
 
                     // Negative Flag
-                    cpu->P[7] = cpu->A < memory[cpu->PC];
+                    cpu->P[7] = (cpu->A - memory[cpu->PC]) == 0x80;
 
                     cpu->PC++;
 
@@ -3070,7 +3070,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[1] = cpu->A == memory[address];
 
                     // Negative Flag
-                    cpu->P[7] = cpu->A < memory[address];
+                    cpu->P[7] = ((cpu->A - memory[address]) & 0x80) == 0x80;
 
                     cpu->PC++;
 
@@ -3170,7 +3170,7 @@ void cpu_execute(Cpu6502 *cpu) {
                         cpu->P[1] = cpu->A == memory[memory[cpu->PC]];
 
                         // Negative Flag
-                        cpu->P[7] = cpu->A < memory[memory[cpu->PC]];
+                        cpu->P[7] = ((cpu->A - memory[memory[cpu->PC]]) & 0x80) == 0x80;
 
                         cpu->PC++;
 
@@ -3194,7 +3194,7 @@ void cpu_execute(Cpu6502 *cpu) {
                         cpu->P[1] = cpu->A == memory[LB];
 
                         // Negative Flag
-                        cpu->P[7] = cpu->A < memory[LB];
+                        cpu->P[7] = ((cpu->A - memory[LB]) & 0x80) == 0x80;
 
                         cpu->PC++;
 
@@ -3255,7 +3255,7 @@ void cpu_execute(Cpu6502 *cpu) {
                         cpu->P[1] = cpu->A == memory[address];
 
                         // Negative Flag
-                        cpu->P[7] = cpu->A < memory[address];
+                        cpu->P[7] = ((cpu->A - memory[address]) & 0x80) == 0x80;
 
                         cpu->PC++;
 
@@ -3286,7 +3286,7 @@ void cpu_execute(Cpu6502 *cpu) {
                         cpu->P[1] = cpu->A == memory[address];
 
                         // Negative Flag
-                        cpu->P[7] = cpu->A < memory[address];
+                        cpu->P[7] = ((cpu->A - memory[address]) & 0x80) == 0x80;
 
                         cpu->PC++;
                         emulate_6502_cycle(cyc);
