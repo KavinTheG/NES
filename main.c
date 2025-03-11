@@ -5,7 +5,7 @@ int main() {
 
     Cpu6502 cpu;
 
-    load_rom(&cpu, "test/6502_functional_test.bin");
+    load_rom(&cpu, "test/nestest.nes");
     cpu_init(&cpu);
 
 

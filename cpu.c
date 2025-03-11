@@ -7,7 +7,8 @@
 #include <sys/stat.h>
 
 #define MEMORY_SIZE 0x10000 // 64 KB
-
+#define NES_HEADER_SIZE 16
+#define NES_TEST 0xC000
 
 uint8_t memory[MEMORY_SIZE] = {0};
 
@@ -40,20 +41,19 @@ void join_char_array(uint8_t *val, unsigned char arr[8]) {
     }
 }
 
+void uint8_to_char_array(uint8_t val, unsigned char arr[8]) {
+
+    for (int i = 0; i < 8; i++) {
+        arr[i] = (val >> i) & 0x1;
+    }
+}
+
 void emulate_6502_cycle(int cycle) {
     struct timespec ts;
     ts.tv_sec = 0;
     ts.tv_nsec = 558 * cycle; // Approx. 558 nanoseconds
     nanosleep(&ts, NULL);
-    //usleep(50000);
-}
-
-void uint8_to_char_array(uint8_t val, unsigned char arr[8]) {
-
-    for (int i = 7; i >= 0; i--) {
-        arr[i] = (val & 1); // Extract the least significant bit (LSB)
-        val >>= 1;           // Right shift to move the next bit to the LSB
-    }
+    //sleep(50000);
 }
 
 // Core functions
@@ -66,7 +66,13 @@ void cpu_init(Cpu6502 *cpu) {
     cpu->A = 0x0;
     cpu->X = 0x0;
     cpu->Y = 0x0;
-    cpu->PC = 0x0400;
+
+    // Klaus test
+    //cpu->PC = 0x0400;
+
+    // Nes-test
+    cpu->PC = 0xC000;
+
     cpu->instr = memory[cpu->PC];
     cpu->cycles = 0;
 
@@ -86,36 +92,49 @@ void cpu_init(Cpu6502 *cpu) {
 void load_rom(Cpu6502 *cpu, char *filename) {
 
     FILE *rom = fopen(filename, "rb");
+    if (!rom) {
+        perror("Error opening ROM file");
+        return;
+    }
 
-    if (rom == NULL)
-        printf("NULL files.\n");
-
+    // Get file size
     struct stat st;
-
-    stat(filename, &st);
+    if (stat(filename, &st) != 0) {
+        perror("Error getting file size");
+        fclose(rom);
+        return;
+    }
 
     size_t file_size = st.st_size;
-    size_t bytes_read = fread(memory, 1, sizeof(memory), rom);
+    if (file_size < NES_HEADER_SIZE) {
+        printf("Invalid NES ROM file.\n");
+        fclose(rom);
+        return;
+    }
 
+    // Skip iNES header (first 16 bytes)
+    fseek(rom, NES_HEADER_SIZE, SEEK_SET);
+
+    // Read PRG-ROM into memory (starting at 0x8000)
+    size_t bytes_read = fread(&memory[NES_TEST], 1, file_size - NES_HEADER_SIZE, rom);
     fclose(rom);
 
-    if (bytes_read != file_size)
-        printf("File not read.\n");
+    if (bytes_read != file_size - NES_HEADER_SIZE) {
+        printf("Error: Could not read full PRG-ROM.\n");
+    } else {
+        printf("Loaded ROM successfully. PRG-ROM size: %zu bytes\n", bytes_read);
+    }
 
-    // for (uint16_t i = 0x400; i < 0x450; i++) {
-    //         // Print each byte in hexadecimal, formatted with leading zeros
-    //         printf("0x%04X: 0x%02X\n", i, memory[i]);
-    //     }
 
-    // memory[0xFFFC] = 0x00;
-    //memory[0xFFFD] = 0x40;
-
+    printf("Memory at 0x8000: %x", memory[0x8000]);
+    sleep(1);
 }
 
 void dump_log(Cpu6502 *cpu, FILE *log) {
     fprintf(log, "PC Value: %x\n", cpu->PC);
     fprintf(log, "Instruction: %x\n", cpu->instr);
     join_char_array(&status, cpu->P);
+    fprintf(log, "Stack Pointer: %x\n", cpu->S);
     fprintf(log, "Status Register: %b\n", status);
     fprintf(log, "A Register: %x\n", cpu->A);
     fprintf(log, "X Register: %x\n", cpu->X);
@@ -131,14 +150,18 @@ void cpu_execute(Cpu6502 *cpu) {
     uint8_t instr = memory[cpu->PC];
 
     cpu->instr = instr;
-    printf("PC Value: %x\n", cpu->PC);
+    printf("\nPC Value: %x\n", cpu->PC);
     printf("Instruction: %x\n", instr);
+    printf("Stack Pointer: %x\n", cpu->S);
     join_char_array(&status, cpu->P);
     printf("Status: %b\n", status);
     printf("A: %x\n", cpu->A );
     printf("X: %x\n", cpu->X );
     printf("Y: %x\n", cpu->Y );
     printf("\n");
+
+    //printf("M[0x1FF] = %x\n", memory[0x1FF]);
+    //printf("M[0x1%x] = %x\n\n", cpu->S, memory[0x100 | cpu->S]);
 
     // Compare the upper 4 bits
     switch ((instr >> 4) & 0x0F) {
@@ -177,6 +200,9 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->S -=1;
 
                     cpu->PC = memory[0xFFFE];
+
+                    printf("\nBRK Instruction\n");
+                    sleep(2);
 
                     emulate_6502_cycle(7);
                     cpu->cycles += 7;
@@ -265,7 +291,13 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[5] = 1;
 
                     join_char_array(&status, cpu->P);
+
                     push_stack(cpu->S, status);
+
+                    printf("PHP impl\n");
+                    printf("Status Flag: %b\n", status);
+                    printf("Stack Memory: %b\n", memory[0x0100 | cpu->S]);
+                    sleep(1);
 
                     // Decrement stack pointer
                     cpu->S--;
@@ -378,14 +410,27 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     // Increment PC by to get signed offset
                     cpu->PC += 1;
-                    int16_t signed_offset = (int16_t)memory[cpu->PC];
+                    uint8_t signed_offset = memory[cpu->PC];
 
                     //Branch if negative flag is set
                     if (!cpu->P[7]) {
 
                         // Hold old PC value
                         address = cpu->PC;
-                        cpu->PC += 1 + signed_offset;
+                        //cpu->PC += 1 + signed_offset;
+
+                        printf("BPL\n");
+
+
+                        //sleep(1);
+
+                        if ((signed_offset & 0x80) == 0x80) {
+                            // Negative
+                            // Convert from 2's complement to regular by negation + 1
+                            cpu->PC += 1 - ((~signed_offset & 0xFF) + 1);
+                        } else {
+                            cpu->PC += 1 + signed_offset;
+                        }
 
                         // Page crossing
                         if ((cpu->PC & 0xFF00) != (address & 0xFF00)) {
@@ -597,13 +642,13 @@ void cpu_execute(Cpu6502 *cpu) {
                     // Note that this PC points at second operand of JSR
                     // RTS will increment PC to get the next instruction
                     // Push Higher Byte first
-                    push_stack(cpu->S, memory[cpu->PC]);
+                    push_stack(cpu->S, cpu->PC >> 8);
                     cpu->S--;
 
-                    push_stack(cpu->S, LB);
+                    push_stack(cpu->S, cpu->PC & 0xFF);
                     cpu->S--;
 
-                    cpu->PC = memory[address];
+                    cpu->PC = address;
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
                     break;
@@ -636,18 +681,23 @@ void cpu_execute(Cpu6502 *cpu) {
                 // BIT zpg
                 case 0x4:
                     cpu->PC++;
+
+                    printf("BIT zpg");
+                    sleep(1);
+
                     LB = memory[cpu->PC];
 
-                    zpg_addr = memory[LB];
+                    //zpg_addr = memory[LB];
 
                     // Negative flag set to 7 bit of memory
-                    cpu->P[7] = memory[zpg_addr] >> 7;
+                    cpu->P[7] = memory[LB] >> 7;
 
                     // Overflow flag set to 6th bit of memory
-                    cpu->P[6] = memory[zpg_addr] >> 6 & 0x1;
+                    cpu->P[6] = (memory[LB] >> 6) & 0x1;
 
                     // Zero flag
-                    cpu->P[1] = (cpu->A | memory[zpg_addr]) == 0;
+                    cpu->P[1] = (cpu->A & memory[LB]) == 0;
+
                     cpu->PC++;
                     emulate_6502_cycle(3);
                     cpu->cycles += 3;
@@ -702,8 +752,11 @@ void cpu_execute(Cpu6502 *cpu) {
                 case 0x8:
                     // Pull Processor Status from Stack
                     cpu->S++;
-                    uint8_to_char_array(memory[0x0100 | cpu->S], cpu->P);
 
+                    uint8_to_char_array(memory[0x0100 | cpu->S], cpu->P);
+                    /*  POTENTIAL ISSUE WITH THIS FUNCTION
+                        COULD BE REVERSING ORDER
+                    */
                     cpu->PC++;
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
@@ -836,13 +889,22 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     // Increment PC by to get signed offset
                     cpu->PC += 1;
-                    int16_t signed_offset = (int16_t)memory[cpu->PC];
+                    uint8_t signed_offset = memory[cpu->PC];
 
                     //Branch if negative flag is set
                     if (cpu->P[7]) {
 
                         address = cpu->PC;
-                        cpu->PC += 1 + signed_offset;
+                        //cpu->PC += 1 + signed_offset;
+                        sleep(1);
+
+                        if ((signed_offset & 0x80) == 0x80) {
+                            // Negative
+                            // Convert from 2's complement to regular by negation + 1
+                            cpu->PC += 1 - ((~signed_offset & 0xFF) + 1);
+                        } else {
+                            cpu->PC += 1 + signed_offset;
+                        }
 
                         if ((cpu->PC & 0xFF00) != (address & 0xFF00)) {
                             emulate_6502_cycle(4);
@@ -1136,6 +1198,11 @@ void cpu_execute(Cpu6502 *cpu) {
                 case 0x8:
                     // Push accumulator on stack
                     push_stack(cpu->S, cpu->A);
+
+                    printf("\nPHA impl\n");
+                    printf("Stack Mem at index 0x1%x: %b", cpu->S, memory[0x100 | cpu->S]);
+                    //sleep(2);
+
                     cpu->S--;
                     cpu->PC++;
 
@@ -1188,6 +1255,13 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->PC++;
                     // New opcode to jump to.
                     address = memory[cpu->PC] << 8 | LB;
+
+                    printf("JMP");
+
+                    if (cpu->PC - 2 == address)  {
+                        printf("STUCK! TRAP :C");
+                        sleep(1);
+                    }
 
                     cpu->PC = address;
 
@@ -1256,13 +1330,22 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     // Increment PC by to get signed offset
                     cpu->PC += 1;
-                    int16_t signed_offset = (int16_t)memory[cpu->PC];
+                    uint8_t signed_offset = memory[cpu->PC];
 
                     //Branch if overflow flag is clear
                     if (!cpu->P[6]) {
 
                         address = cpu->PC;
-                        cpu->PC += 1 + signed_offset;
+                        //cpu->PC += 1 + signed_offset;
+                        sleep(1);
+
+                        if ((signed_offset & 0x80) == 0x80) {
+                            // Negative
+                            // Convert from 2's complement to regular by negation + 1
+                            cpu->PC += 1 - ((~signed_offset & 0xFF) + 1);
+                        } else {
+                            cpu->PC += 1 + signed_offset;
+                        }
 
                         if ((cpu->PC & 0xFF00) != (address & 0xFF00)) {
                             emulate_6502_cycle(4);
@@ -1450,14 +1533,24 @@ void cpu_execute(Cpu6502 *cpu) {
                 // RTS impl
                 case 0x0:
 
+                    printf("\nRTS\n");
+
+
                     // LIFO stack, push LB last so LB comes out first
                     cpu->S++;
-                    LB = memory[cpu->S];
+                    LB = memory[0x100 | cpu->S];
+
+                    printf("LS Byte: %x\n", LB);
 
                     // HB pushed first so comes out last
                     cpu->S++;
                     // Using address variable, but this is the PC value
-                    address = memory[cpu->S] << 8 | LB;
+                    address = memory[0x100 | cpu->S] << 8 | LB;
+
+                    printf("MS Byte: %x\n", memory[cpu->S]);
+                    printf("Address: %x\n", address);
+
+                    sleep(2);
 
                     cpu->PC = address + 1;
                     emulate_6502_cycle(6);
@@ -1491,6 +1584,8 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[1] = cpu->A == 0;
                     cpu->P[7] = cpu->A >> 7;
 
+                    cpu->P[6] = ((cpu->A ^ zpg_addr) & (cpu->A ^ memory[cpu->PC]) & 0x80) == 0x80;
+
                     cpu->PC++;
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
@@ -1516,6 +1611,8 @@ void cpu_execute(Cpu6502 *cpu) {
                     // Set zero flag and negative flag
                     cpu->P[1] = cpu->A == 0;
                     cpu->P[7] = cpu->A >> 7;
+
+                    cpu->P[6] = ((cpu->A ^ zpg_addr) & (cpu->A ^ memory[cpu->PC]) & 0x80) == 0x80;
 
                     cpu->PC++;
                     emulate_6502_cycle(3);
@@ -1562,8 +1659,12 @@ void cpu_execute(Cpu6502 *cpu) {
                 case 0x8:
                     // Pull accumulator from stack
                     cpu->S++;
-                    cpu->A = memory[0x100 | cpu->S++];
+                    cpu->A = memory[0x100 | cpu->S];
                     cpu->PC++;
+
+                    cpu->P[1] = cpu->A == 0;
+                    cpu->P[7] = (cpu->A & 0x80) == 0x80;
+
                     break;
 
                 // 0x69
@@ -1584,6 +1685,9 @@ void cpu_execute(Cpu6502 *cpu) {
                     // Set zero flag and negative flag
                     cpu->P[1] = cpu->A == 0;
                     cpu->P[7] = cpu->A >> 7;
+
+                    // Overflow flag
+                    cpu->P[6] = ((cpu->A ^ zpg_addr) & (cpu->A ^ memory[cpu->PC]) & 0x80) == 0x80;
 
                     cpu->PC++;
                     emulate_6502_cycle(4);
@@ -1628,7 +1732,8 @@ void cpu_execute(Cpu6502 *cpu) {
                     // Address of the location of new address
                     address = memory[cpu->PC] << 8 | LB;
 
-                    cpu->PC = memory[memory[address]];
+                    cpu->PC = memory[address + 1] << 8 | memory[address];
+
                     emulate_6502_cycle(5);
                     cpu->cycles += 5;
                     break;
@@ -1657,6 +1762,8 @@ void cpu_execute(Cpu6502 *cpu) {
                     // Set zero flag and negative flag
                     cpu->P[1] = cpu->A == 0;
                     cpu->P[7] = cpu->A >> 7;
+
+                    cpu->P[6] = ((cpu->A ^ zpg_addr) & (cpu->A ^ memory[cpu->PC]) & 0x80) == 0x80;
 
                     cpu->PC++;
                     emulate_6502_cycle(4);
@@ -1708,13 +1815,21 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     // Increment PC by to get signed offset
                     cpu->PC += 1;
-                    int16_t signed_offset = (int16_t)memory[cpu->PC];
+                    uint8_t signed_offset = memory[cpu->PC];
 
                     //Branch if overflow flag is set
                     if (cpu->P[6]) {
 
                         address = cpu->PC;
-                        cpu->PC += 1 + signed_offset;
+                        sleep(1);
+
+                        if ((signed_offset & 0x80) == 0x80) {
+                            // Negative
+                            // Convert from 2's complement to regular by negation + 1
+                            cpu->PC += 1 - ((~signed_offset & 0xFF) + 1);
+                        } else {
+                            cpu->PC += 1 + signed_offset;
+                        }
 
                         if ((cpu->PC & 0xFF00) != (address & 0xFF00)) {
                             emulate_6502_cycle(4);
@@ -1762,6 +1877,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[1] = cpu->A == 0;
                     cpu->P[7] = cpu->A >> 7;
 
+                    cpu->P[6] = ((cpu->A ^ zpg_addr) & (cpu->A ^ memory[cpu->PC]) & 0x80) == 0x80;
                     cpu->PC++;
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
@@ -1789,6 +1905,8 @@ void cpu_execute(Cpu6502 *cpu) {
                     // Set zero flag and negative flag
                     cpu->P[1] = cpu->A == 0;
                     cpu->P[7] = cpu->A >> 7;
+
+                    cpu->P[6] = ((cpu->A ^ zpg_addr) & (cpu->A ^ memory[cpu->PC]) & 0x80) == 0x80;
 
                     cpu->PC++;
                     emulate_6502_cycle(4);
@@ -1869,6 +1987,8 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[1] = cpu->A == 0;
                     cpu->P[7] = cpu->A >> 7;
 
+                    cpu->P[6] = ((cpu->A ^ zpg_addr) & (cpu->A ^ memory[cpu->PC]) & 0x80) == 0x80;
+
                     cpu->PC++;
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
@@ -1903,6 +2023,8 @@ void cpu_execute(Cpu6502 *cpu) {
                     // Set zero flag and negative flag
                     cpu->P[1] = cpu->A == 0;
                     cpu->P[7] = cpu->A >> 7;
+
+                    cpu->P[6] = ((cpu->A ^ zpg_addr) & (cpu->A ^ memory[cpu->PC]) & 0x80) == 0x80;
 
                     cpu->PC++;
                     emulate_6502_cycle(cyc);
@@ -2020,7 +2142,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->PC++;
 
                     cpu->P[1] = cpu->Y == 0;
-                    cpu->P[2] = (cpu->Y & 0x80) == 0x80;
+                    cpu->P[7] = (cpu->Y & 0x80) == 0x80;
 
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
@@ -2032,6 +2154,10 @@ void cpu_execute(Cpu6502 *cpu) {
                     // Transfer Index X to Accumulator
                     cpu->A = cpu->X;
                     cpu->PC++;
+
+                    cpu->P[1] = cpu->X == 0;
+                    cpu->P[7] = (cpu->X & 0x80) == 0x80;
+
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
                     break;
@@ -2067,6 +2193,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     memory[address] = cpu->A;
 
                     cpu->PC++;
+
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
                     break;
@@ -2101,11 +2228,21 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     // Increment PC by to get signed offset
                     cpu->PC += 1;
-                    int16_t signed_offset = (int16_t)memory[cpu->PC];
+                    uint8_t signed_offset = memory[cpu->PC];
 
                     //Branch if carry flag is clear
                     if (!cpu->P[0]) {
-                        cpu->PC += 1 + signed_offset;
+                        address = cpu->PC;
+
+                        sleep(1);
+
+                        if ((signed_offset & 0x80) == 0x80) {
+                            // Negative
+                            // Convert from 2's complement to regular by negation + 1
+                            cpu->PC += 1 - ((~signed_offset & 0xFF) + 1);
+                        } else {
+                            cpu->PC += 1 + signed_offset;
+                        }
                     } else {
                         cpu->PC++;
                     }
@@ -2187,7 +2324,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->PC++;
 
                     cpu->P[1] = cpu->A == 0;
-                    cpu->P[2] = (cpu->A & 0x80) == 0x80;
+                    cpu->P[7] = (cpu->A & 0x80) == 0x80;
 
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
@@ -2256,8 +2393,12 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->PC++;
 
                     cpu->P[1] = cpu->Y == 0;
-                    cpu->P[2] = (cpu->Y & 0x80) == 0x80;
+                    cpu->P[7] = (cpu->Y & 0x80) == 0x80;
 
+                    printf("Y after LDY: %x\n", cpu->Y);
+                    printf("Zero flag: %x\n\n", cpu->P[1]);
+
+                    sleep(1);
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
                     break;
@@ -2292,7 +2433,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->PC++;
 
                     cpu->P[1] = cpu->X == 0;
-                    cpu->P[2] = (cpu->X & 0x80) == 0x80;
+                    cpu->P[7] = (cpu->X & 0x80) == 0x80;
 
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
@@ -2353,6 +2494,9 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->Y = cpu->A;
                     cpu->PC++;
 
+                    cpu->P[1] = cpu->Y == 0;
+                    cpu->P[7] = (cpu->Y & 0x80) == 0x80;
+
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
                     break;
@@ -2368,7 +2512,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->PC++;
 
                     cpu->P[1] = cpu->A == 0;
-                    cpu->P[2] = (cpu->A & 0x80) == 0x80;
+                    cpu->P[7] = (cpu->A & 0x80) == 0x80;
 
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
@@ -2423,6 +2567,10 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->A = memory[address];
                     cpu->PC++;
 
+                    printf("LDA abs\n");
+                    printf("Address: %x\n", address);
+                    printf("Mem: %x\n\n", memory[address]);
+
                     cpu->P[1] = cpu->A == 0;
                     cpu->P[7] = (cpu->A & 0x80) == 0x80;
 
@@ -2464,13 +2612,21 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     // Increment PC by to get signed offset
                     cpu->PC += 1;
-                    int16_t signed_offset = (int16_t)memory[cpu->PC];
+                    uint8_t signed_offset = memory[cpu->PC];
 
                     //Branch if overflow flag is set
                     if (cpu->P[0]) {
 
                         address = cpu->PC;
-                        cpu->PC += 1 + signed_offset;
+                        sleep(1);
+
+                        if ((signed_offset & 0x80) == 0x80) {
+                            // Negative
+                            // Convert from 2's complement to regular by negation + 1
+                            cpu->PC += 1 - ((~signed_offset & 0xFF) + 1);
+                        } else {
+                            cpu->PC += 1 + signed_offset;
+                        }
 
                         if ((cpu->PC & 0xFF00) != (address & 0xFF00)) {
                             emulate_6502_cycle(4);
@@ -2604,8 +2760,14 @@ void cpu_execute(Cpu6502 *cpu) {
                 // TSX impl
                 case 0xA:
                     // Transfer stack pointer to X
-                    join_char_array(&cpu->X, cpu->P);
+                    //join_char_array(&cpu->X, cpu->P);
+                    cpu->X = cpu->S;
+
                     cpu->PC++;
+
+                    cpu->P[1] = cpu->X == 0;
+                    cpu->P[7] = (cpu->X & 0x80) == 0x80;
+
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
                     break;
@@ -2630,7 +2792,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->PC++;
 
                     cpu->P[1] = cpu->Y == 0;
-                    cpu->P[2] = (cpu->Y & 0x80) == 0x80;
+                    cpu->P[7] = (cpu->Y & 0x80) == 0x80;
 
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
@@ -2937,8 +3099,9 @@ void cpu_execute(Cpu6502 *cpu) {
                     if (!cpu->P[1]) {
 
                         address = cpu->PC;
-                        //printf("%x\n", signed_offset);
-                        //printf("%x\n", (signed_offset & 0x80));
+                        printf("\nBNE\n");
+                        printf("%x\n", signed_offset);
+                        printf("%x\n", (signed_offset & 0x80));
 
                         sleep(1);
 
@@ -3143,7 +3306,7 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xE0
                 // CPX #
                 case 0x0:
-                    // Compare Memory and Index Y
+                    // Compare Memory and Index X
                     cpu->PC++;
 
                     // Carry Flag
@@ -3296,6 +3459,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // SBC #
                 case 0x9:
                     cpu->PC++;
+
+                    sleep(1);
+                    printf("E9: SBC instruction");
 
                     // Get zpg addr
                     LB = memory[cpu->PC];
@@ -3698,9 +3864,24 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->cycles += 7;
                     break;
 
+                // 0xFF
+                case 0xF:
+                    printf("\n Invalid Instruction");
+                    printf("\n Why did jump or banch occur?");
+
+                    sleep(5);
+
+                    break;
+
             }
         break;
 
     }
 
+    printf("Stack Memory: {");
+    for (int i = 0xF0; i <= 0xFF; i++) {
+        printf("0x01%x: %x, ", i, memory[0x0100 | i]);
+    }
+
+    printf("}\n");
 }
