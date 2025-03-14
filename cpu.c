@@ -1,17 +1,19 @@
 #include "cpu.h"
+#include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <time.h>
 #include<unistd.h>
 #include <sys/stat.h>
+#include <cjson/cJSON.h>
 
 #define MEMORY_SIZE 0x10000 // 64 KB
 #define NES_HEADER_SIZE 16
 #define NES_TEST 0xC000
 
 uint8_t memory[MEMORY_SIZE] = {0};
-
+FILE* log_file;
 
 // stack memory
 //uint8_t stack[0xFF] = {0};
@@ -53,7 +55,7 @@ void emulate_6502_cycle(int cycle) {
     ts.tv_sec = 0;
     ts.tv_nsec = 558 * cycle; // Approx. 558 nanoseconds
     nanosleep(&ts, NULL);
-    //sleep(50000);
+    ////sleep(50000);
 }
 
 // Core functions
@@ -68,10 +70,10 @@ void cpu_init(Cpu6502 *cpu) {
     cpu->Y = 0x0;
 
     // Klaus test
-    //cpu->PC = 0x0400;
+    cpu->PC = 0x0400;
 
     // Nes-test
-    cpu->PC = 0xC000;
+    //cpu->PC = 0xC000;
 
     cpu->instr = memory[cpu->PC];
     cpu->cycles = 0;
@@ -81,13 +83,48 @@ void cpu_init(Cpu6502 *cpu) {
     cpu->P[2] = 1;
     cpu->P[3] = 0;
     cpu->P[4] = 0;
-    cpu->P[5] = 0;
+    cpu->P[5] = 1;
     cpu->P[6] = 0;
     cpu->P[7] = 0;
 
     //memset(memory, 0, sizeof(memory));
+
+    log_file = fopen("log.txt", "w");
+    fclose(log_file);
+    log_file = fopen("log.txt", "a");
+
+    // push_stack(0100 | cpu->S, 0x70);
+    // cpu->S--;
+
+    // push_stack(0100 | cpu->S, 0x00);
+    // cpu->S--;
 }
 
+void load_test_rom(Cpu6502 *cpu) {
+
+        FILE* ptr;
+
+        // Open file in reading mode
+        ptr = fopen("test/6502_functional_test.bin", "rb");
+
+        if (NULL == ptr)
+            printf("NULL file.\n");
+
+        struct stat st;
+
+        stat("test/6502_functional_test.bin", &st);
+
+        size_t file_size = st.st_size;
+
+        size_t bytes_read = fread(&memory, 1, sizeof(memory), ptr);
+
+        fclose(ptr);
+
+        if (bytes_read != file_size)
+            printf("File not read.\n");
+
+        printf("M[0x20]: %x\n",memory[0x20]);
+}
 
 void load_rom(Cpu6502 *cpu, char *filename) {
 
@@ -97,51 +134,131 @@ void load_rom(Cpu6502 *cpu, char *filename) {
         return;
     }
 
-    // Get file size
-    struct stat st;
-    if (stat(filename, &st) != 0) {
-        perror("Error getting file size");
+    // Read INES header
+    unsigned char header[NES_HEADER_SIZE];
+    if (fread(header, 1, NES_HEADER_SIZE, rom) != NES_HEADER_SIZE) {
+        perror("Error: header does not match 16 bytes!");
         fclose(rom);
         return;
     }
 
-    size_t file_size = st.st_size;
-    if (file_size < NES_HEADER_SIZE) {
-        printf("Invalid NES ROM file.\n");
+    int prg_size = header[4] * 16 * 1024;
+    int chr_size = header[5] * 8 * 1024;
+
+    printf("PRG ROM size: %d bytes\n", prg_size);
+    printf("CHR ROM size: %d bytes\n", chr_size);
+
+    if (prg_size != 16384 && prg_size != 32768) {
+        printf("Unsupported PRG ROM size!\n");
         fclose(rom);
         return;
     }
 
-    // Skip iNES header (first 16 bytes)
-    fseek(rom, NES_HEADER_SIZE, SEEK_SET);
+    // Read PRG ROM into a temporary buffer
+    unsigned char *prg_rom = malloc(prg_size);
+    if (!prg_rom) {
+        printf("Memory allocation failed!\n");
+        fclose(rom);
+        return;
+    }
 
-    // Read PRG-ROM into memory (starting at 0x8000)
-    size_t bytes_read = fread(&memory[NES_TEST], 1, file_size - NES_HEADER_SIZE, rom);
+    if (fread(prg_rom, 1, prg_size, rom) != prg_size) {
+        perror("Error reading PRG ROM");
+        free(prg_rom);
+        fclose(rom);
+        return;
+    }
+
     fclose(rom);
 
-    if (bytes_read != file_size - NES_HEADER_SIZE) {
-        printf("Error: Could not read full PRG-ROM.\n");
-    } else {
-        printf("Loaded ROM successfully. PRG-ROM size: %zu bytes\n", bytes_read);
+    // Clear memory
+    memset(memory, 0, MEMORY_SIZE);
+
+    // Load PRG ROM into 0x8000 - 0xBFFF
+    memcpy(&memory[0x8000], prg_rom, prg_size);
+
+    // If PRG ROM is 16KB, mirror it into $C000-$FFFF (NROM-128 behavior)
+    if (prg_size == 16384) {
+        memcpy(&memory[0xC000], prg_rom, 16384);
+    }
+
+    free (prg_rom);
+
+}
+
+
+
+void dump_log_file(Cpu6502 *cpu) {
+    fprintf(log_file, "PC: %x ", cpu->PC);
+    fprintf(log_file, "instr: %x ", cpu->instr);
+
+    fprintf(log_file, "A: %x ", cpu->A);
+    fprintf(log_file, "X: %x ", cpu->X);
+    fprintf(log_file, "Y: %x ", cpu->Y);
+    join_char_array(&status, cpu->P);
+    fprintf(log_file, "SP: %x ", cpu->S);
+    fprintf(log_file, "P: %x (%b) ", status, status);
+    fprintf(log_file, "Cycle: %d\n", cpu->cycles);
+    fprintf(log_file, "{");
+    for (int i = 0xf0; i <= 0xff; i++) {
+        fprintf(log_file, "M[0x%x]: %x, ", 0x100 | i, memory[0x100 | i]);
     }
 
 
-    printf("Memory at 0x8000: %x", memory[0x8000]);
-    sleep(1);
-}
+    fprintf(log_file, "}\n");
 
-void dump_log(Cpu6502 *cpu, FILE *log) {
-    fprintf(log, "PC Value: %x\n", cpu->PC);
-    fprintf(log, "Instruction: %x\n", cpu->instr);
-    join_char_array(&status, cpu->P);
-    fprintf(log, "Stack Pointer: %x\n", cpu->S);
-    fprintf(log, "Status Register: %b\n", status);
-    fprintf(log, "A Register: %x\n", cpu->A);
-    fprintf(log, "X Register: %x\n", cpu->X);
-    fprintf(log, "Y Register: %x\n", cpu->Y);
-    fprintf(log, "\n");
+
+
+    //fprintf(log_file, "M[0x1fd]: %x", memory[0x1fd]);
+
+    fprintf(log_file, "\n");
 
 }
+
+// access
+void instr_LDA(Cpu6502 *cpu, uint8_t val) {
+    cpu->A = val;
+    cpu->P[1] = cpu->A == 0;
+    cpu->P[7] = (cpu->A & 0x80) == 0x80;
+}
+
+void instr_LDX(Cpu6502 *cpu, uint8_t val) {
+    cpu->X = val;
+    cpu->P[1] = cpu->X == 0;
+    cpu->P[7] = (cpu->X & 0x80) == 0x80;
+}
+
+void instr_LDY(Cpu6502 *cpu, uint8_t val) {
+    cpu->Y = val;
+    cpu->P[1] = cpu->Y == 0;
+    cpu->P[7] = (cpu->Y & 0x80) == 0x80;
+}
+
+void instr_STA(Cpu6502 *cpu, uint16_t addr) {
+    memory[addr] = cpu->A;
+}
+
+void instr_STX(Cpu6502 *cpu, uint16_t addr) {
+    memory[addr] = cpu->X;
+}
+
+void instr_STY(Cpu6502 *cpu, uint16_t addr) {
+    memory[addr] = cpu->Y;
+}
+
+
+// Transfer
+void instr_TAX(Cpu6502 *cpu) {
+    cpu->X = cpu->A;
+}
+void instr_TXA(Cpu6502 *cpu) {
+    cpu->A = cpu->A;
+}
+void instr_TAY(Cpu6502 *cpu);
+void instr_TYA(Cpu6502 *cpu);
+
+
+
 
 
 void cpu_execute(Cpu6502 *cpu) {
@@ -158,10 +275,13 @@ void cpu_execute(Cpu6502 *cpu) {
     printf("A: %x\n", cpu->A );
     printf("X: %x\n", cpu->X );
     printf("Y: %x\n", cpu->Y );
-    printf("\n");
+    printf("Cycle: %d\n\n", cpu->cycles);
 
+    dump_log_file(cpu);
     //printf("M[0x1FF] = %x\n", memory[0x1FF]);
     //printf("M[0x1%x] = %x\n\n", cpu->S, memory[0x100 | cpu->S]);
+
+
 
     // Compare the upper 4 bits
     switch ((instr >> 4) & 0x0F) {
@@ -188,6 +308,9 @@ void cpu_execute(Cpu6502 *cpu) {
                     // Set Break flag to 1
                     cpu->P[4] = 1;
 
+                    // Reserve bit must be 1 as wel
+                    cpu->P[5] = 1;
+
                     // Merging Status flags to save it on stack
 
                     join_char_array(&status, cpu->P);
@@ -199,10 +322,10 @@ void cpu_execute(Cpu6502 *cpu) {
                     push_stack(cpu->S, status);
                     cpu->S -=1;
 
-                    cpu->PC = memory[0xFFFE];
+                    cpu->PC = memory[0xFFFF] << 8 | memory[0xFFFE];
 
                     printf("\nBRK Instruction\n");
-                    sleep(2);
+                    //sleep(2);
 
                     emulate_6502_cycle(7);
                     cpu->cycles += 7;
@@ -297,7 +420,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     printf("PHP impl\n");
                     printf("Status Flag: %b\n", status);
                     printf("Stack Memory: %b\n", memory[0x0100 | cpu->S]);
-                    sleep(1);
+                    //sleep(1);
 
                     // Decrement stack pointer
                     cpu->S--;
@@ -397,6 +520,12 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->cycles += 6;
                     break;
 
+                default:
+                    printf("Invalid instruction!");
+                    cpu->PC++;
+                    sleep(5);
+                    break;
+
             }
 
             break;
@@ -422,7 +551,7 @@ void cpu_execute(Cpu6502 *cpu) {
                         printf("BPL\n");
 
 
-                        //sleep(1);
+                        ////sleep(1);
 
                         if ((signed_offset & 0x80) == 0x80) {
                             // Negative
@@ -683,7 +812,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->PC++;
 
                     printf("BIT zpg");
-                    sleep(1);
+                    //sleep(1);
 
                     LB = memory[cpu->PC];
 
@@ -757,6 +886,11 @@ void cpu_execute(Cpu6502 *cpu) {
                     /*  POTENTIAL ISSUE WITH THIS FUNCTION
                         COULD BE REVERSING ORDER
                     */
+
+                    // These bits are ignored, just set to 0
+                    // cpu->P[5] = 1;
+                    // cpu->P[4] = 0;
+
                     cpu->PC++;
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
@@ -896,7 +1030,7 @@ void cpu_execute(Cpu6502 *cpu) {
 
                         address = cpu->PC;
                         //cpu->PC += 1 + signed_offset;
-                        sleep(1);
+                        //sleep(1);
 
                         if ((signed_offset & 0x80) == 0x80) {
                             // Negative
@@ -1095,6 +1229,13 @@ void cpu_execute(Cpu6502 *cpu) {
                     emulate_6502_cycle(7);
                     cpu->cycles += 7;
                     break;
+
+                case 0xF:
+
+                    printf("\nInvalid Instruction\n");
+                    sleep(5);
+                    break;
+
                 }
             break;
 
@@ -1112,12 +1253,12 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     // LIFO stack, push LB last so LB comes out first
                     cpu->S++;
-                    LB = memory[cpu->S];
+                    LB = memory[0x100 | cpu->S];
 
                     // HB pushed first so comes out last
                     cpu->S++;
                     // Using address variable, but this is the PC value
-                    address = memory[cpu->S] << 8 | LB;
+                    address = memory[0x0100 | cpu->S] << 8 | LB;
 
                     cpu->PC = address;
                     emulate_6502_cycle(6);
@@ -1201,7 +1342,7 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     printf("\nPHA impl\n");
                     printf("Stack Mem at index 0x1%x: %b", cpu->S, memory[0x100 | cpu->S]);
-                    //sleep(2);
+                    ////sleep(2);
 
                     cpu->S--;
                     cpu->PC++;
@@ -1260,7 +1401,7 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     if (cpu->PC - 2 == address)  {
                         printf("STUCK! TRAP :C");
-                        sleep(1);
+                        //sleep(1);
                     }
 
                     cpu->PC = address;
@@ -1305,7 +1446,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->PC += 1;
                     address = memory[cpu->PC] << 8 | LB;
 
-                    cpu->PC = memory[address] & 0x01;
+                    cpu->P[0] = memory[address] & 0x01;
 
                     memory[address]  = memory[address] >> 1;
 
@@ -1337,7 +1478,7 @@ void cpu_execute(Cpu6502 *cpu) {
 
                         address = cpu->PC;
                         //cpu->PC += 1 + signed_offset;
-                        sleep(1);
+                        //sleep(1);
 
                         if ((signed_offset & 0x80) == 0x80) {
                             // Negative
@@ -1550,7 +1691,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     printf("MS Byte: %x\n", memory[cpu->S]);
                     printf("Address: %x\n", address);
 
-                    sleep(2);
+                    //sleep(2);
 
                     cpu->PC = address + 1;
                     emulate_6502_cycle(6);
@@ -1668,6 +1809,9 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[1] = cpu->A == 0;
                     cpu->P[7] = (cpu->A & 0x80) == 0x80;
 
+                    emulate_6502_cycle(4);
+                    cpu->cycles += 4;
+
                     break;
 
                 // 0x69
@@ -1697,11 +1841,11 @@ void cpu_execute(Cpu6502 *cpu) {
                     //printf("\nResult: %x", zpg_addr);
                     //printf("\nCarry Formula: %x\n\n", ((cpu->A ^ zpg_addr) & (zpg_addr ^ memory[cpu->PC]) & 0x80) );
 
-                    //sleep(3);
+                    ////sleep(3);
 
                     cpu->PC++;
-                    emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    emulate_6502_cycle(2);
+                    cpu->cycles += 2;
                     break;
 
                 // 0x6A
@@ -1742,8 +1886,21 @@ void cpu_execute(Cpu6502 *cpu) {
                     // Address of the location of new address
                     address = memory[cpu->PC] << 8 | LB;
 
-                    cpu->PC = memory[address + 1] << 8 | memory[address];
+                    // If address crosses boundary, bug occurs
+                    // For example, address = 0x2ff, this is the lower byte
+                    // higher byte should be retrieved from 0x300
+                    // instead, 6502 wraps the address around to 0x200
 
+
+                    if (LB == 0xFF) {
+                        cpu->PC = memory[address & 0xF00] << 8 | memory[address];
+                        printf("JMP ind with page crossing wrapping!\n");
+                        printf("Retrieving higher byte from: %x\n",  (address & 0xF00));
+                        printf("PC: %x\n", cpu->PC);
+                        sleep(5);
+                    } else {
+                        cpu->PC = memory[address + 1] << 8 | memory[address];
+                    }
                     emulate_6502_cycle(5);
                     cpu->cycles += 5;
                     break;
@@ -1832,7 +1989,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     if (cpu->P[6]) {
 
                         address = cpu->PC;
-                        sleep(1);
+                        //sleep(1);
 
                         if ((signed_offset & 0x80) == 0x80) {
                             // Negative
@@ -2250,7 +2407,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     if (!cpu->P[0]) {
                         address = cpu->PC;
 
-                        sleep(1);
+                        //sleep(1);
 
                         if ((signed_offset & 0x80) == 0x80) {
                             // Negative
@@ -2259,12 +2416,22 @@ void cpu_execute(Cpu6502 *cpu) {
                         } else {
                             cpu->PC += 1 + signed_offset;
                         }
+
+                        if ((cpu->PC & 0xFF00) != (address & 0xFF00)) {
+                            emulate_6502_cycle(4);
+                            cpu->cycles += 4;
+                        } else {
+                            emulate_6502_cycle(3);
+                            cpu->cycles += 3;
+                        }
+
                     } else {
                         cpu->PC++;
+                        emulate_6502_cycle(2);
+                        cpu->cycles += 2;
                     }
 
-                    emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+
                     break;
 
                 // 0x91
@@ -2342,8 +2509,8 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[1] = cpu->A == 0;
                     cpu->P[7] = (cpu->A & 0x80) == 0x80;
 
-                    emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    emulate_6502_cycle(2);
+                    cpu->cycles += 2;
                     break;
 
                 // 0x99
@@ -2386,7 +2553,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->PC += 1;
                     address = (memory[cpu->PC] << 8 | LB) + cpu->X;
 
-                    memory[address] = cpu->X;
+                    memory[address] = cpu->A;
                     cpu->PC++;
 
                     emulate_6502_cycle(5);
@@ -2414,7 +2581,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     printf("Y after LDY: %x\n", cpu->Y);
                     printf("Zero flag: %x\n\n", cpu->P[1]);
 
-                    sleep(1);
+                    //sleep(1);
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
                     break;
@@ -2634,7 +2801,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     if (cpu->P[0]) {
 
                         address = cpu->PC;
-                        sleep(1);
+                        //sleep(1);
 
                         if ((signed_offset & 0x80) == 0x80) {
                             // Negative
@@ -2714,6 +2881,9 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     cpu->A = memory[address];
                     cpu->PC++;
+
+                    cpu->P[1] = cpu->A == 0;
+                    cpu->P[7] = (cpu->A & 0x80) == 0x80;
 
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
@@ -2825,14 +2995,28 @@ void cpu_execute(Cpu6502 *cpu) {
                     // Increment to get the upper byte
                     cpu->PC += 1;
                     address = (memory[cpu->PC] << 8 | LB) + cpu->X;
+
+                    // if (cpu->PC-2 == 0xfe9 ) {
+                    //     printf("Getting wrong LDA memory here!\n");
+                    //     printf("address operand: %x\n", (memory[cpu->PC] << 8 | LB) );
+                    //     printf("incremented by X: %x\n", address);
+                    //     printf("Value at M: %x\n", memory[address]);
+                    //         fflush(stdout);  // Force immediate printing
+                    //     sleep(5);
+                    // }
+
                     if ((address & 0xFF00) != ((address - cpu->X) & 0xFF00)) {
                         cyc = 5;
                     } else {
                         cyc = 4;
                     }
 
-                    cpu->X = memory[address];
+                    cpu->A = memory[address];
                     cpu->PC++;
+
+                    cpu->P[1] = cpu->A == 0;
+                    cpu->P[7] = (cpu->A & 0x80) == 0x80;
+
 
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
@@ -2863,6 +3047,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
                     break;
+
             }
 
             break;
@@ -2884,7 +3069,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[1] = cpu->Y == memory[cpu->PC];
 
                     // Negative Flag
-                    cpu->P[7] = cpu->Y < memory[cpu->PC];
+                    cpu->P[7] = ((cpu->Y - memory[cpu->PC]) & 0x80) == 0x80;
 
                     cpu->PC++;
 
@@ -2934,7 +3119,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[1] = cpu->Y == memory[LB];
 
                     // Negative Flag
-                    cpu->P[7] = cpu->Y < memory[LB];
+                    cpu->P[7] = ((cpu->Y - memory[LB]) & 0x80) == 0x80;
 
                     cpu->PC++;
 
@@ -2973,8 +3158,23 @@ void cpu_execute(Cpu6502 *cpu) {
                     LB = memory[cpu->PC];
 
                     memory[LB]--;
+                    printf("\nDEC ZPG at D460, M[LB] = %x", memory[LB]);
+                    printf("\n%b", memory[LB] == 0);
+
+
 
                     cpu->PC++;
+
+                    cpu->P[1] = memory[LB] == 0;
+                    cpu->P[7] = (memory[LB] & 0x80) == 0x80;
+
+                    printf("%b", cpu->P[1]);
+
+                    if (cpu->PC - 2 == 0xD4C0) {
+                        printf("\nDEC ZPG at D460, M[LB] = %x", memory[LB]);
+
+                        sleep(5);
+                    }
 
                     emulate_6502_cycle(5);
                     cpu->cycles += 5;
@@ -2987,6 +3187,9 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->Y++;
 
                     cpu->PC++;
+
+                    cpu->P[1] = cpu->Y == 0;
+                    cpu->P[7] = (cpu->Y & 0x80) == 0x80;
 
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
@@ -3005,7 +3208,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[1] = cpu->A == memory[cpu->PC];
 
                     // Negative Flag
-                    cpu->P[7] = (cpu->A - memory[cpu->PC]) == 0x80;
+                    cpu->P[7] = ((cpu->A - memory[cpu->PC]) & 0x80 )== 0x80;
 
                     cpu->PC++;
 
@@ -3044,7 +3247,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[1] = cpu->Y == memory[address];
 
                     // Negative Flag
-                    cpu->P[7] = cpu->Y < memory[address];
+                    cpu->P[7] = ((cpu->Y - memory[address]) & 0x80) == 0x80;
 
                     cpu->PC++;
 
@@ -3097,6 +3300,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
                     break;
+
             }
             break;
 
@@ -3119,7 +3323,7 @@ void cpu_execute(Cpu6502 *cpu) {
                         printf("%x\n", signed_offset);
                         printf("%x\n", (signed_offset & 0x80));
 
-                        sleep(1);
+                        ////sleep(1);
 
                         if ((signed_offset & 0x80) == 0x80) {
                             // Negative
@@ -3188,13 +3392,13 @@ void cpu_execute(Cpu6502 *cpu) {
                         address = (uint16_t) ((LB + cpu->X) & 0xFF);
 
                         // Carry Flag
-                        cpu->P[0] = cpu->A >= memory[LB];
+                        cpu->P[0] = cpu->A >= memory[address];
 
                         // Zero flag
-                        cpu->P[1] = cpu->A == memory[LB];
+                        cpu->P[1] = cpu->A == memory[address];
 
                         // Negative Flag
-                        cpu->P[7] = ((cpu->A - memory[LB]) & 0x80) == 0x80;
+                        cpu->P[7] = ((cpu->A - memory[address]) & 0x80) == 0x80;
 
                         cpu->PC++;
 
@@ -3311,6 +3515,8 @@ void cpu_execute(Cpu6502 *cpu) {
                         emulate_6502_cycle(7);
                         cpu->cycles += 7;
                         break;
+
+
             }
 
             break;
@@ -3332,7 +3538,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[1] = cpu->X == memory[cpu->PC];
 
                     // Negative Flag
-                    cpu->P[7] = cpu->X < memory[cpu->PC];
+                    cpu->P[7] = ((cpu->X - memory[cpu->PC]) & 0x80) == 0x80;
 
                     cpu->PC++;
 
@@ -3396,7 +3602,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[1] = cpu->X == memory[LB];
 
                     // Negative Flag
-                    cpu->P[7] = cpu->X < memory[LB];
+                    cpu->P[7] = ((cpu->X - memory[LB]) & 0x80) == 0x80;
 
                     cpu->PC++;
                     emulate_6502_cycle(3);
@@ -3476,7 +3682,7 @@ void cpu_execute(Cpu6502 *cpu) {
                 case 0x9:
                     cpu->PC++;
 
-                    sleep(1);
+                    //sleep(1);
                     printf("E9: SBC instruction");
 
                     // Get zpg addr
@@ -3535,7 +3741,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[1] = cpu->X == memory[address];
 
                     // Negative Flag
-                    cpu->P[7] = cpu->X < memory[address];
+                    cpu->P[7] = ((cpu->X - memory[address]) & 0x80) == 0x80;
 
                     cpu->PC++;
 
@@ -3635,7 +3841,7 @@ void cpu_execute(Cpu6502 *cpu) {
                         cpu->PC += 1 + signed_offset;
                     }
 
-                    //sleep(1);
+                    ////sleep(1);
 
                     if ((cpu->PC & 0xFF00) != (address & 0xFF00)) {
                         emulate_6502_cycle(4);
@@ -3700,7 +3906,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     break;
 
                 // 0xF5
-                // CMP zpg,X
+                // SBC zpg,X
                 case 0x5:
                     cpu->PC++;
                     LB = memory[cpu->PC];
@@ -3880,19 +4086,15 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->cycles += 7;
                     break;
 
-                // 0xFF
-                case 0xF:
-                    printf("\n Invalid Instruction");
-                    printf("\n Why did jump or banch occur?");
-
-                    sleep(5);
-
-                    break;
-
             }
+
+
         break;
 
+
+
     }
+
 
     printf("Stack Memory: {");
     for (int i = 0xF0; i <= 0xFF; i++) {
