@@ -278,7 +278,7 @@ void cpu_execute(Cpu6502 *cpu) {
     printf("Cycle: %d\n\n", cpu->cycles);
 
     dump_log_file(cpu);
-    //printf("M[0x1FF] = %x\n", memory[0x1FF]);
+    fprintf(log_file, "M[21a] = %x\n", memory[0x21a]);
     //printf("M[0x1%x] = %x\n\n", cpu->S, memory[0x100 | cpu->S]);
 
 
@@ -588,7 +588,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     // Lower byte is memory[LB + 1]
 
                     // Pointer to the address
-                    address = (LB << 8 | memory[LB + 1]) +  cpu->Y;
+                    address = (memory[LB + 1] << 8 | memory[LB]) +  cpu->Y;
 
                     if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
                         cyc = 6;
@@ -1066,14 +1066,14 @@ void cpu_execute(Cpu6502 *cpu) {
                     // Lower byte is memory[LB + 1]
 
                     // Pointer to the address
-                    address = (LB << 8 | memory[LB + 1]) + cpu->Y;
+                    address = (memory[LB + 1] << 8 | memory[LB]) +  cpu->Y;
                     if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
                         cyc = 6;
                     } else {
                         cyc = 5;
                     }
 
-                    cpu->A &= memory[memory[address]];
+                    cpu->A &= memory[address];
 
                     // Set zero flag and negative flag
                     cpu->P[1] = cpu->A == 0;
@@ -1279,7 +1279,7 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     address = HB << 8 | LB;
 
-                    cpu->A ^= memory[memory[address]];
+                    cpu->A ^= memory[address];
 
                     // Set zero flag and negative flag
                     cpu->P[1] = cpu->A == 0;
@@ -1514,14 +1514,14 @@ void cpu_execute(Cpu6502 *cpu) {
                     // Lower byte is memory[LB + 1]
 
                     // Pointer to the address
-                    address = (LB << 8 | memory[LB + 1]) + cpu->Y;
+                    address = (memory[LB + 1] << 8 | memory[LB]) +  cpu->Y;
                     if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
                         cyc = 6;
                     } else {
                         cyc = 5;
                     }
 
-                    cpu->A ^= memory[memory[address]];
+                    cpu->A ^= memory[address];
 
                     // Set zero flag and negative flag
                     cpu->P[1] = cpu->A == 0;
@@ -1713,7 +1713,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     address = HB << 8 | LB;
 
                     // Reuse zpg variable (in case it overflows)
-                    zpg_addr = (uint16_t)(cpu->A + memory[memory[address]] + cpu->P[0]);
+                    zpg_addr = (uint16_t)(cpu->A + memory[address] + cpu->P[0]);
                     LB = cpu->A;
 
                     // Use lower byte for A
@@ -1726,7 +1726,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[1] = cpu->A == 0;
                     cpu->P[7] = cpu->A >> 7;
 
-                    cpu->P[6] = ((LB ^ zpg_addr) & (zpg_addr ^ memory[memory[address]]) & 0x80) == 0x80;
+                    cpu->P[6] = ((LB ^ zpg_addr) & (zpg_addr ^ memory[address]) & 0x80) == 0x80;
 
                     cpu->PC++;
                     emulate_6502_cycle(6);
@@ -2025,7 +2025,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     // Lower byte is memory[LB + 1]
 
                     // Pointer to the address
-                    address = (LB << 8 | memory[LB + 1]) + cpu->Y;
+                    address = (memory[LB + 1] << 8 | memory[LB]) +  cpu->Y;
                     if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
                         cyc = 6;
                     } else {
@@ -2033,7 +2033,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     }
 
                     // Reuse zpg variable (in case it overflows)
-                    zpg_addr = (uint16_t)(cpu->A + memory[memory[address]] + cpu->P[0]);
+                    zpg_addr = (uint16_t)(cpu->A + memory[address] + cpu->P[0]);
                     LB = cpu->A;
 
                     // Use lower byte for A
@@ -2047,7 +2047,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[1] = cpu->A == 0;
                     cpu->P[7] = cpu->A >> 7;
 
-                    cpu->P[6] = ((LB ^ zpg_addr) & (zpg_addr ^ memory[memory[address]]) & 0x80) == 0x80;
+                    cpu->P[6] = ((LB ^ zpg_addr) & (zpg_addr ^ memory[address]) & 0x80) == 0x80;
                     cpu->PC++;
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
@@ -2257,7 +2257,7 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     address = HB << 8 | LB;
 
-                    memory[memory[address]] = cpu->A;
+                    memory[address] = cpu->A;
 
                     cpu->PC++;
                     emulate_6502_cycle(6);
@@ -2445,9 +2445,9 @@ void cpu_execute(Cpu6502 *cpu) {
                     // Lower byte is memory[LB + 1]
 
                     // Pointer to the address
-                    address = (LB << 8 | memory[LB + 1]) +  cpu->Y;
+                    address = (memory[LB + 1] << 8 | memory[LB]) +  cpu->Y;
 
-                    memory[memory[address]] =  cpu->A;
+                    memory[address] =  cpu->A;
 
                     cpu->PC++;
                     emulate_6502_cycle(6);
@@ -2600,9 +2600,13 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     address = HB << 8 | LB;
 
-                    cpu->A = memory[memory[address]];
-
+                    cpu->A = memory[address];
                     cpu->PC++;
+
+                    cpu->P[1] = cpu->A == 0;
+                    cpu->P[7] = (cpu->A & 0x80) == 0x80;
+
+
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
                     break;
@@ -2648,6 +2652,9 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     cpu->A = memory[LB];
                     cpu->PC++;
+
+                    cpu->P[1] = cpu->A == 0;
+                    cpu->P[7] = (cpu->A & 0x80) == 0x80;
 
                     emulate_6502_cycle(3);
                     cpu->cycles += 3;
@@ -2837,15 +2844,18 @@ void cpu_execute(Cpu6502 *cpu) {
                     // Lower byte is memory[LB + 1]
 
                     // Pointer to the address
-                    address = (LB << 8 | memory[LB + 1]) +  cpu->Y;
+                    address = (memory[LB + 1] << 8 | memory[LB] ) +  cpu->Y;
                     if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
                         cyc = 6;
                     } else {
                         cyc = 5;
                     }
 
-                    cpu->A = memory[memory[address]];
+                    cpu->A = memory[address];
                     cpu->PC++;
+
+                    cpu->P[1] = cpu->A == 0;
+                    cpu->P[7] = (cpu->A & 0x80) == 0x80;
 
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
@@ -2937,6 +2947,10 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     cpu->A = memory[address];
                     cpu->PC++;
+
+                    cpu->P[1] = cpu->A == 0;
+                    cpu->P[7] = (cpu->A & 0x80) == 0x80;
+
 
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
@@ -3360,7 +3374,7 @@ void cpu_execute(Cpu6502 *cpu) {
                         // Lower byte is memory[LB + 1]
 
                         // Pointer to the address
-                        address = (LB << 8 | memory[LB + 1]) +  cpu->Y;
+                        address = (memory[LB + 1] << 8 | memory[LB]) +  cpu->Y;
                         if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
                             cyc = 5;
                         } else {
@@ -3368,13 +3382,13 @@ void cpu_execute(Cpu6502 *cpu) {
                         }
 
                         // Carry Flag
-                        cpu->P[0] = cpu->A >= memory[memory[cpu->PC]];
+                        cpu->P[0] = cpu->A >= memory[cpu->PC];
 
                         // Zero flag
-                        cpu->P[1] = cpu->A == memory[memory[cpu->PC]];
+                        cpu->P[1] = cpu->A == memory[cpu->PC];;
 
                         // Negative Flag
-                        cpu->P[7] = ((cpu->A - memory[memory[cpu->PC]]) & 0x80) == 0x80;
+                        cpu->P[7] = ((cpu->A - memory[cpu->PC]) & 0x80) == 0x80;
 
                         cpu->PC++;
 
@@ -3565,14 +3579,14 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     // Use zpg_addr temporarily as its 16 bit
                     // equiv. to A = A - memory - ~C
-                    //zpg_addr = (uint16_t)(cpu->A + ~memory[memory[address]] + cpu->P[0]);
-                    zpg_addr = (uint16_t)(cpu->A - memory[memory[address]] - (1 - cpu->P[0]));
+                    //zpg_addr = (uint16_t)(cpu->A + ~memory[address] + cpu->P[0]);
+                    zpg_addr = (uint16_t)(cpu->A - memory[address] - (1 - cpu->P[0]));
 
                     cpu->A = zpg_addr & 0xFF;
 
                     // If  M < old A value, it underflows.
                     // Carry is cleared if it underflows
-                    cpu->P[0] = !(memory[memory[address]] < LB);
+                    cpu->P[0] = !(memory[address] < LB);
 
                     // Zero flag
                     cpu->P[1] = cpu->A == 0;
@@ -3581,7 +3595,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[7] = cpu->A >> 7;
 
                     // Overflow flag
-                    cpu->P[6] = (((LB ^ zpg_addr) & (memory[memory[address]] ^ zpg_addr)) & 0x80) == 0x80;
+                    cpu->P[6] = (((LB ^ zpg_addr) & (memory[address] ^ zpg_addr)) & 0x80) == 0x80;
 
                     cpu->PC++;
 
@@ -3622,7 +3636,7 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     // Use zpg_addr temporarily as its 16 bit
                     // equiv. to A = A - memory - ~C
-                    //zpg_addr = (uint16_t)(cpu->A + ~memory[memory[address]] + cpu->P[0]);
+                    //zpg_addr = (uint16_t)(cpu->A + ~memory[address] + cpu->P[0]);
                     zpg_addr = (uint16_t)(cpu->A - memory[LB] - (1 - cpu->P[0]));
 
                     cpu->A = zpg_addr & 0xFF;
@@ -3693,7 +3707,7 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     // Use zpg_addr temporarily as its 16 bit
                     // equiv. to A = A - memory - ~C
-                    //zpg_addr = (uint16_t)(cpu->A + ~memory[memory[address]] + cpu->P[0]);
+                    //zpg_addr = (uint16_t)(cpu->A + ~memory[address] + cpu->P[0]);
                     zpg_addr = (uint16_t)(cpu->A - LB - (1 - cpu->P[0]));
 
                     cpu->A = zpg_addr & 0xFF;
@@ -3765,7 +3779,7 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     // Use zpg_addr temporarily as its 16 bit
                     // equiv. to A = A - memory - ~C
-                    //zpg_addr = (uint16_t)(cpu->A + ~memory[memory[address]] + cpu->P[0]);
+                    //zpg_addr = (uint16_t)(cpu->A + ~memory[address] + cpu->P[0]);
                     zpg_addr = (uint16_t)(cpu->A - memory[address] - (1 - cpu->P[0]));
 
                     cpu->A = zpg_addr & 0xFF;
@@ -3869,7 +3883,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     // Lower byte is memory[LB + 1]
 
                     // Pointer to the address
-                    address = (LB << 8 | memory[LB + 1]) +  cpu->Y;
+                    address = (memory[LB + 1] << 8 | memory[LB]) +  cpu->Y;
                     if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
                         cyc = 6;
                     } else {
@@ -3881,14 +3895,14 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     // Use zpg_addr temporarily as its 16 bit
                     // equiv. to A = A - memory - ~C
-                    //zpg_addr = (uint16_t)(cpu->A + ~memory[memory[address]] + cpu->P[0]);
-                    zpg_addr = (uint16_t)(cpu->A - memory[memory[address]] - (1 - cpu->P[0]));
+                    //zpg_addr = (uint16_t)(cpu->A + ~memory[address] + cpu->P[0]);
+                    zpg_addr = (uint16_t)(cpu->A - memory[address] - (1 - cpu->P[0]));
 
                     cpu->A = zpg_addr & 0xFF;
 
                     // If  M < old A value, it underflows.
                     // Carry is cleared if it underflows
-                    cpu->P[0] = !(memory[memory[address]] < HB);
+                    cpu->P[0] = !(memory[address] < HB);
 
                     // Zero flag
                     cpu->P[1] = cpu->A == 0;
@@ -3897,7 +3911,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu->P[7] = cpu->A >> 7;
 
                     // Overflow flag
-                    cpu->P[6] = (((zpg_addr ^ memory[memory[address]]) & (HB ^ zpg_addr)) & 0x80) != 0;
+                    cpu->P[6] = (((zpg_addr ^ memory[address]) & (HB ^ zpg_addr)) & 0x80) != 0;
 
                     cpu->PC++;
 
@@ -3919,7 +3933,7 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     // Use zpg_addr temporarily as its 16 bit
                     // equiv. to A = A - memory - ~C
-                    //zpg_addr = (uint16_t)(cpu->A + ~memory[memory[address]] + cpu->P[0]);
+                    //zpg_addr = (uint16_t)(cpu->A + ~memory[address] + cpu->P[0]);
                     zpg_addr = (uint16_t)(cpu->A - memory[address] - (1 - cpu->P[0]));
 
                     cpu->A = zpg_addr & 0xFF;
@@ -3997,7 +4011,7 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     // Use zpg_addr temporarily as its 16 bit
                     // equiv. to A = A - memory - ~C
-                    //zpg_addr = (uint16_t)(cpu->A + ~memory[memory[address]] + cpu->P[0]);
+                    //zpg_addr = (uint16_t)(cpu->A + ~memory[address] + cpu->P[0]);
                     zpg_addr = (uint16_t)(cpu->A - memory[address] - (1 - cpu->P[0]));
 
                     cpu->A = zpg_addr & 0xFF;
@@ -4041,7 +4055,7 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     // Use zpg_addr temporarily as its 16 bit
                     // equiv. to A = A - memory - ~C
-                    //zpg_addr = (uint16_t)(cpu->A + ~memory[memory[address]] + cpu->P[0]);
+                    //zpg_addr = (uint16_t)(cpu->A + ~memory[address] + cpu->P[0]);
                     zpg_addr = (uint16_t)(cpu->A - memory[address] - (1 - cpu->P[0]));
 
                     cpu->A = zpg_addr & 0xFF;
