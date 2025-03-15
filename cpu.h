@@ -46,11 +46,20 @@ void load_test_rom(Cpu6502 *cpu);
 void cpu_execute(Cpu6502 *cpu);
 
 void push_stack(uint8_t lower_addr, uint8_t val);
-//void dump_test_output();
-
 void dump_log(Cpu6502 *cpu, FILE *log);
 
-uint16_t get_PC(Cpu6502 *cpu);
+// Address modes
+uint16_t addr_abs(Cpu6502 *cpu);
+uint16_t addr_abs_X(Cpu6502 *cpu);
+uint16_t addr_abs_Y(Cpu6502 *cpu);
+uint16_t addr_imm(Cpu6502 *cpu);
+uint16_t addr_ind(Cpu6502 *cpu);
+uint16_t addr_X_ind(Cpu6502 *cpu);
+uint16_t addr_ind_Y(Cpu6502 *cpu);
+uint16_t addr_zpg(Cpu6502 *cpu);
+uint16_t addr_zpg_X(Cpu6502 *cpu);
+uint16_t addr_zpg_Y(Cpu6502 *cpu);
+
 
 // Access
 void instr_LDA(Cpu6502 *cpu, uint8_t val);
@@ -104,8 +113,8 @@ void instr_BVC(Cpu6502 *cpu);
 void instr_BVS(Cpu6502 *cpu);
 
 // Jump
-void instr_JMP(Cpu6502 *cpu, uint8_t addr);
-void instr_JSR(Cpu6502 *cpu, uint8_t addr);
+void instr_JMP(Cpu6502 *cpu, uint16_t addr);
+void instr_JSR(Cpu6502 *cpu, uint16_t addr);
 void instr_RTS(Cpu6502 *cpu);
 void instr_BRK(Cpu6502 *cpu);
 void instr_RTI(Cpu6502 *cpu);

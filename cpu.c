@@ -1,11 +1,11 @@
 #include "cpu.h"
-#include <cstdint>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <sys/types.h>
 #include <time.h>
-#include<unistd.h>
+#include <unistd.h>
 #include <sys/stat.h>
 #include <cjson/cJSON.h>
 
@@ -219,46 +219,81 @@ void dump_log_file(Cpu6502 *cpu) {
 // access
 void instr_LDA(Cpu6502 *cpu, uint8_t val) {
     cpu->A = val;
+    cpu->PC++;
     cpu->P[1] = cpu->A == 0;
     cpu->P[7] = (cpu->A & 0x80) == 0x80;
 }
 
 void instr_LDX(Cpu6502 *cpu, uint8_t val) {
     cpu->X = val;
+    cpu->PC++;
     cpu->P[1] = cpu->X == 0;
     cpu->P[7] = (cpu->X & 0x80) == 0x80;
 }
 
 void instr_LDY(Cpu6502 *cpu, uint8_t val) {
     cpu->Y = val;
+    cpu->PC++;
     cpu->P[1] = cpu->Y == 0;
     cpu->P[7] = (cpu->Y & 0x80) == 0x80;
 }
 
 void instr_STA(Cpu6502 *cpu, uint16_t addr) {
     memory[addr] = cpu->A;
+    cpu->PC++;
 }
 
 void instr_STX(Cpu6502 *cpu, uint16_t addr) {
     memory[addr] = cpu->X;
+    cpu->PC++;
 }
 
 void instr_STY(Cpu6502 *cpu, uint16_t addr) {
     memory[addr] = cpu->Y;
+    cpu->PC++;
 }
 
 // Transfer
 void instr_TAX(Cpu6502 *cpu) {
     cpu->X = cpu->A;
+
+    cpu->P[1] = cpu->X == 0;
+    cpu->P[7] = (cpu->X & 0x80) == 0x80;
+    cpu->PC++;
+
+    emulate_6502_cycle(2);
+    cpu->cycles += 2;
 }
+
 void instr_TXA(Cpu6502 *cpu) {
     cpu->A = cpu->X;
+
+    cpu->P[1] = cpu->A == 0;
+    cpu->P[7] = (cpu->A & 0x80) == 0x80;
+    cpu->PC++;
+
+    emulate_6502_cycle(2);
+    cpu->cycles += 2;
 }
 void instr_TAY(Cpu6502 *cpu) {
     cpu->Y = cpu->A;
+
+    cpu->P[1] = cpu->Y == 0;
+    cpu->P[7] = (cpu->Y & 0x80) == 0x80;
+    cpu->PC++;
+
+    emulate_6502_cycle(2);
+    cpu->cycles += 2;
 }
 void instr_TYA(Cpu6502 *cpu) {
     cpu->A = cpu->Y;
+
+    cpu->P[1] = cpu->A == 0;
+    cpu->P[7] = (cpu->A & 0x80) == 0x80;
+    cpu->PC++;
+
+    emulate_6502_cycle(2);
+    cpu->cycles += 2;
 }
 
 // Arithmetic
@@ -274,7 +309,7 @@ void instr_ADC(Cpu6502 *cpu, uint8_t oper) {
     new_A = result & 0xFF;
 
     // Set carry bit if upper byte is 1
-    cpu->P[0] = zpg_addr > 0xFF;
+    cpu->P[0] = result > 0xFF;
 
     // Set zero flag and negative flag
     cpu->P[1] = new_A == 0;
@@ -312,18 +347,18 @@ void instr_SBC(Cpu6502 *cpu, uint8_t oper) {
 }
 
 void instr_INC(Cpu6502 *cpu, uint8_t *M) {
-    M++;
+    *M = *M + 1;
 
-    cpu->P[1] = M == 0;
-    cpu->P[7] = (M & 0x80 )== 0x80;
+    cpu->P[1] = *M == 0;
+    cpu->P[7] = (*M & 0x80 )== 0x80;
     cpu->PC++;
 }
 
 void instr_DEC(Cpu6502 *cpu, uint8_t *M) {
-    M--;
+    *M = *M - 1;
 
-    cpu->P[1] = M == 0;
-    cpu->P[7] = (M & 0x80 )== 0x80;
+    cpu->P[1] = *M == 0;
+    cpu->P[7] = (*M & 0x80 )== 0x80;
     cpu->PC++;
 }
 
@@ -333,6 +368,9 @@ void instr_INX(Cpu6502 *cpu) {
     cpu->P[1] = cpu->X == 0;
     cpu->P[7] = (cpu->X & 0x80 )== 0x80;
     cpu->PC++;
+
+    emulate_6502_cycle(2);
+    cpu->cycles += 2;
 }
 
 void instr_DEX(Cpu6502 *cpu) {
@@ -341,6 +379,9 @@ void instr_DEX(Cpu6502 *cpu) {
     cpu->P[1] = cpu->X == 0;
     cpu->P[7] = (cpu->X & 0x80 )== 0x80;
     cpu->PC++;
+
+    emulate_6502_cycle(2);
+    cpu->cycles += 2;
 }
 
 void instr_INY(Cpu6502 *cpu) {
@@ -349,6 +390,9 @@ void instr_INY(Cpu6502 *cpu) {
     cpu->P[1] = cpu->Y == 0;
     cpu->P[7] = (cpu->Y & 0x80 )== 0x80;
     cpu->PC++;
+
+    emulate_6502_cycle(2);
+    cpu->cycles += 2;
 }
 
 void instr_DEY(Cpu6502 *cpu) {
@@ -363,26 +407,20 @@ void instr_DEY(Cpu6502 *cpu) {
 void instr_ASL(Cpu6502 *cpu, uint8_t *M) {
     // Set the carry flag to the 7th bit of Accumulator.
     cpu->P[0] = (*M & 0x80) >> 7;
-
-    // Arithmetic Shift Left to Accumulator
-    cpu->A = *M << 1;
+    *M = *M << 1;
 
     // Set zero flag and negative flag
     cpu->P[1] = *M == 0;
     cpu->P[7] = *M >> 7;
 
     cpu->PC++;
-
-    emulate_6502_cycle(2);
-    cpu->cycles += 2;
 }
 void instr_LSR(Cpu6502 *cpu, uint8_t *M) {
 
     // Store 7th bit of memory as new carry value
     cpu->P[0] = *M & 0x01;
 
-    memory[LB] = *M >> 1;
-
+    *M = *M >> 1;
 
     // Set zero flag and negative flag
     cpu->P[1] = *M == 0;
@@ -396,12 +434,12 @@ void instr_LSR(Cpu6502 *cpu, uint8_t *M) {
 void instr_ROL(Cpu6502 *cpu, uint8_t *M) {
 
     // Store 7th bit of memory as new carry value
-    new_carry = *M >> 7;
+    char new_carry = *M >> 7;
 
-    memory[LB] = *M << 1;
+    *M = *M << 1;
 
     // change last bit to value of old carry
-    memory[LB] = (*M & ~1) | (cpu->P[0] & 1);
+    *M = (*M & ~1) | (cpu->P[0] & 1);
 
     // Set carry bit to the 7th bit of the old value of memory
     cpu->P[0] = new_carry;
@@ -416,7 +454,7 @@ void instr_ROR(Cpu6502 *cpu, uint8_t *M) {
 
     // Store 0th bit of memory as new carry value
     new_carry = *M & 0x01;
-    memory[LB] = *M >> 1;
+    *M = *M >> 1;
 
     // Old carry bit becomes MSB
     // Set MSB to 1 to carry flag is 1
@@ -533,11 +571,10 @@ void instr_branch(Cpu6502 *cpu, char flag) {
     cpu->PC += 1;
     uint8_t signed_offset = memory[cpu->PC];
 
+    uint16_t old_addr = cpu->PC;
+
     //Branch if flag condition is met
     if (flag) {
-        address = cpu->PC;
-
-        //sleep(1);
 
         if ((signed_offset & 0x80) == 0x80) {
             // Negative
@@ -547,12 +584,18 @@ void instr_branch(Cpu6502 *cpu, char flag) {
             cpu->PC += 1 + signed_offset;
         }
 
-        if ((cpu->PC & 0xFF00) != (address & 0xFF00)) {
+
+        if ((cpu->PC & 0xFF00) != (old_addr & 0xFF00)) {
             emulate_6502_cycle(4);
             cpu->cycles += 4;
         } else {
             emulate_6502_cycle(3);
             cpu->cycles += 3;
+        }
+
+        if (old_addr - 1 == cpu->PC) {
+            printf("\nCAUGHT IN A TRAP!\n");
+            exit(0);
         }
 
     } else {
@@ -571,11 +614,11 @@ void instr_BCS(Cpu6502 *cpu) {
 }
 
 void instr_BEQ(Cpu6502 *cpu) {
-    instr_branch(cpu, !cpu->P[1]);
+    instr_branch(cpu, cpu->P[1]);
 }
 
 void instr_BNE(Cpu6502 *cpu) {
-    instr_branch(cpu, cpu->P[1]);
+    instr_branch(cpu, !cpu->P[1]);
 }
 
 void instr_BPL(Cpu6502 *cpu) {
@@ -595,18 +638,18 @@ void instr_BVS(Cpu6502 *cpu) {
 }
 
 
-void instr_JMP(Cpu6502 *cpu, uint8_t addr) {
+void instr_JMP(Cpu6502 *cpu, uint16_t addr) {
     cpu->PC = addr;
 }
 
-void instr_JSR(Cpu6502 *cpu, uint8_t) {
+void instr_JSR(Cpu6502 *cpu, uint16_t addr) {
     push_stack(cpu->S, cpu->PC >> 8);
     cpu->S--;
 
     push_stack(cpu->S, cpu->PC & 0xFF);
     cpu->S--;
 
-    cpu->PC = address;
+    cpu->PC = addr;
 }
 
 void instr_RTS(Cpu6502 *cpu) {
@@ -744,6 +787,7 @@ void instr_PLP(Cpu6502 *cpu) {
 void instr_TXS(Cpu6502 *cpu) {
     cpu->S = cpu->X;
     cpu->PC++;
+
     emulate_6502_cycle(2);
     cpu->cycles += 2;
 }
@@ -751,6 +795,7 @@ void instr_TXS(Cpu6502 *cpu) {
 void instr_TSX(Cpu6502 *cpu) {
     cpu->X = cpu->S;
     cpu->PC++;
+
     emulate_6502_cycle(2);
     cpu->cycles += 2;
 }
@@ -815,7 +860,6 @@ void instr_CLV(Cpu6502 *cpu) {
     cpu->cycles += 2;
 }
 
-
 // Other
 void instr_NOP(Cpu6502 *cpu) {
     cpu->PC++;
@@ -823,6 +867,137 @@ void instr_NOP(Cpu6502 *cpu) {
     cpu->cycles += 2;
 }
 
+uint16_t addr_abs(Cpu6502 *cpu) {
+
+    // Increment to get the lower byte
+    cpu->PC += 1;
+    uint16_t addr;
+    uint8_t LB = memory[cpu->PC];
+
+    // Increment to get the upper byte
+    cpu->PC += 1;
+    addr = memory[cpu->PC] << 8 | LB;
+
+    return addr;
+}
+
+uint16_t addr_abs_X(Cpu6502 *cpu) {
+
+    // Increment to get the lower byte
+    cpu->PC += 1;
+    uint16_t addr;
+    uint8_t LB = memory[cpu->PC];
+
+    // Increment to get the upper byte
+    cpu->PC += 1;
+    addr = (memory[cpu->PC] << 8 | LB) + cpu->X;
+
+    return addr;
+}
+
+uint16_t addr_abs_Y(Cpu6502 *cpu) {
+
+    // Increment to get the lower byte
+    cpu->PC += 1;
+    uint16_t addr;
+    LB = memory[cpu->PC];
+
+    // Increment to get the upper byte
+    cpu->PC += 1;
+    addr = (memory[cpu->PC] << 8 | LB) + cpu->Y;
+
+    return addr;
+}
+
+uint16_t addr_imm(Cpu6502 *cpu) {
+
+    // Increment to get the next byte
+    cpu->PC++;
+
+    return cpu->PC;
+
+}
+
+uint16_t addr_ind(Cpu6502 *cpu) {
+
+    cpu->PC++;
+    uint16_t addr;
+    uint8_t LB = memory[cpu->PC];
+
+    cpu->PC++;
+    // Address of the location of new address
+    addr = memory[cpu->PC] << 8 | LB;
+
+    // If address crosses boundary, bug occurs
+    // For example, address = 0x2ff, this is the lower byte
+    // higher byte should be retrieved from 0x300
+    // instead, 6502 wraps the address around to 0x200
+
+    if (LB == 0xFF) {
+        printf("JMP ind with page crossing wrapping!\n");
+        printf("Retrieving higher byte from: %x\n",  (addr & 0xF00));
+        printf("PC: %x\n", cpu->PC);
+        sleep(5);
+        return memory[addr & 0xF00] << 8 | memory[addr];
+    } else {
+        return memory[addr + 1] << 8 | memory[addr];
+    }
+}
+
+uint16_t addr_X_ind(Cpu6502 *cpu) {
+    // Increment to get the lower byte
+    cpu->PC++;
+    uint16_t addr;
+    // Ignore carry if it exists
+    uint8_t BB = (memory[cpu->PC] + cpu->X) & 0xFF;
+
+    uint8_t LB = memory[BB];
+    uint8_t HB = memory[BB + 1];
+
+    addr = HB << 8 | LB;
+    return addr;
+}
+
+uint16_t addr_ind_Y(Cpu6502 *cpu) {
+
+    // Increment to get the lower byte
+    cpu->PC++;
+    uint16_t addr;
+    uint8_t LB = memory[cpu->PC];
+
+    // Higher byte is memory[LB]
+    // Lower byte is memory[LB + 1]
+
+    // Pointer to the address
+    addr = (memory[LB + 1] << 8 | memory[LB]) +  cpu->Y;
+    return addr;
+}
+
+uint16_t addr_zpg(Cpu6502 *cpu) {
+    cpu->PC++;
+    uint16_t addr;
+    LB = memory[cpu->PC];
+
+    addr = (uint16_t) LB;
+    return addr;
+}
+
+uint16_t addr_zpg_X(Cpu6502 *cpu) {
+    cpu->PC++;
+    uint16_t addr;
+    LB = memory[cpu->PC];
+
+    // Discard carry, zpg should not exceed 0x00FF
+    addr = (uint16_t) ((LB + cpu->X) & 0xFF);
+}
+
+uint16_t addr_zpg_Y(Cpu6502 *cpu) {
+    cpu->PC++;
+    uint16_t addr;
+    LB = memory[cpu->PC];
+
+    addr = (LB + cpu->Y) & 0xFF;
+}
 
 void cpu_execute(Cpu6502 *cpu) {
 
@@ -854,38 +1029,7 @@ void cpu_execute(Cpu6502 *cpu) {
                 // BRK impl
                 case 0x0:
 
-                    // Push PC+2 and SR
-                    cpu->PC += 2;
-                    // Push first half of PC
-                    push_stack(cpu->S, cpu->PC >> 8);
-                    // Decrement Stack Pointer by 1
-                    cpu->S -= 1;
-
-                    // Push second half of PC
-                    push_stack(cpu->S, cpu->PC & 0x00FF);
-                    cpu->S -= 1;
-
-                    // Set Break flag to 1
-                    cpu->P[4] = 1;
-
-                    // Reserve bit must be 1 as wel
-                    cpu->P[5] = 1;
-
-                    // Merging Status flags to save it on stack
-
-                    join_char_array(&status, cpu->P);
-
-
-                    // Set interrupt disable to 1 after pushing to stack
-                    cpu->P[2] = 1;
-
-                    push_stack(cpu->S, status);
-                    cpu->S -=1;
-
-                    cpu->PC = memory[0xFFFF] << 8 | memory[0xFFFE];
-
-                    printf("\nBRK Instruction\n");
-                    //sleep(2);
+                    instr_BRK(cpu);
 
                     emulate_6502_cycle(7);
                     cpu->cycles += 7;
@@ -895,22 +1039,11 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x01
                 // ORA X,ind
                 case 0x1:
-                    // Increment to get the lower byte
-                    cpu->PC++;
-                    zpg_addr = (memory[cpu->PC] + cpu->X) ;
 
-                    LB = memory[zpg_addr];
-                    HB = memory[zpg_addr + 1];
+                    address = addr_X_ind(cpu);
+                    instr_ORA(cpu, memory[address]);
 
-                    // Retrieved address from memory pointed by the operand LB
-                    address = HB << 8 | LB;
-                    cpu->A |= memory[address];
-
-                    // Zero and Negative Flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
+                    //cpu->PC++;
 
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
@@ -921,19 +1054,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // ORA zpg
                 case 0x5:
 
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
-
-                    // Get the lower byte and put it
-                    // in 16 bit address {00LB}
-                    address = (uint16_t) LB;
-                    cpu->A |= memory[address];
-
-                    // Set the zero flag or negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
+                    address = addr_zpg(cpu);
+                    instr_ORA(cpu, memory[address]);
 
                     emulate_6502_cycle(3);
                     cpu->cycles += 3;
@@ -943,22 +1065,20 @@ void cpu_execute(Cpu6502 *cpu) {
                 // ASL zpg
                 case 0x6:
 
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
+                    address = addr_zpg(cpu);
+                    instr_ASL(cpu, &memory[address]);
 
-                    address = (uint16_t) LB;
+                    // // Set the carry flag to the 7th bit of zpg address.
+                    // cpu->P[0] = (memory[address] & 0x80) >> 7;
 
-                    // Set the carry flag to the 7th bit of zpg address.
-                    cpu->P[0] = (memory[address] & 0x80) >> 7;
+                    // // Arithmetic Shift Left to zpg
+                    // memory[address] = memory[address] << 1;
 
-                    // Arithmetic Shift Left to zpg
-                    memory[address] = memory[address] << 1;
+                    // // Set zero flag and negative flag
+                    // cpu->P[1] = memory[address] == 0;
+                    // cpu->P[7] = memory[address] >> 7;
 
-                    // Set zero flag and negative flag
-                    cpu->P[1] = memory[address] == 0;
-                    cpu->P[7] = memory[address] >> 7;
-
-                    cpu->PC++;
+                    // cpu->PC++;
 
                     emulate_6502_cycle(5);
                     cpu->cycles += 5;
@@ -968,41 +1088,16 @@ void cpu_execute(Cpu6502 *cpu) {
                 // PHP impl
                 case 0x8:
 
-                    // Push Status Flags to stack, with B flag set
-                    cpu->P[4] = 1;
-                    // Reserve bit set to 1
-                    cpu->P[5] = 1;
+                   instr_PHP(cpu);
 
-                    join_char_array(&status, cpu->P);
-
-                    push_stack(cpu->S, status);
-
-                    printf("PHP impl\n");
-                    printf("Status Flag: %b\n", status);
-                    printf("Stack Memory: %b\n", memory[0x0100 | cpu->S]);
-                    //sleep(1);
-
-                    // Decrement stack pointer
-                    cpu->S--;
-
-                    cpu->PC++;
-                    emulate_6502_cycle(3);
-                    cpu->cycles += 3;
                     break;
 
                 // 0x09
                 // ORA #
                 case 0x9:
 
-                    // Increment PC to point to imm value
-                    cpu->PC += 1;
-                    cpu->A |= memory[cpu->PC];
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
+                    address = addr_imm(cpu);
+                    instr_ORA(cpu, memory[address]);
 
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
@@ -1012,17 +1107,7 @@ void cpu_execute(Cpu6502 *cpu) {
                 // ASL A
                 case 0xA:
 
-                    // Set the carry flag to the 7th bit of Accumulator.
-                    cpu->P[0] = (cpu->A & 0x80) >> 7;
-
-                    // Arithmetic Shift Left to Accumulator
-                    cpu->A = cpu->A << 1;
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
+                    instr_ASL(cpu, &cpu->A);
 
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
@@ -1032,23 +1117,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // ORA abs
                 case 0xD:
 
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
-
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = memory[cpu->PC] << 8 | LB;
-
-                    // OR accumulator with the byte
-                    // in memory pointed to by address
-                    cpu->A |= memory[address];
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
+                    address = addr_abs(cpu);
+                    instr_ORA(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
@@ -1058,34 +1128,12 @@ void cpu_execute(Cpu6502 *cpu) {
                 // ASL abs
                 case 0xE:
 
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
-
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = memory[cpu->PC] << 8 | LB;
-
-                    // Set the carry flag to the 7th bit of memory[address]
-                    cpu->P[0] = (memory[address] & 0x80) >> 7;
-
-                    memory[address] = memory[address] << 1;
-
-                    cpu->P[1] = memory[address] == 0;
-                    cpu->P[7] = memory[address] >> 7;
-
-                    cpu->PC++;
+                    address = addr_abs(cpu);
+                    instr_ASL(cpu, &memory[address]);
 
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
                     break;
-
-                default:
-                    printf("Invalid instruction!");
-                    cpu->PC++;
-                    sleep(5);
-                    break;
-
             }
 
             break;
@@ -1097,71 +1145,22 @@ void cpu_execute(Cpu6502 *cpu) {
                 // BPL rel
                 case 0x0:
 
-                    // Increment PC by to get signed offset
-                    cpu->PC += 1;
-                    uint8_t signed_offset = memory[cpu->PC];
-
-                    //Branch if negative flag is set
-                    if (!cpu->P[7]) {
-
-                        // Hold old PC value
-                        address = cpu->PC;
-                        //cpu->PC += 1 + signed_offset;
-
-                        printf("BPL\n");
-
-
-                        ////sleep(1);
-
-                        if ((signed_offset & 0x80) == 0x80) {
-                            // Negative
-                            // Convert from 2's complement to regular by negation + 1
-                            cpu->PC += 1 - ((~signed_offset & 0xFF) + 1);
-                        } else {
-                            cpu->PC += 1 + signed_offset;
-                        }
-
-                        // Page crossing
-                        if ((cpu->PC & 0xFF00) != (address & 0xFF00)) {
-                            emulate_6502_cycle(4);
-                            cpu->cycles += 4;
-                        } else {
-                            emulate_6502_cycle(3);
-                            cpu->cycles += 3;
-                        }
-
-                    } else {
-                        cpu->PC++;
-                        emulate_6502_cycle(2);
-                        cpu->cycles += 2;
-                    }
+                    instr_BPL(cpu);
                     break;
 
                 // 0x11
                 // ORA ind,Y
                 case 0x1:
-                    // Increment to get the lower byte
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
 
-                    // Higher byte is memory[LB]
-                    // Lower byte is memory[LB + 1]
-
-                    // Pointer to the address
-                    address = (memory[LB + 1] << 8 | memory[LB]) +  cpu->Y;
-
+                    address = addr_ind_Y(cpu);
                     if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
                         cyc = 6;
                     } else {
                         cyc = 5;
                     }
-                    cpu->A |= memory[address];
 
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
+                    instr_ORA(cpu, memory[address]);
 
-                    cpu->PC++;
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
                     break;
@@ -1169,19 +1168,10 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x15
                 // ORA zpg,X
                 case 0x5:
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
 
-                    // Discard carry, zpg should not exceed 0x00FF
-                    address = (uint16_t) ((LB + cpu->X) & 0xFF);
+                    address = addr_zpg_X(cpu);
+                    instr_ORA(cpu, memory[address]);
 
-                    cpu->A |= memory[address];
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
                     break;
@@ -1190,23 +1180,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // ASL zpg,X
                 case 0x6:
 
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
+                    address = addr_zpg_X(cpu);
+                    instr_ASL(cpu, &memory[address]);
 
-                    // Discard carry, zpg should not exceed 0x00FF
-                    address = (uint16_t) ((LB + cpu->X) & 0xFF);
-
-                    // Set the carry flag to the 7th bit of zpg address.
-                    cpu->P[0] = (memory[address] & 0x80) >> 7;
-
-                    // Arithmetic Shift Left to zpg
-                    memory[address] = memory[address] << 1;
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = memory[address] == 0;
-                    cpu->P[7] = memory[address] >> 7;
-
-                    cpu->PC++;
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
                     break;
@@ -1214,25 +1190,14 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x18
                 // CLC impl
                 case 0x8:
-                    // clear carry flag
-                    cpu->P[0] = 0;
-
-                    cpu->PC++;
-                    emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    instr_CLC(cpu);
                     break;
 
                 // 0x19
                 // ORA abs,Y
                 case 0x9:
 
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
-
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = (memory[cpu->PC] << 8 | LB) + cpu->Y;
+                    address = addr_abs_Y(cpu);
 
                     if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
                         cyc = 5;
@@ -1240,15 +1205,8 @@ void cpu_execute(Cpu6502 *cpu) {
                         cyc = 4;
                     }
 
-                    // OR accumulator with the byte
-                    // in memory pointed to by address
-                    cpu->A |= memory[address];
+                    instr_ORA(cpu, memory[address]);
 
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
                     break;
@@ -1257,29 +1215,15 @@ void cpu_execute(Cpu6502 *cpu) {
                 // ORA abs,X
                 case 0xD:
 
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
-
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = (memory[cpu->PC] << 8 | LB) + cpu->X;
-
+                    address = addr_abs_X(cpu);
                     if ((address & 0xFF00) != ((address - cpu->X) & 0xFF00)) {
                         cyc = 5;
                     } else {
                         cyc = 4;
                     }
 
-                    // OR accumulator with the byte
-                    // in memory pointed to by address
-                    cpu->A |= memory[address];
+                    instr_ORA(cpu, memory[address]);
 
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
                     break;
@@ -1288,23 +1232,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // ASL abs,X
                 case 0xE:
 
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
+                    address = addr_abs_X(cpu);
+                    instr_ASL(cpu, &memory[address]);
 
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = memory[cpu->PC] << 8 | LB + cpu->X;
-
-                    // Set the carry flag to the 7th bit of memory[address]
-                    cpu->P[0] = (memory[address] & 0x80) >> 7;
-
-                    memory[address] = memory[address] << 1;
-
-                    cpu->P[1] = memory[address] == 0;
-                    cpu->P[7] = memory[address] >> 7;
-
-                    cpu->PC++;
                     emulate_6502_cycle(7);
                     cpu->cycles += 7;
                     break;
@@ -1318,26 +1248,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // JSR abs
                 case 0x0:
 
-                    // Jump to New Location Saving Return Address
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
+                    address = addr_abs(cpu);
+                    instr_JSR(cpu, address);
 
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = memory[cpu->PC] << 8 | LB;
-
-                    // Save current PC value to stack
-                    // Note that this PC points at second operand of JSR
-                    // RTS will increment PC to get the next instruction
-                    // Push Higher Byte first
-                    push_stack(cpu->S, cpu->PC >> 8);
-                    cpu->S--;
-
-                    push_stack(cpu->S, cpu->PC & 0xFF);
-                    cpu->S--;
-
-                    cpu->PC = address;
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
                     break;
@@ -1345,23 +1258,10 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x21
                 // AND X,ind
                 case 0x1:
-                    // Increment to get the lower byte
-                    cpu->PC++;
 
-                    // Ignore carry if it exists
-                    zpg_addr = (memory[cpu->PC] + cpu->X) & 0xFF;
+                    address = addr_X_ind(cpu);
+                    instr_AND(cpu, memory[address]);
 
-                    LB = memory[zpg_addr ];
-                    HB = memory[zpg_addr + 1];
-
-                    address = HB << 8 | LB;
-                    cpu->A &= memory[address];
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
                     break;
@@ -1369,25 +1269,10 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x24
                 // BIT zpg
                 case 0x4:
-                    cpu->PC++;
 
-                    printf("BIT zpg");
-                    //sleep(1);
+                    address = addr_zpg(cpu);
+                    instr_BIT(cpu, memory[address]);
 
-                    LB = memory[cpu->PC];
-
-                    //zpg_addr = memory[LB];
-
-                    // Negative flag set to 7 bit of memory
-                    cpu->P[7] = memory[LB] >> 7;
-
-                    // Overflow flag set to 6th bit of memory
-                    cpu->P[6] = (memory[LB] >> 6) & 0x1;
-
-                    // Zero flag
-                    cpu->P[1] = (cpu->A & memory[LB]) == 0;
-
-                    cpu->PC++;
                     emulate_6502_cycle(3);
                     cpu->cycles += 3;
                     break;
@@ -1395,16 +1280,10 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x25
                 // AND zpg
                 case 0x5:
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
 
-                    cpu->A &= memory[LB];
+                    address = addr_zpg(cpu);
+                    instr_AND(cpu, memory[address]);
 
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
                     emulate_6502_cycle(3);
                     cpu->cycles += 3;
                     break;
@@ -1413,25 +1292,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // ROL zpg
                 case 0x6:
 
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
+                    address = addr_zpg(cpu);
+                    instr_ROL(cpu, &memory[address]);
 
-                    // Store 7th bit of memory as new carry value
-                    new_carry = memory[LB] >> 7;
-
-                    memory[LB] = memory[LB] << 1;
-
-                    // change last bit to value of old carry
-                    memory[LB] = (memory[LB] & ~1) | (cpu->P[0] & 1);
-
-                    // Set carry bit to the 7th bit of the old value of memory
-                    cpu->P[0] = new_carry;
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = memory[LB] == 0;
-                    cpu->P[7] = memory[LB] >> 7;
-
-                    cpu->PC++;
                     emulate_6502_cycle(5);
                     cpu->cycles += 5;
                     break;
@@ -1439,19 +1302,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x28
                 // PLP
                 case 0x8:
-                    // Pull Processor Status from Stack
-                    cpu->S++;
 
-                    uint8_to_char_array(memory[0x0100 | cpu->S], cpu->P);
-                    /*  POTENTIAL ISSUE WITH THIS FUNCTION
-                        COULD BE REVERSING ORDER
-                    */
-
-                    // These bits are ignored, just set to 0
-                    cpu->P[5] = 1;
-                    cpu->P[4] = 1;
-
-                    cpu->PC++;
+                    instr_PLP(cpu);
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
                     break;
@@ -1460,16 +1312,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // AND #
                 case 0x9:
 
-                    // Increment to get location of immediate byte
-                    cpu->PC += 1;
+                    address = addr_imm(cpu);
 
-                    cpu->A &= memory[cpu->PC];
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
+                    instr_AND(cpu, memory[address]);
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
                     break;
@@ -1478,22 +1323,7 @@ void cpu_execute(Cpu6502 *cpu) {
                 // ROL A
                 case 0xA:
 
-                    // Store 7th bit of Accumulator as new carry value
-                    new_carry = cpu->A >> 7;
-
-                    cpu->A = cpu->A << 1;
-
-                    // change last bit to value of old carry
-                    cpu->A = (cpu->A & ~1) | (cpu->P[0] & 1);
-
-                    // Set carry bit to the 7th bit of the old value of memory
-                    cpu->P[0] = new_carry;
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
+                    instr_ROL(cpu, &cpu->A);
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
                     break;
@@ -1501,24 +1331,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x2C
                 // BIT abs
                 case 0xC:
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
+                    address = addr_abs(cpu);
+                    instr_BIT(cpu, memory[address]);
 
-                    cpu->PC++;
-                    HB = memory[cpu->PC];
-
-                    address =  HB << 8 | LB;
-
-                    // Negative flag set to 7 bit of memory
-                    cpu->P[7] = memory[address] >> 7;
-
-                    // Overflow flag set to 6th bit of memory
-                    cpu->P[6] = memory[address] >> 6 & 0x1;
-
-                    // Zero flag
-                    cpu->P[1] = (cpu->A & memory[address]) == 0;
-
-                    cpu->PC++;
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
                     break;
@@ -1527,21 +1342,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // AND abs
                 case 0xD:
 
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
+                    address = addr_abs(cpu);
+                    instr_AND(cpu, memory[address]);
 
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = memory[cpu->PC] << 8 | LB;
-
-                    cpu->A &= memory[address];
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
                     break;
@@ -1550,29 +1353,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // ROL abs
                 case 0xE:
 
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
+                    address = addr_abs(cpu);
+                    instr_ROL(cpu, &memory[address]);
 
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = memory[cpu->PC] << 8 | LB;
-
-                    new_carry = memory[address] >> 7;
-
-                    memory[address]  = memory[address] << 1;
-
-                    // change last bit to value of old carry
-                    memory[address] = (memory[address] & ~1) | (cpu->P[0] & 1);
-
-                    // Set carry bit to the 7th bit of the old value of memory
-                    cpu->P[0] = new_carry;
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = memory[address] == 0;
-                    cpu->P[7] = memory[address] >> 7;
-
-                    cpu->PC++;
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
                     break;
@@ -1586,65 +1369,22 @@ void cpu_execute(Cpu6502 *cpu) {
                 // BMI rel
                 case 0x0:
 
-                    // Increment PC by to get signed offset
-                    cpu->PC += 1;
-                    uint8_t signed_offset = memory[cpu->PC];
-
-                    //Branch if negative flag is set
-                    if (cpu->P[7]) {
-
-                        address = cpu->PC;
-                        //cpu->PC += 1 + signed_offset;
-                        //sleep(1);
-
-                        if ((signed_offset & 0x80) == 0x80) {
-                            // Negative
-                            // Convert from 2's complement to regular by negation + 1
-                            cpu->PC += 1 - ((~signed_offset & 0xFF) + 1);
-                        } else {
-                            cpu->PC += 1 + signed_offset;
-                        }
-
-                        if ((cpu->PC & 0xFF00) != (address & 0xFF00)) {
-                            emulate_6502_cycle(4);
-                            cpu->cycles += 4;
-                        } else {
-                            emulate_6502_cycle(3);
-                            cpu->cycles += 3;
-                        }
-                    } else {
-                        cpu->PC++;
-                        emulate_6502_cycle(2);
-                        cpu->cycles += 2;
-                    }
-
+                    instr_BMI(cpu);
                     break;
 
                 // 0x31
                 // AND ind,Y
                 case 0x1:
-                    // Increment to get the lower byte
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
 
-                    // Higher byte is memory[LB]
-                    // Lower byte is memory[LB + 1]
-
-                    // Pointer to the address
-                    address = (memory[LB + 1] << 8 | memory[LB]) +  cpu->Y;
+                    address = addr_ind_Y(cpu);
                     if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
                         cyc = 6;
                     } else {
                         cyc = 5;
                     }
 
-                    cpu->A &= memory[address];
+                    instr_AND(cpu, memory[address]);
 
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
                     break;
@@ -1653,19 +1393,11 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x35
                 // AND zpg,X
                 case 0x5:
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
 
-                    // Discard carry, zpg should not exceed 0x00FF
-                    address = (uint16_t) ((LB + cpu->X) & 0xFF);
+                    address = addr_zpg_X(cpu);
 
-                    cpu->A &= memory[address];
+                    instr_AND(cpu, memory[address]);
 
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
                     break;
@@ -1674,27 +1406,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // ROL zpg, X
                 case 0x6:
 
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
+                    address = addr_zpg_X(cpu);
+                    instr_ROL(cpu, &memory[address]);
 
-                    address = (LB + cpu->X) &0xFF;
-
-                    // Store 7th bit of memory as new carry value
-                    new_carry = memory[address] >> 7;
-
-                    memory[address] = memory[address] << 1;
-
-                    // change last bit to value of old carry
-                    memory[address] = (memory[address] & ~1) | (cpu->P[0] & 1);
-
-                    // Set carry bit to the 7th bit of the old value of memory
-                    cpu->P[0] = new_carry;
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = memory[address] == 0;
-                    cpu->P[7] = memory[address] >> 7;
-
-                    cpu->PC++;
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
                     break;
@@ -1703,35 +1417,16 @@ void cpu_execute(Cpu6502 *cpu) {
                 // SEC impl
                 case 0x8:
                     // Set Carry Flag
-                    cpu->P[0] = 1;
-                    cpu->PC++;
-                    emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    instr_SEC(cpu);
                     break;
 
                 // 0x39
                 // AND abs,Y
                 case 0x9:
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
 
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = (memory[cpu->PC] << 8 | LB) + cpu->Y;
-                    if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-                        cyc = 5;
-                    } else {
-                        cyc = 4;
-                    }
+                    address = addr_abs_Y(cpu);
+                    instr_AND(cpu, memory[address]);
 
-                    cpu->A &= memory[address];
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
                     break;
@@ -1740,26 +1435,15 @@ void cpu_execute(Cpu6502 *cpu) {
                 // AND abs,X
                 case 0xD:
 
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
-
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = (memory[cpu->PC] << 8 | LB) + cpu->X;
+                    address = addr_abs_X(cpu);
                     if ((address & 0xFF00) != ((address - cpu->X) & 0xFF00)) {
                         cyc = 5;
                     } else {
                         cyc = 4;
                     }
 
-                    cpu->A &= memory[address];
+                    instr_AND(cpu, memory[address]);
 
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
                     break;
@@ -1768,37 +1452,11 @@ void cpu_execute(Cpu6502 *cpu) {
                 // ROL abs,X
                 case 0xE:
 
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
+                    address = addr_abs_X(cpu);
+                    instr_ROL(cpu, &memory[address]);
 
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = (memory[cpu->PC] << 8 | LB) + cpu->X;
-
-                    new_carry = memory[address] >> 7;
-
-                    memory[address]  = memory[address] << 1;
-
-                    // change last bit to value of old carry
-                    memory[address] = (memory[address] & ~1) | (cpu->P[0] & 1);
-
-                    // Set carry bit to the 7th bit of the old value of memory
-                    cpu->P[0] = new_carry;
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = memory[address] == 0;
-                    cpu->P[7] = memory[address] >> 7;
-
-                    cpu->PC++;
                     emulate_6502_cycle(7);
                     cpu->cycles += 7;
-                    break;
-
-                case 0xF:
-
-                    printf("\nInvalid Instruction\n");
-                    sleep(5);
                     break;
 
                 }
@@ -1811,46 +1469,16 @@ void cpu_execute(Cpu6502 *cpu) {
                 // RTI impl
                 case 0x0:
 
-                    // Return from Interrupt
-                    // Pull S, then pull PC
-                    cpu->S++;
-                    uint8_to_char_array(memory[0x0100 | cpu->S], cpu->P);
-
-                    // LIFO stack, push LB last so LB comes out first
-                    cpu->S++;
-                    LB = memory[0x100 | cpu->S];
-
-                    // HB pushed first so comes out last
-                    cpu->S++;
-                    // Using address variable, but this is the PC value
-                    address = memory[0x0100 | cpu->S] << 8 | LB;
-
-                    cpu->PC = address;
-                    emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    instr_RTI(cpu);
                     break;
 
                 // 0x41
                 // EOR X,ind
                 case 0x1:
-                    // Increment to get the lower byte
-                    cpu->PC++;
 
-                    // Ignore carry if it exists
-                    uint8_t zpg_addr = (memory[cpu->PC] + cpu->X);
+                    address = addr_X_ind(cpu);
+                    instr_EOR(cpu, memory[address]);
 
-                    LB = memory[zpg_addr];
-                    HB = memory[zpg_addr + 1];
-
-                    address = HB << 8 | LB;
-
-                    cpu->A ^= memory[address];
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
                     break;
@@ -1859,18 +1487,10 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x45
                 // EOR zpg
                 case 0x5:
-                    cpu->PC++;
 
-                    // Get zpg addr
-                    LB = memory[cpu->PC];
+                    address = addr_zpg(cpu);
+                    instr_EOR(cpu, memory[address]);
 
-                    cpu->A ^= memory[LB];
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
                     emulate_6502_cycle(3);
                     cpu->cycles += 3;
                     break;
@@ -1879,22 +1499,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // LSR zpg
                 case 0x6:
 
-                    // Logical Shift Right
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
+                    address = addr_zpg(cpu);
+                    instr_LSR(cpu, &memory[address]);
 
-                    // Store 7th bit of memory as new carry value
-                    cpu->P[0] = memory[LB] & 0x01;
-
-                    memory[LB] = memory[LB] >> 1;
-
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = memory[LB] == 0;
-                    // Inserting 0, so it cannot be negative
-                    cpu->P[7] = 0;
-
-                    cpu->PC++;
                     emulate_6502_cycle(5);
                     cpu->cycles += 5;
                     break;
@@ -1902,15 +1509,7 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x48
                 // PHA impl
                 case 0x8:
-                    // Push accumulator on stack
-                    push_stack(cpu->S, cpu->A);
-
-                    printf("\nPHA impl\n");
-                    printf("Stack Mem at index 0x1%x: %b", cpu->S, memory[0x100 | cpu->S]);
-                    ////sleep(2);
-
-                    cpu->S--;
-                    cpu->PC++;
+                    instr_PHA(cpu);
 
                     emulate_6502_cycle(3);
                     cpu->cycles += 3;
@@ -1920,16 +1519,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // EOR #
                 case 0x9:
 
-                    // Increment to get location of immediate byte
-                    cpu->PC += 1;
+                    address = addr_imm(cpu);
+                    instr_EOR(cpu, memory[address]);
 
-                    cpu->A ^= memory[cpu->PC];
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
                     break;
@@ -1938,16 +1530,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // LSR A
                 case 0xA:
 
-                    // Store 7th bit of memory as new carry value
-                    cpu->P[0] = cpu->A & 0x01;
+                    instr_LSR(cpu, &cpu->A);
 
-                    cpu->A = cpu->A >> 1;
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = 0;
-
-                    cpu->PC++;
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
                     break;
@@ -1955,23 +1539,10 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x4C
                 // JMP abs
                 case 0xC:
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
 
-                    cpu->PC++;
-                    // New opcode to jump to.
-                    address = memory[cpu->PC] << 8 | LB;
+                    address = addr_abs(cpu);
+                    instr_JMP(cpu, address);
 
-                    printf("JMP");
-
-                    if (cpu->PC - 2 == address)  {
-                        printf("STUCK! TRAP :C");
-                        //sleep(1);
-                    }
-
-                    cpu->PC = address;
-
-                    //cpu->PC++;
                     emulate_6502_cycle(3);
                     cpu->cycles += 3;
                     break;
@@ -1980,21 +1551,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // EOR abs
                 case 0xD:
 
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
+                    address = addr_abs(cpu);
+                    instr_EOR(cpu, memory[address]);
 
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = memory[cpu->PC] << 8 | LB;
-
-                    cpu->A ^= memory[address];
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
                     break;
@@ -2003,23 +1562,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // LSR abs
                 case 0xE:
 
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
+                    address = addr_abs(cpu);
+                    instr_LSR(cpu, &memory[address]);
 
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = memory[cpu->PC] << 8 | LB;
-
-                    cpu->P[0] = memory[address] & 0x01;
-
-                    memory[address]  = memory[address] >> 1;
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = memory[address] == 0;
-                    cpu->P[7] = 0;
-
-                    cpu->PC++;
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
                     break;
@@ -2034,65 +1579,23 @@ void cpu_execute(Cpu6502 *cpu) {
                 // BVC rel
                 case 0x0:
 
-                    // Increment PC by to get signed offset
-                    cpu->PC += 1;
-                    uint8_t signed_offset = memory[cpu->PC];
-
-                    //Branch if overflow flag is clear
-                    if (!cpu->P[6]) {
-
-                        address = cpu->PC;
-                        //cpu->PC += 1 + signed_offset;
-                        //sleep(1);
-
-                        if ((signed_offset & 0x80) == 0x80) {
-                            // Negative
-                            // Convert from 2's complement to regular by negation + 1
-                            cpu->PC += 1 - ((~signed_offset & 0xFF) + 1);
-                        } else {
-                            cpu->PC += 1 + signed_offset;
-                        }
-
-                        if ((cpu->PC & 0xFF00) != (address & 0xFF00)) {
-                            emulate_6502_cycle(4);
-                            cpu->cycles += 4;
-                        } else {
-                            emulate_6502_cycle(3);
-                            cpu->cycles += 3;
-                        }
-                    } else {
-                        cpu->PC++;
-                        emulate_6502_cycle(2);
-                        cpu->cycles += 2;
-                    }
+                    instr_BVC(cpu);
 
                     break;
 
                 // 0x51
                 // EOR ind,Y
                 case 0x1:
-                    // Increment to get the lower byte
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
 
-                    // Higher byte is memory[LB]
-                    // Lower byte is memory[LB + 1]
-
-                    // Pointer to the address
-                    address = (memory[LB + 1] << 8 | memory[LB]) +  cpu->Y;
+                    address = addr_ind_Y(cpu);
                     if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
                         cyc = 6;
                     } else {
                         cyc = 5;
                     }
 
-                    cpu->A ^= memory[address];
+                    instr_EOR(cpu, memory[address]);
 
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
                     break;
@@ -2101,19 +1604,10 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x55
                 // EOR zpg,X
                 case 0x5:
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
 
-                    // Discard carry, zpg should not exceed 0x00FF
-                    address = (uint16_t) ((LB + cpu->X) & 0xFF);
+                    address = addr_zpg_X(cpu);
+                    instr_EOR(cpu, memory[address]);
 
-                    cpu->A ^= memory[address];
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
                     break;
@@ -2122,20 +1616,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // LSR zpg, X
                 case 0x6:
 
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
+                    address = addr_zpg_X(cpu);
+                    instr_LSR(cpu, &memory[address]);
 
-                    address = (LB + cpu->X) & 0xFF;
-
-                    cpu->P[0] = memory[address] & 0x01;
-                    memory[address] = memory[address] >> 1;
-
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = memory[address] == 0;
-                    cpu->P[7] = 0;
-
-                    cpu->PC++;
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
                     break;
@@ -2143,36 +1626,20 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x58
                 // CLI impl
                 case 0x8:
-                    // Clear Interrupt
-                    cpu->P[2] = 0;
-                    cpu->PC++;
-                    emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    instr_CLI(cpu);
                     break;
 
                 // 0x59
                 // EOR abs,Y
                 case 0x9:
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
 
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = (memory[cpu->PC] << 8 | LB) + cpu->Y;
+                    address = addr_abs_Y(cpu);
                     if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
                         cyc = 5;
                     } else {
                         cyc = 4;
                     }
-
-                    cpu->A ^= memory[address];
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
+                    instr_EOR(cpu, memory[address]);
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
                     break;
@@ -2181,51 +1648,25 @@ void cpu_execute(Cpu6502 *cpu) {
                 // EOR abs,X
                 case 0xD:
 
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
-
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = (memory[cpu->PC] << 8 | LB) + cpu->X;
+                    address = addr_abs_X(cpu);
                     if ((address & 0xFF00) != ((address - cpu->X) & 0xFF00)) {
                         cyc = 5;
                     } else {
                         cyc = 4;
                     }
 
-                    cpu->A ^= memory[address];
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->PC++;
+                    instr_EOR(cpu, memory[address]);
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
                     break;
 
                 // 0x5E
-                // ROL LSR,X
+                // LSR abs,X
                 case 0xE:
 
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
+                    address = addr_abs_X(cpu);
+                    instr_LSR(cpu, &memory[address]);
 
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = (memory[cpu->PC] << 8 | LB) + cpu->X;
-
-                    cpu->P[0] = memory[address] & 0x01;
-                    memory[address] = memory[address] >> 1;
-
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = memory[address] == 0;
-                    cpu->P[7] = 0;
-
-                    cpu->PC++;
                     emulate_6502_cycle(7);
                     cpu->cycles += 7;
                     break;
@@ -2239,61 +1680,16 @@ void cpu_execute(Cpu6502 *cpu) {
                 // RTS impl
                 case 0x0:
 
-                    printf("\nRTS\n");
-
-
-                    // LIFO stack, push LB last so LB comes out first
-                    cpu->S++;
-                    LB = memory[0x100 | cpu->S];
-
-                    printf("LS Byte: %x\n", LB);
-
-                    // HB pushed first so comes out last
-                    cpu->S++;
-                    // Using address variable, but this is the PC value
-                    address = memory[0x100 | cpu->S] << 8 | LB;
-
-                    printf("MS Byte: %x\n", memory[cpu->S]);
-                    printf("Address: %x\n", address);
-
-                    //sleep(2);
-
-                    cpu->PC = address + 1;
-                    emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    instr_RTS(cpu);
                     break;
 
                 // 0x61
                 // ADC X,ind
                 case 0x1:
-                    // Increment to get the lower byte
-                    cpu->PC++;
 
-                    // Ignore carry if it exists
-                    zpg_addr = (memory[cpu->PC] + cpu->X) & 0xFF;
+                    address = addr_X_ind(cpu);
+                    instr_ADC(cpu, memory[address]);
 
-                    LB = memory[zpg_addr];
-                    HB = memory[zpg_addr + 1];
-
-                    address = HB << 8 | LB;
-
-                    // Reuse zpg variable (in case it overflows)
-                    zpg_addr = (uint16_t)(cpu->A + memory[address] + cpu->P[0]);
-                    LB = cpu->A;
-
-                    // Use lower byte for A
-                    cpu->A = zpg_addr & 0xFF;
-
-                    // Set carry bit if upper byte is 1
-                    cpu->P[0] = zpg_addr > 0xFF;
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->P[6] = ((LB ^ zpg_addr) & (LB ^ memory[address]) & 0x80) == 0x80;
-
-                    cpu->PC++;
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
                     break;
@@ -2302,28 +1698,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x65
                 // ADC zpg
                 case 0x5:
-                    cpu->PC++;
+                    address = addr_zpg(cpu);
+                    instr_ADC(cpu, memory[address]);
 
-                    // Get zpg addr
-                    LB = memory[cpu->PC];
-
-                    zpg_addr = (uint16_t)(cpu->A + memory[LB] + cpu->P[0]);
-                    LB = cpu->A;
-
-                    // Use lower byte for A
-                    cpu->A = zpg_addr & 0xFF;
-
-                    // Set carry bit if upper byte is 1
-                    cpu->P[0] = zpg_addr > 0xFF;
-
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->P[6] = ((LB ^ zpg_addr) & (LB ^ memory[cpu->PC]) & 0x80) == 0x80;
-
-                    cpu->PC++;
                     emulate_6502_cycle(3);
                     cpu->cycles += 3;
                     break;
@@ -2332,33 +1709,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // ROR zpg
                 case 0x6:
 
-                    // Rotate Shift Right
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
+                    address = addr_zpg(cpu);
+                    instr_ROR(cpu, &memory[address]);
 
-                    // Store 0th bit of memory as new carry value
-                    new_carry = memory[LB] & 0x01;
-                    memory[LB] = memory[LB] >> 1;
-
-                    // Old carry bit becomes MSB
-                    // Set MSB to 1 to carry flag is 1
-                    if (cpu->P[0]) {
-                        memory[LB] |= 0x80;
-
-                        // MSB is 1 so it is negative
-                        cpu->P[7] = 1;
-                    } else {
-                        // Inserting 0, so it cannot be negative
-                        cpu->P[7] = 0;
-                    }
-
-                    // Set carry flag to LSB of M
-                    cpu->P[0] = new_carry;
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = memory[LB] == 0;
-
-                    cpu->PC++;
                     emulate_6502_cycle(3);
                     cpu->cycles += 3;
                     break;
@@ -2366,49 +1719,16 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x68
                 // PLA impl
                 case 0x8:
-                    // Pull accumulator from stack
-                    cpu->S++;
-                    cpu->A = memory[0x100 | cpu->S];
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = (cpu->A & 0x80) == 0x80;
-
-                    emulate_6502_cycle(4);
-                    cpu->cycles += 4;
-
+                    instr_PLA(cpu);
                     break;
 
                 // 0x69
                 // ADC #
                 case 0x9:
 
-                    // Increment to get location of immediate byte
-                    cpu->PC++;
+                    address = addr_imm(cpu);
+                    instr_ADC(cpu, memory[address]);
 
-                    zpg_addr = (uint16_t)(cpu->A + memory[cpu->PC] + cpu->P[0]);
-                    LB = cpu->A;
-
-                    // Use lower byte for A
-                    cpu->A = zpg_addr & 0xFF;
-
-                    // Set carry bit if upper byte is 1
-                    cpu->P[0] = zpg_addr > 0xFF;
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    // Overflow flag
-                    cpu->P[6] = ((LB ^ zpg_addr) & (LB ^ memory[cpu->PC]) & 0x80) == 0x80;
-
-
-                    //printf("\nResult: %x", zpg_addr);
-                    //printf("\nCarry Formula: %x\n\n", ((cpu->A ^ zpg_addr) & (zpg_addr ^ memory[cpu->PC]) & 0x80) );
-
-                    ////sleep(3);
-
-                    cpu->PC++;
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
                     break;
@@ -2416,27 +1736,7 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x6A
                 // ROR A
                 case 0xA:
-                    new_carry = cpu->A & 0x01;
-                    cpu->A = cpu->A >> 1;
-
-                    // Set MSB to 1 to carry flag is 1
-                    if (cpu->P[0]) {
-                        cpu->A |= 0x80;
-
-                        // MSB is 1 so it is negative
-                        cpu->P[7] = 1;
-                    } else {
-                        // Inserting 0, so it cannot be negative
-                        cpu->P[7] = 0;
-                    }
-
-                    // Set carry flag to LSB of M
-                    cpu->P[0] = new_carry;
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-
-                    cpu->PC++;
+                instr_ROR(cpu, &cpu->A);
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
                     break;
@@ -2474,31 +1774,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // ADC abs
                 case 0xD:
 
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
+                    address = addr_abs(cpu);
+                    instr_ADC(cpu, memory[address]);
 
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = memory[cpu->PC] << 8 | LB;
-
-                    // Reuse zpg variable (in case it overflows)
-                    zpg_addr = (uint16_t)(cpu->A + memory[address] + cpu->P[0]);
-                    LB = cpu->A;
-
-                    // Use lower byte for A
-                    cpu->A = zpg_addr & 0xFF;
-
-                    // Set carry bit if upper byte is 1
-                    cpu->P[0] = zpg_addr > 0xFF;
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->P[6] = ((LB ^ zpg_addr) & (LB ^ memory[cpu->PC]) & 0x80) == 0x80;
-
-                    cpu->PC++;
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
                     break;
@@ -2507,31 +1785,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // ROR abs
                 case 0xE:
 
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
+                    address = addr_abs(cpu);
+                    instr_ROR(cpu, &memory[address]);
 
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = memory[cpu->PC] << 8 | LB;
-
-                    new_carry = memory[address] & 0x01;
-                    memory[address] = memory[address] >> 1;
-
-                    if (cpu->P[0]) {
-                        // Negative (MSB will be 1)
-                        memory[address] |= 0x80;
-                        cpu->P[7] = 1;
-                    } else {
-                        cpu->P[7] = 0;
-                    }
-
-                    cpu->P[0] = new_carry;
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = memory[address] == 0;
-
-                    cpu->PC++;
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
                     break;
@@ -2545,75 +1801,16 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x70
                 // BVS rel
                 case 0x0:
-
-                    // Increment PC by to get signed offset
-                    cpu->PC += 1;
-                    uint8_t signed_offset = memory[cpu->PC];
-
-                    //Branch if overflow flag is set
-                    if (cpu->P[6]) {
-
-                        address = cpu->PC;
-                        //sleep(1);
-
-                        if ((signed_offset & 0x80) == 0x80) {
-                            // Negative
-                            // Convert from 2's complement to regular by negation + 1
-                            cpu->PC += 1 - ((~signed_offset & 0xFF) + 1);
-                        } else {
-                            cpu->PC += 1 + signed_offset;
-                        }
-
-                        if ((cpu->PC & 0xFF00) != (address & 0xFF00)) {
-                            emulate_6502_cycle(4);
-                            cpu->cycles += 4;
-                        } else {
-                            emulate_6502_cycle(3);
-                            cpu->cycles += 3;
-                        }
-
-                    } else {
-                        cpu->PC++;
-                        emulate_6502_cycle(2);
-                        cpu->cycles += 2;
-                    }
+                    instr_BVS(cpu);
                     break;
 
                 // 0x71
                 // ADC ind,Y
                 case 0x1:
-                    // Increment to get the lower byte
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
 
-                    // Higher byte is memory[LB]
-                    // Lower byte is memory[LB + 1]
+                    address = addr_ind_Y(cpu);
+                    instr_ADC(cpu, memory[address]);
 
-                    // Pointer to the address
-                    address = (memory[LB + 1] << 8 | memory[LB]) +  cpu->Y;
-                    if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-                        cyc = 6;
-                    } else {
-                        cyc = 5;
-                    }
-
-                    // Reuse zpg variable (in case it overflows)
-                    zpg_addr = (uint16_t)(cpu->A + memory[address] + cpu->P[0]);
-                    LB = cpu->A;
-
-                    // Use lower byte for A
-                    cpu->A = zpg_addr & 0xFF;
-
-                    // Set carry bit if upper byte is 1
-                    cpu->P[0] = zpg_addr > 0xFF;
-
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->P[6] = ((LB ^ zpg_addr) & (LB ^ memory[address]) & 0x80) == 0x80;
-                    cpu->PC++;
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
                     break;
@@ -2622,64 +1819,21 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x75
                 // ADC zpg,X
                 case 0x5:
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
 
-                    // Discard carry, zpg should not exceed 0x00FF
-                    address = (uint16_t) ((LB + cpu->X) & 0xFF);
+                    address = addr_zpg_X(cpu);
+                    instr_ADC(cpu, memory[address]);
 
-                    // Reuse zpg variable (in case it overflows)
-                    zpg_addr = (uint16_t)(cpu->A + memory[address] + cpu->P[0]);
-                    LB = cpu->A;
-
-                    // Use lower byte for A
-                    cpu->A = zpg_addr & 0xFF;
-
-                    // Set carry bit if upper byte is 1
-                    cpu->P[0] = zpg_addr > 0xFF;
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->P[6] = ((LB ^ zpg_addr) & (LB ^ memory[cpu->PC]) & 0x80) == 0x80;
-
-                    cpu->PC++;
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
                     break;
 
                 // 0x76
-                // ROR zpg, X
+                // ROR zpg,X
                 case 0x6:
 
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
+                    address = addr_zpg_X(cpu);
+                    instr_ROR(cpu, &memory[address]);
 
-                    address = (LB + cpu->X) & 0xFF;
-
-                    new_carry = memory[address] & 0x01;
-                    memory[address] = memory[address] >> 1;
-
-                    // Old carry bit becomes MSB
-                    // Set MSB to 1 to carry flag is 1
-                    if (cpu->P[0]) {
-                        memory[address] |= 0x80;
-
-                        // MSB is 1 so it is negative
-                        cpu->P[7] = 1;
-                    } else {
-                        // Inserting 0, so it cannot be negative
-                        cpu->P[7] = 0;
-                    }
-
-                    // Set carry flag to LSB of M
-                    cpu->P[0] = new_carry;
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = memory[address] == 0;
-
-                    cpu->PC++;
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
                     break;
@@ -2687,46 +1841,16 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x78
                 // SEI impl
                 case 0x8:
-                    // Set Interrupt Disable Status
-                    cpu->P[2] = 1;
-                    cpu->PC++;
-                    emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    instr_SEI(cpu);
                     break;
 
                 // 0x79
                 // ADC abs,Y
                 case 0x9:
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
 
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = (memory[cpu->PC] << 8 | LB) + cpu->Y;
-                    if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-                        cyc = 5;
-                    } else {
-                        cyc = 4;
-                    }
+                    address = addr_abs_Y(cpu);
+                    instr_ADC(cpu, memory[address]);
 
-                    // Reuse zpg variable (in case it overflows)
-                    zpg_addr = (uint16_t)(cpu->A + memory[address] + cpu->P[0]);
-                    LB = cpu->A;
-
-                    // Use lower byte for A
-                    cpu->A = zpg_addr & 0xFF;
-
-                    // Set carry bit if upper byte is 1
-                    cpu->P[0] = zpg_addr > 0xFF;
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->P[6] = ((LB ^ zpg_addr) & (LB ^ memory[cpu->PC]) & 0x80) == 0x80;
-
-                    cpu->PC++;
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
                     break;
@@ -2735,36 +1859,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // ADC abs,X
                 case 0xD:
 
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
+                    address = addr_abs_X(cpu);
+                    instr_ADC(cpu, memory[address]);
 
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = (memory[cpu->PC] << 8 | LB) + cpu->X;
-                    if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-                        cyc = 5;
-                    } else {
-                        cyc = 4;
-                    }
-
-                    // Reuse zpg variable (in case it overflows)
-                    zpg_addr = (uint16_t)(cpu->A + memory[address] + cpu->P[0]);
-                    LB = cpu->A;
-
-                    // Use lower byte for A
-                    cpu->A = zpg_addr & 0xFF;
-
-                    // Set carry bit if upper byte is 1
-                    cpu->P[0] = zpg_addr > 0xFF;
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = cpu->A >> 7;
-
-                    cpu->P[6] = ((LB ^ zpg_addr) & (LB ^ memory[cpu->PC]) & 0x80) == 0x80;
-
-                    cpu->PC++;
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
                     break;
@@ -2773,30 +1870,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // ROR abs,X
                 case 0xE:
 
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
+                    address = addr_abs_X(cpu);
+                    instr_ROR(cpu, &memory[address]);
 
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = (memory[cpu->PC] << 8 | LB) + cpu->X;
-
-                    new_carry = memory[address] & 0x01;
-                    memory[address] = memory[address] >> 1;
-
-                    if (cpu->P[0]) {
-                        // Negative (MSB will be 1)
-                        memory[address] |= 0x80;
-                        cpu->P[7] = 1;
-                    } else {
-                        cpu->P[7] = 0;
-                    }
-
-                    cpu->P[0] = new_carry;
-
-                    // Set zero flag and negative flag
-                    cpu->P[1] = memory[address] == 0;
-                    cpu->PC++;
                     emulate_6502_cycle(7);
                     cpu->cycles += 7;
                     break;
@@ -2811,20 +1887,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x81
                 // STA X,ind
                 case 0x1:
-                    // Increment to get the lower byte
-                    cpu->PC++;
+                    address = addr_X_ind(cpu);
+                    instr_STA(cpu, address);
 
-                    // Ignore carry if it exists
-                    zpg_addr = (memory[cpu->PC] + cpu->X) & 0xFF;
-
-                    LB = memory[zpg_addr];
-                    HB = memory[zpg_addr + 1];
-
-                    address = HB << 8 | LB;
-
-                    memory[address] = cpu->A;
-
-                    cpu->PC++;
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
                     break;
@@ -2832,12 +1897,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x84
                 // STY zpg
                 case 0x4:
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
+                    address = addr_zpg(cpu);
+                    instr_STY(cpu, address);
 
-                    memory[LB] = cpu->Y;
-
-                    cpu->PC++;
                     emulate_6502_cycle(3);
                     cpu->cycles += 3;
                     break;
@@ -2845,14 +1907,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x85
                 // STA zpg
                 case 0x5:
-                    cpu->PC++;
+                    address = addr_zpg(cpu);
+                    instr_STA(cpu, address);
 
-                    // Get zpg addr
-                    LB = memory[cpu->PC];
-
-                    memory[LB] = cpu->A;
-
-                    cpu->PC++;
                     emulate_6502_cycle(3);
                     cpu->cycles += 3;
                     break;
@@ -2860,14 +1917,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x86
                 // STX zpg
                 case 0x6:
+                    address = addr_zpg(cpu);
+                    instr_STX(cpu, address);
 
-                    // Rotate Shift Right
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
-
-                    memory[LB] = cpu->X;
-
-                    cpu->PC++;
                     emulate_6502_cycle(3);
                     cpu->cycles += 3;
                     break;
@@ -2875,12 +1927,7 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x88
                 // DEY impl
                 case 0x8:
-                    // Decrement Index Y by One
-                    cpu->Y--;
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->Y == 0;
-                    cpu->P[7] = (cpu->Y & 0x80) == 0x80;
+                    instr_DEY(cpu);
 
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
@@ -2889,12 +1936,7 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x8A
                 // TXA impl
                 case 0xA:
-                    // Transfer Index X to Accumulator
-                    cpu->A = cpu->X;
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->X == 0;
-                    cpu->P[7] = (cpu->X & 0x80) == 0x80;
+                    instr_TXA(cpu);
 
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
@@ -2903,15 +1945,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x8C
                 // STY abs
                 case 0xC:
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
+                    address = addr_abs(cpu);
+                    instr_STY(cpu, address);
 
-                    cpu->PC++;
-                    // Address of the location of new address
-                    address = memory[cpu->PC] << 8 | LB;
-
-                    memory[address] = cpu->Y;
-                    cpu->PC++;
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
                     break;
@@ -2919,18 +1955,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x8D
                 // STA abs
                 case 0xD:
-
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
-
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = memory[cpu->PC] << 8 | LB;
-
-                    memory[address] = cpu->A;
-
-                    cpu->PC++;
+                    address = addr_abs(cpu);
+                    instr_STA(cpu, address);
 
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
@@ -2939,18 +1965,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x8E
                 // STX abs
                 case 0xE:
+                    address = addr_abs(cpu);
+                    instr_STX(cpu, address);
 
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
-
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = memory[cpu->PC] << 8 | LB;
-
-                    memory[address] = cpu->X;
-
-                    cpu->PC++;
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
                     break;
@@ -2964,57 +1981,15 @@ void cpu_execute(Cpu6502 *cpu) {
                 // BCC rel
                 case 0x0:
 
-                    // Increment PC by to get signed offset
-                    cpu->PC += 1;
-                    uint8_t signed_offset = memory[cpu->PC];
-
-                    //Branch if carry flag is clear
-                    if (!cpu->P[0]) {
-                        address = cpu->PC;
-
-                        //sleep(1);
-
-                        if ((signed_offset & 0x80) == 0x80) {
-                            // Negative
-                            // Convert from 2's complement to regular by negation + 1
-                            cpu->PC += 1 - ((~signed_offset & 0xFF) + 1);
-                        } else {
-                            cpu->PC += 1 + signed_offset;
-                        }
-
-                        if ((cpu->PC & 0xFF00) != (address & 0xFF00)) {
-                            emulate_6502_cycle(4);
-                            cpu->cycles += 4;
-                        } else {
-                            emulate_6502_cycle(3);
-                            cpu->cycles += 3;
-                        }
-
-                    } else {
-                        cpu->PC++;
-                        emulate_6502_cycle(2);
-                        cpu->cycles += 2;
-                    }
-
-
+                    instr_BCC(cpu);
                     break;
 
                 // 0x91
                 // STA ind,Y
                 case 0x1:
-                    // Increment to get the lower byte
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
+                    address = addr_ind_Y(cpu);
+                    instr_STA(cpu, address);
 
-                    // Higher byte is memory[LB]
-                    // Lower byte is memory[LB + 1]
-
-                    // Pointer to the address
-                    address = (memory[LB + 1] << 8 | memory[LB]) +  cpu->Y;
-
-                    memory[address] =  cpu->A;
-
-                    cpu->PC++;
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
                     break;
@@ -3022,14 +1997,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x94
                 // STY zpg,X
                 case 0x4:
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
+                    address = addr_zpg_X(cpu);
+                    instr_STY(cpu, address);
 
-                    // Discard carry, zpg should not exceed 0x00FF
-                    address = (uint16_t) ((LB + cpu->X) & 0xFF);
-
-                    memory[address] = cpu->Y;
-                    cpu->PC++;
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
                     break;
@@ -3037,14 +2007,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x95
                 // STA zpg,X
                 case 0x5:
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
+                    address = addr_zpg_X(cpu);
+                    instr_STA(cpu, address);
 
-                    // Discard carry, zpg should not exceed 0x00FF
-                    address = (uint16_t) ((LB + cpu->X) & 0xFF);
-
-                    memory[address] = cpu->A;
-                    cpu->PC++;
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
                     break;
@@ -3052,14 +2017,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x96
                 // STX zpg,Y
                 case 0x6:
+                    address = addr_zpg_Y(cpu);
+                    instr_STX(cpu, address);
 
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
-
-                    address = (LB + cpu->Y) & 0xFF;
-
-                    memory[address] = cpu->X;
-                    cpu->PC++;
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
                     break;
@@ -3068,11 +2028,7 @@ void cpu_execute(Cpu6502 *cpu) {
                 // TYA impl
                 case 0x8:
                     // Transfer Index Y to Accumulator
-                    cpu->A = cpu->Y;
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = (cpu->A & 0x80) == 0x80;
+                    instr_TYA(cpu);
 
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
@@ -3082,15 +2038,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // STA abs,Y
                 case 0x9:
                     // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
-
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = (memory[cpu->PC] << 8 | LB) + cpu->Y;
-
-                    memory[address] = cpu->A;
-                    cpu->PC++;
+                    address = addr_abs_Y(cpu);
+                    instr_STA(cpu, address);
 
                     emulate_6502_cycle(5);
                     cpu->cycles += 5;
@@ -3099,28 +2048,14 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x9A
                 // TXS impl
                 case 0xA:
-                    // Copies X register value to the stack pointer
-                    cpu->S = cpu->X;
-                    cpu->PC++;
-                    emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    instr_TXS(cpu);
                     break;
 
                 // 0x9D
                 // STA abs,X
                 case 0xD:
-
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
-
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = (memory[cpu->PC] << 8 | LB) + cpu->X;
-
-                    memory[address] = cpu->A;
-                    cpu->PC++;
-
+                    address = addr_abs_X(cpu);
+                    instr_STA(cpu, address);
                     emulate_6502_cycle(5);
                     cpu->cycles += 5;
                     break;
@@ -3136,17 +2071,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // LDY #
                 case 0x0:
                     // Load Index Y with Memory
-                    cpu->PC++;
-                    cpu->Y = memory[cpu->PC];
-                    cpu->PC++;
+                    address = addr_imm(cpu);
+                    instr_LDY(cpu, memory[address]);
 
-                    cpu->P[1] = cpu->Y == 0;
-                    cpu->P[7] = (cpu->Y & 0x80) == 0x80;
-
-                    printf("Y after LDY: %x\n", cpu->Y);
-                    printf("Zero flag: %x\n\n", cpu->P[1]);
-
-                    //sleep(1);
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
                     break;
@@ -3154,23 +2081,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xA1
                 // LDA X,ind
                 case 0x1:
-                    // Increment to get the lower byte
-                    cpu->PC++;
-
-                    // Ignore carry if it exists
-                    zpg_addr = (memory[cpu->PC] + cpu->X) & 0xFF;
-
-                    LB = memory[zpg_addr];
-                    HB = memory[zpg_addr + 1];
-
-                    address = HB << 8 | LB;
-
-                    cpu->A = memory[address];
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = (cpu->A & 0x80) == 0x80;
-
+                    address = addr_X_ind(cpu);
+                    instr_LDA(cpu, memory[address]);
 
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
@@ -3179,13 +2091,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xA2
                 // LDX #
                 case 0x2:
-                    // Load Index X with Memory
-                    cpu->PC++;
-                    cpu->X = memory[cpu->PC];
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->X == 0;
-                    cpu->P[7] = (cpu->X & 0x80) == 0x80;
+                    address = addr_imm(cpu);
+                    instr_LDX(cpu, memory[address]);
 
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
@@ -3194,14 +2101,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xA4
                 // LDY zpg
                 case 0x4:
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
-
-                    cpu->Y = memory[LB];
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->Y == 0;
-                    cpu->P[7] = (cpu->Y & 0x80) == 0x80;
+                    address = addr_zpg(cpu);
+                    instr_LDY(cpu, memory[address]);
 
                     emulate_6502_cycle(2);
                     cpu->cycles += 3;
@@ -3210,16 +2111,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xA5
                 // LDA zpg
                 case 0x5:
-                    cpu->PC++;
-
-                    // Get zpg addr
-                    LB = memory[cpu->PC];
-
-                    cpu->A = memory[LB];
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = (cpu->A & 0x80) == 0x80;
+                    address = addr_zpg(cpu);
+                    instr_LDA(cpu, memory[address]);
 
                     emulate_6502_cycle(3);
                     cpu->cycles += 3;
@@ -3228,15 +2121,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xA6
                 // LDX zpg
                 case 0x6:
-                    // Rotate Shift Right
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
-
-                    cpu->X = memory[LB];
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->X == 0;
-                    cpu->P[7] = (cpu->X & 0x80) == 0x80;
+                    address = addr_zpg(cpu);
+                    instr_LDX(cpu, memory[address]);
 
                     emulate_6502_cycle(3);
                     cpu->cycles += 3;
@@ -3245,29 +2131,14 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xA8
                 // TAY impl
                 case 0x8:
-                    // Transfer Accumulator to Y
-                    cpu->Y = cpu->A;
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->Y == 0;
-                    cpu->P[7] = (cpu->Y & 0x80) == 0x80;
-
-                    emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    instr_TAY(cpu);
                     break;
 
                 // 0xA9
                 // LDA #
                 case 0x9:
-                    cpu->PC++;
-
-                    LB = memory[cpu->PC];
-                    cpu->A = LB;
-
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = (cpu->A & 0x80) == 0x80;
+                    address = addr_imm(cpu);
+                    instr_LDA(cpu, memory[address]);
 
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
@@ -3276,32 +2147,14 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xAA
                 // TAX impl
                 case 0xA:
-                    // Transfer Accumulator to X
-                    cpu->X = cpu->A;
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->X == 0;
-                    cpu->P[7] = (cpu->X & 0x80) == 0x80;
-
-                    emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    instr_TAX(cpu);
                     break;
 
                 // 0xAC
                 // LDY abs
                 case 0xC:
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
-
-                    cpu->PC++;
-                    // Address of the location of new address
-                    address = memory[cpu->PC] << 8 | LB;
-
-                    cpu->Y = memory[address];
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->Y == 0;
-                    cpu->P[7] = (cpu->Y & 0x80) == 0x80;
+                    address = addr_abs(cpu);
+                    instr_LDY(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
@@ -3311,23 +2164,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // LDA abs
                 case 0xD:
 
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
-
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = memory[cpu->PC] << 8 | LB;
-
-                    cpu->A = memory[address];
-                    cpu->PC++;
-
-                    printf("LDA abs\n");
-                    printf("Address: %x\n", address);
-                    printf("Mem: %x\n\n", memory[address]);
-
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = (cpu->A & 0x80) == 0x80;
+                    address = addr_abs(cpu);
+                    instr_LDA(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
@@ -3337,19 +2175,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // LDX abs
                 case 0xE:
 
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
-
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = memory[cpu->PC] << 8 | LB;
-
-                    cpu->X = memory[address];
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->X == 0;
-                    cpu->P[7] = (cpu->X & 0x80) == 0x80;
+                    address = addr_abs(cpu);
+                    instr_LDX(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
@@ -3365,62 +2192,14 @@ void cpu_execute(Cpu6502 *cpu) {
                 // BCS rel
                 case 0x0:
 
-                    // Increment PC by to get signed offset
-                    cpu->PC += 1;
-                    uint8_t signed_offset = memory[cpu->PC];
-
-                    //Branch if overflow flag is set
-                    if (cpu->P[0]) {
-
-                        address = cpu->PC;
-                        //sleep(1);
-
-                        if ((signed_offset & 0x80) == 0x80) {
-                            // Negative
-                            // Convert from 2's complement to regular by negation + 1
-                            cpu->PC += 1 - ((~signed_offset & 0xFF) + 1);
-                        } else {
-                            cpu->PC += 1 + signed_offset;
-                        }
-
-                        if ((cpu->PC & 0xFF00) != (address & 0xFF00)) {
-                            emulate_6502_cycle(4);
-                            cpu->cycles += 4;
-                        } else {
-                            emulate_6502_cycle(3);
-                            cpu->cycles += 3;
-                        }
-                    } else {
-                        cpu->PC++;
-                        emulate_6502_cycle(2);
-                        cpu->cycles += 2;
-                    }
-
+                    instr_BCS(cpu);
                     break;
 
                 // 0xB1
                 // LDA ind,Y
                 case 0x1:
-                    // Increment to get the lower byte
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
-
-                    // Higher byte is memory[LB]
-                    // Lower byte is memory[LB + 1]
-
-                    // Pointer to the address
-                    address = (memory[LB + 1] << 8 | memory[LB] ) +  cpu->Y;
-                    if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-                        cyc = 6;
-                    } else {
-                        cyc = 5;
-                    }
-
-                    cpu->A = memory[address];
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = (cpu->A & 0x80) == 0x80;
+                    address = addr_ind_Y(cpu);
+                    instr_LDA(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
@@ -3429,17 +2208,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xB4
                 // LDY zpg,X
                 case 0x4:
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
-
-                    // Discard carry, zpg should not exceed 0x00FF
-                    address = (uint16_t) ((LB + cpu->X) & 0xFF);
-
-                    cpu->Y = memory[address];
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->Y == 0;
-                    cpu->P[7] = (cpu->Y & 0x80) == 0x80;
+                    address = addr_zpg_X(cpu);
+                    instr_LDY(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
@@ -3448,23 +2218,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xB5
                 // LDA zpg,X
                 case 0x5:
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
-
-                    // Discard carry, zpg should not exceed 0x00FF
-                    address = (uint16_t) ((LB + cpu->X) & 0xFF);
-
-                    cpu->A = memory[address];
-
-                    if (cpu->PC - 1 == 0x2835) {
-                        printf("M%x]:%x\n", address, memory[address]);
-                        fflush(stdout);
-                        sleep(5);
-                    }
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = (cpu->A & 0x80) == 0x80;
+                    address = addr_zpg_X(cpu);
+                    instr_LDA(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
@@ -3473,17 +2228,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xB6
                 // LDX zpg,Y
                 case 0x6:
-
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
-
-                    address = (LB + cpu->Y) & 0xFF;
-
-                    cpu->X = memory[address];
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->X == 0;
-                    cpu->P[7] = (cpu->X & 0x80) == 0x80;
+                    address = addr_zpg_Y(cpu);
+                    instr_LDX(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
@@ -3492,36 +2238,20 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xB8
                 // CLV impl
                 case 0x8:
-                    // Clear Overflow Flag
-                    cpu->P[6] = 0;
-                    cpu->PC++;
-
-                    emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    instr_CLV(cpu);
                     break;
 
                 // 0xB9
                 // LDA abs,Y
                 case 0x9:
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
-
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = (memory[cpu->PC] << 8 | LB) + cpu->Y;
+                    address = addr_abs_Y(cpu);
                     if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
                         cyc = 5;
                     } else {
                         cyc = 4;
                     }
 
-                    cpu->A = memory[address];
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = (cpu->A & 0x80) == 0x80;
-
+                    instr_LDA(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
@@ -3530,40 +2260,14 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xBA
                 // TSX impl
                 case 0xA:
-                    // Transfer stack pointer to X
-                    //join_char_array(&cpu->X, cpu->P);
-                    cpu->X = cpu->S;
-
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->X == 0;
-                    cpu->P[7] = (cpu->X & 0x80) == 0x80;
-
-                    emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    instr_TSX(cpu);
                     break;
 
                 // 0xBC
                 // LDY abs,X
                 case 0xC:
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
-
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = (memory[cpu->PC] << 8 | LB) + cpu->X;
-                    if ((address & 0xFF00) != ((address - cpu->X) & 0xFF00)) {
-                        cyc = 5;
-                    } else {
-                        cyc = 4;
-                    }
-
-                    cpu->Y = memory[address];
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->Y == 0;
-                    cpu->P[7] = (cpu->Y & 0x80) == 0x80;
+                    address = addr_abs_X(cpu);
+                    instr_LDY(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
@@ -3573,36 +2277,14 @@ void cpu_execute(Cpu6502 *cpu) {
                 // LDA abs,X
                 case 0xD:
 
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
-
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = (memory[cpu->PC] << 8 | LB) + cpu->X;
-
-                    // if (cpu->PC-2 == 0xfe9 ) {
-                    //     printf("Getting wrong LDA memory here!\n");
-                    //     printf("address operand: %x\n", (memory[cpu->PC] << 8 | LB) );
-                    //     printf("incremented by X: %x\n", address);
-                    //     printf("Value at M: %x\n", memory[address]);
-                    //         fflush(stdout);  // Force immediate printing
-                    //     sleep(5);
-                    // }
-
+                    address = addr_abs_X(cpu);
                     if ((address & 0xFF00) != ((address - cpu->X) & 0xFF00)) {
                         cyc = 5;
                     } else {
                         cyc = 4;
                     }
 
-                    cpu->A = memory[address];
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->A == 0;
-                    cpu->P[7] = (cpu->A & 0x80) == 0x80;
-
-
+                    instr_LDA(cpu, memory[address]);
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
                     break;
@@ -3610,24 +2292,13 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xBE
                 // LDX abs,Y
                 case 0xE:
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
-
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = (memory[cpu->PC] << 8 | LB) + cpu->Y;
+                    address = addr_abs_Y(cpu);
                     if ((address & 0xFF00) != ((address - cpu->X) & 0xFF00)) {
                         cyc = 5;
                     } else {
                         cyc = 4;
                     }
-
-                    cpu->X = memory[address];
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->X == 0;
-                    cpu->P[7] = (cpu->X & 0x80) == 0x80;
+                    instr_LDX(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
@@ -3644,19 +2315,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xC0
                 // CPY #
                 case 0x0:
-                    // Compare Memory and Index Y
-                    cpu->PC++;
-
-                    // Carry Flag
-                    cpu->P[0] = cpu->Y >= memory[cpu->PC];
-
-                    // Zero flag
-                    cpu->P[1] = cpu->Y == memory[cpu->PC];
-
-                    // Negative Flag
-                    cpu->P[7] = ((cpu->Y - memory[cpu->PC]) & 0x80) == 0x80;
-
-                    cpu->PC++;
+                    address = addr_imm(cpu);
+                    instr_CPY(cpu, memory[address]);
 
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
@@ -3665,27 +2325,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xC1
                 // CMP X,ind
                 case 0x1:
-                    // Increment to get the lower byte
-                    cpu->PC++;
-
-                    // Ignore carry if it exists
-                    zpg_addr = (memory[cpu->PC] + cpu->X) & 0xFF;
-
-                    LB = memory[zpg_addr];
-                    HB = memory[zpg_addr + 1];
-
-                    address = HB << 8 | LB;
-
-                    // Carry Flag
-                    cpu->P[0] = cpu->A >= memory[address];
-
-                    // Zero flag
-                    cpu->P[1] = cpu->A == memory[address];
-
-                    // Negative Flag
-                    cpu->P[7] = ((cpu->A - memory[address]) & 0x80) == 0x80;
-
-                    cpu->PC++;
+                    address = addr_X_ind(cpu);
+                    instr_CMP(cpu, memory[address]);
 
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
@@ -3694,19 +2335,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xC4
                 // CPY zpg
                 case 0x4:
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
-
-                    // Carry Flag
-                    cpu->P[0] = cpu->Y >= memory[LB];
-
-                    // Zero flag
-                    cpu->P[1] = cpu->Y == memory[LB];
-
-                    // Negative Flag
-                    cpu->P[7] = ((cpu->Y - memory[LB]) & 0x80) == 0x80;
-
-                    cpu->PC++;
+                    address = addr_zpg(cpu);
+                    instr_CPY(cpu, memory[address]);
 
                     emulate_6502_cycle(3);
                     cpu->cycles += 3;
@@ -3715,21 +2345,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xC5
                 // CMP zpg
                 case 0x5:
-                    cpu->PC++;
-
-                    // Get zpg addr
-                    LB = memory[cpu->PC];
-
-                    // Carry Flag
-                    cpu->P[0] = cpu->A >= memory[LB];
-
-                    // Zero flag
-                    cpu->P[1] = cpu->A == memory[LB];
-
-                    // Negative Flag
-                    cpu->P[7] = ((cpu->A - memory[LB]) & 0x80) == 0x80;
-
-                    cpu->PC++;
+                    address =  addr_zpg(cpu);
+                    instr_CMP(cpu, memory[address]);
 
                     emulate_6502_cycle(3);
                     cpu->cycles += 3;
@@ -3738,27 +2355,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xC6
                 // DEC zpg
                 case 0x6:
-                    // Decrement M by One
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
-
-                    memory[LB]--;
-                    printf("\nDEC ZPG at D460, M[LB] = %x", memory[LB]);
-                    printf("\n%b", memory[LB] == 0);
-
-
-                    cpu->PC++;
-
-                    cpu->P[1] = memory[LB] == 0;
-                    cpu->P[7] = (memory[LB] & 0x80) == 0x80;
-
-                    printf("%b", cpu->P[1]);
-
-                    if (cpu->PC - 2 == 0xD4C0) {
-                        printf("\nDEC ZPG at D460, M[LB] = %x", memory[LB]);
-
-                        sleep(5);
-                    }
+                    address = addr_zpg(cpu);
+                    instr_DEC(cpu, &memory[address]);
 
                     emulate_6502_cycle(5);
                     cpu->cycles += 5;
@@ -3767,34 +2365,14 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xC8
                 // INY impl
                 case 0x8:
-                    // Increment Y register by One
-                    cpu->Y++;
-
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->Y == 0;
-                    cpu->P[7] = (cpu->Y & 0x80) == 0x80;
-
-                    emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    instr_INY(cpu);
                     break;
 
                 // 0xC9
                 // CMP #
                 case 0x9:
-                    // Compare accumulator with M
-                    cpu->PC++;
-
-                    // Carry Flag
-                    cpu->P[0] = cpu->A >= memory[cpu->PC];
-
-                    // Zero flag
-                    cpu->P[1] = cpu->A == memory[cpu->PC];
-
-                    // Negative Flag
-                    cpu->P[7] = ((cpu->A - memory[cpu->PC]) & 0x80 )== 0x80;
-
-                    cpu->PC++;
+                    address = addr_imm(cpu);
+                    instr_CMP(cpu, memory[address]);
 
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
@@ -3803,37 +2381,14 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xCA
                 // DEX impl
                 case 0xA:
-                    // Decrement Index by One
-                    cpu->X--;
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->X == 0;
-                    cpu->P[7] = (cpu->X & 0x80) == 0x80;
-
-                    emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    instr_DEX(cpu);
                     break;
 
                 // 0xCC
                 // CPY abs
                 case 0xC:
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
-
-                    cpu->PC++;
-                    // Address of the location of new address
-                    address = memory[cpu->PC] << 8 | LB;
-
-                    // Carry Flag
-                    cpu->P[0] = cpu->Y >= memory[address];
-
-                    // Zero flag
-                    cpu->P[1] = cpu->Y == memory[address];
-
-                    // Negative Flag
-                    cpu->P[7] = ((cpu->Y - memory[address]) & 0x80) == 0x80;
-
-                    cpu->PC++;
+                    address = addr_abs(cpu);
+                    instr_CPY(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
@@ -3842,24 +2397,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xCD
                 // CMP abs
                 case 0xD:
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
-
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = memory[cpu->PC] << 8 | LB;
-
-                    // Carry Flag
-                    cpu->P[0] = cpu->A >= memory[address];
-
-                    // Zero flag
-                    cpu->P[1] = cpu->A == memory[address];
-
-                    // Negative Flag
-                    cpu->P[7] = ((cpu->A - memory[address]) & 0x80) == 0x80;
-
-                    cpu->PC++;
+                    address = addr_abs(cpu);
+                    instr_CMP(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
@@ -3868,21 +2407,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xCE
                 // DEC abs
                 case 0xE:
-
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
-
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = memory[cpu->PC] << 8 | LB;
-
-                    memory[address]--;
-
-                    cpu->PC++;
-
-                    cpu->P[1] = memory[address] == 0;
-                    cpu->P[7] = (memory[address] & 0x80) == 0x80;
+                    address = addr_abs(cpu);
+                    instr_DEC(cpu, &memory[address]);
 
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
@@ -3898,72 +2424,19 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xD0
                 // BNE rel
                 case 0x0:
-                    // Increment PC by to get signed offset
-                    cpu->PC += 1;
-                    uint8_t signed_offset = memory[cpu->PC];
-
-                    //Branch if zero flag is set
-                    if (!cpu->P[1]) {
-
-                        address = cpu->PC;
-                        printf("\nBNE\n");
-                        printf("%x\n", signed_offset);
-                        printf("%x\n", (signed_offset & 0x80));
-
-                        ////sleep(1);
-
-                        if ((signed_offset & 0x80) == 0x80) {
-                            // Negative
-                            // Convert from 2's complement to regular by negation + 1
-                            cpu->PC += 1 - ((~signed_offset & 0xFF) + 1);
-                        } else {
-                            cpu->PC += 1 + signed_offset;
-                        }
-
-
-                        if ((cpu->PC & 0xFF00) != (address & 0xFF00)) {
-                            emulate_6502_cycle(4);
-                            cpu->cycles += 4;
-                        } else {
-                            emulate_6502_cycle(3);
-                            cpu->cycles += 3;
-                        }
-
-                    } else {
-                        cpu->PC++;
-                        emulate_6502_cycle(2);
-                        cpu->cycles += 2;
-                    }
+                    instr_BNE(cpu);
                     break;
 
                     // 0xD1
                     // CMP ind,Y
                     case 0x1:
-                        // Increment to get the lower byte
-                        cpu->PC++;
-                        LB = memory[cpu->PC];
-
-                        // Higher byte is memory[LB]
-                        // Lower byte is memory[LB + 1]
-
-                        // Pointer to the address
-                        address = (memory[LB + 1] << 8 | memory[LB]) +  cpu->Y;
+                        address = addr_ind_Y(cpu);
                         if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
                             cyc = 5;
                         } else {
                             cyc = 4;
                         }
-
-                        // Carry Flag
-                        cpu->P[0] = cpu->A >= memory[address];
-
-                        // Zero flag
-                        cpu->P[1] = cpu->A == memory[address];;
-
-                        // Negative Flag
-                        cpu->P[7] = ((cpu->A - memory[address]) & 0x80) == 0x80;
-
-                        cpu->PC++;
+                        instr_CMP(cpu, address);
 
                         emulate_6502_cycle(cyc);
                         cpu->cycles += cyc;
@@ -3972,22 +2445,8 @@ void cpu_execute(Cpu6502 *cpu) {
                     // 0xD5
                     // CMP zpg,X
                     case 0x5:
-                        cpu->PC++;
-                        LB = memory[cpu->PC];
-
-                        // Discard carry, zpg should not exceed 0x00FF
-                        address = (uint16_t) ((LB + cpu->X) & 0xFF);
-
-                        // Carry Flag
-                        cpu->P[0] = cpu->A >= memory[address];
-
-                        // Zero flag
-                        cpu->P[1] = cpu->A == memory[address];
-
-                        // Negative Flag
-                        cpu->P[7] = ((cpu->A - memory[address]) & 0x80) == 0x80;
-
-                        cpu->PC++;
+                        address = addr_zpg_X(cpu);
+                        instr_CMP(cpu, memory[address]);
 
                         emulate_6502_cycle(4);
                         cpu->cycles += 4;
@@ -3996,21 +2455,8 @@ void cpu_execute(Cpu6502 *cpu) {
                     // 0xD6
                     // DEC zpg,X
                     case 0x6:
-                        // Decrement M by One
-                        cpu->PC++;
-                        LB = memory[cpu->PC];
-
-
-                        // Discard carry, zpg should not exceed 0x00FF
-                        address = (uint16_t) ((LB + cpu->X) & 0xFF);
-
-                        memory[address]--;
-
-                        cpu->PC++;
-
-                        cpu->P[1] = memory[address] == 0;
-                        cpu->P[7] = (memory[address] & 0x80) == 0x80;
-
+                        address = addr_zpg_X(cpu);
+                        instr_DEC(cpu, &memory[address]);
 
                         emulate_6502_cycle(6);
                         cpu->cycles += 6;
@@ -4019,41 +2465,19 @@ void cpu_execute(Cpu6502 *cpu) {
                     // 0xD8
                     // CLD impl
                     case 0x8:
-                        // Clear Decimal Flag
-                        cpu->P[3] = 0;
-                        cpu->PC++;
-
-                        emulate_6502_cycle(2);
-                        cpu->cycles += 2;
+                        instr_CLD(cpu);
                         break;
 
                     // 0xD9
                     // CMP abs,Y
                     case 0x9:
-                        // Compare accumulator with M
-                        // Increment to get the lower byte
-                        cpu->PC += 1;
-                        LB = memory[cpu->PC];
-
-                        // Increment to get the upper byte
-                        cpu->PC += 1;
-                        address = (memory[cpu->PC] << 8 | LB) + cpu->Y;
+                        address = addr_abs_Y(cpu);
                         if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
                             cyc = 5;
                         } else {
                             cyc = 4;
                         }
-
-                        // Carry Flag
-                        cpu->P[0] = cpu->A >= memory[address];
-
-                        // Zero flag
-                        cpu->P[1] = cpu->A == memory[address];
-
-                        // Negative Flag
-                        cpu->P[7] = ((cpu->A - memory[address]) & 0x80) == 0x80;
-
-                        cpu->PC++;
+                        instr_CMP(cpu, memory[address]);
 
                         emulate_6502_cycle(cyc);
                         cpu->cycles += cyc;
@@ -4062,29 +2486,14 @@ void cpu_execute(Cpu6502 *cpu) {
                     // 0xDD
                     // CMP abs,X
                     case 0xD:
-                        // Increment to get the lower byte
-                        cpu->PC += 1;
-                        LB = memory[cpu->PC];
-
-                        // Increment to get the upper byte
-                        cpu->PC += 1;
-                        address = (memory[cpu->PC] << 8 | LB) + cpu->X;
+                        address = addr_abs_X(cpu);
                         if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
                             cyc = 5;
                         } else {
                             cyc = 4;
                         }
+                        instr_CMP(cpu, memory[address]);
 
-                        // Carry Flag
-                        cpu->P[0] = cpu->A >= memory[address];
-
-                        // Zero flag
-                        cpu->P[1] = cpu->A == memory[address];
-
-                        // Negative Flag
-                        cpu->P[7] = ((cpu->A - memory[address]) & 0x80) == 0x80;
-
-                        cpu->PC++;
                         emulate_6502_cycle(cyc);
                         cpu->cycles += cyc;
                         break;
@@ -4092,26 +2501,12 @@ void cpu_execute(Cpu6502 *cpu) {
                     // 0xDE
                     // DEC abs,X
                     case 0xE:
-
-                        // Increment to get the lower byte
-                        cpu->PC += 1;
-                        LB = memory[cpu->PC];
-
-                        // Increment to get the upper byte
-                        cpu->PC += 1;
-                        address = (memory[cpu->PC] << 8 | LB) + cpu->X;
-
-                        memory[address]--;
-                        cpu->PC++;
-
-                        cpu->P[1] = memory[address] == 0;
-                        cpu->P[7] = (memory[address] & 0x80) == 0x80;
+                        address = addr_abs_X(cpu);
+                        instr_DEC(cpu, &memory[address]);
 
                         emulate_6502_cycle(7);
                         cpu->cycles += 7;
                         break;
-
-
             }
 
             break;
@@ -4123,19 +2518,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xE0
                 // CPX #
                 case 0x0:
-                    // Compare Memory and Index X
-                    cpu->PC++;
-
-                    // Carry Flag
-                    cpu->P[0] = cpu->X >= memory[cpu->PC];
-
-                    // Zero flag
-                    cpu->P[1] = cpu->X == memory[cpu->PC];
-
-                    // Negative Flag
-                    cpu->P[7] = ((cpu->X - memory[cpu->PC]) & 0x80) == 0x80;
-
-                    cpu->PC++;
+                    address = addr_imm(cpu);
+                    instr_CPX(cpu, memory[address]);
 
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
@@ -4144,40 +2528,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xE1
                 // SBC X,ind
                 case 0x1:
-                    // Subtract with Carry
-                    cpu->PC++;
-
-                    // Ignore carry if it exists
-                    zpg_addr = (memory[cpu->PC] + cpu->X) & 0xFF;
-
-                    LB = memory[zpg_addr];
-                    HB = memory[zpg_addr + 1];
-
-                    address = HB << 8 | LB;
-
-                    // Hold old value of accumulator
-                    LB = cpu->A;
-
-                    // Use zpg_addr temporarily as its 16 bit
-                    // equiv. to A = A - memory - ~C
-                    //zpg_addr = (uint16_t)(cpu->A + ~memory[address] + cpu->P[0]);
-                    zpg_addr = (uint16_t)(cpu->A - memory[address] - (1 - cpu->P[0]));
-
-                    cpu->A = zpg_addr & 0xFF;
-
-                    new_carry = LB >= (memory[address] + (1 - cpu->P[0]));
-                    cpu->P[0] = new_carry;
-
-                    // Zero flag
-                    cpu->P[1] = cpu->A == 0;
-
-                    // Negative flag
-                    cpu->P[7] = cpu->A >> 7;
-
-                    // Overflow flag
-                    cpu->P[6] = ((LB ^ zpg_addr) & (memory[address] ^ LB) & 0x80) == 0x80;
-
-                    cpu->PC++;
+                    address = addr_X_ind(cpu);
+                    instr_SBC(cpu, memory[address]);
 
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
@@ -4186,19 +2538,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xE4
                 // CPX zpg
                 case 0x4:
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
+                    address = addr_zpg(cpu);
+                    instr_CPX(cpu, memory[address]);
 
-                    // Carry Flag
-                    cpu->P[0] = cpu->X >= memory[LB];
-
-                    // Zero flag
-                    cpu->P[1] = cpu->X == memory[LB];
-
-                    // Negative Flag
-                    cpu->P[7] = ((cpu->X - memory[LB]) & 0x80) == 0x80;
-
-                    cpu->PC++;
                     emulate_6502_cycle(3);
                     cpu->cycles += 3;
                     break;
@@ -4206,61 +2548,18 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xE5
                 // SBC zpg
                 case 0x5:
-                    cpu->PC++;
+                    address = addr_zpg(cpu);
+                    instr_SBC(cpu, address);
 
-                    // Get zpg addr
-                    LB = memory[cpu->PC];
-
-                    // Hold old value of accumulator
-                    HB = cpu->A;
-
-                    // Use zpg_addr temporarily as its 16 bit
-                    // equiv. to A = A - memory - ~C
-                    //zpg_addr = (uint16_t)(cpu->A + ~memory[address] + cpu->P[0]);
-                    zpg_addr = (uint16_t)(cpu->A - memory[LB] - (1 - cpu->P[0]));
-
-                    cpu->A = zpg_addr & 0xFF;
-
-                    // If  M < old A value, it underflows.
-                    new_carry = HB >= (memory[LB] + (1 - cpu->P[0]));
-                    cpu->P[0] = new_carry;
-
-                    // Zero flag
-                    cpu->P[1] = cpu->A == 0;
-
-                    // Negative flag
-                    cpu->P[7] = cpu->A >> 7;
-
-                    // Overflow flag
-                    cpu->P[6] = ((HB ^ cpu->A) & (memory[LB] ^ HB) & 0x80) == 0x80;
-
-                    cpu->PC++;
                     emulate_6502_cycle(3);
                     cpu->cycles += 3;
-
-                    if (cpu->cycles >= 289170 && cpu->cycles <= 289180) {
-
-                        printf("Old A: %x, M[%x]: %x, New A: %x\n", HB, LB, memory[LB], cpu->A);
-
-                        fflush(stdout);
-                        sleep(5);
-                    }
-
                     break;
 
                 // 0xE6
                 // INC zpg
                 case 0x6:
-                    // Increment M by One
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
-
-                    memory[LB]++;
-
-                    cpu->PC++;
-
-                    cpu->P[1] = memory[LB] == 0;
-                    cpu->P[7] = (memory[LB] & 0x80) == 0x80;
+                    address = addr_zpg(cpu);
+                    instr_INC(cpu, &memory[address]);
 
                     emulate_6502_cycle(5);
                     cpu->cycles += 5;
@@ -4269,53 +2568,15 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xE8
                 // INX impl
                 case 0x8:
-                    // Increment X register by One
-                    cpu->X++;
-                    cpu->PC++;
-
-                    cpu->P[1] = cpu->X == 0;
-                    cpu->P[7] = (cpu->X & 0x80 )== 0x80;
-
-                    emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    instr_INX(cpu);
                     break;
 
                 // 0xE9
                 // SBC #
                 case 0x9:
-                    cpu->PC++;
+                    address = addr_imm(cpu);
+                    instr_SBC(cpu, memory[address]);
 
-                    //sleep(1);
-                    printf("E9: SBC instruction");
-
-                    // Get zpg addr
-                    LB = memory[cpu->PC];
-
-                    // Hold old value of accumulator
-                    HB = cpu->A;
-
-                    // Use zpg_addr temporarily as its 16 bit
-                    // equiv. to A = A - memory - ~C
-                    //zpg_addr = (uint16_t)(cpu->A + ~memory[address] + cpu->P[0]);
-                    zpg_addr = (uint16_t)(cpu->A - LB - (1 - cpu->P[0]));
-
-                    cpu->A = zpg_addr & 0xFF;
-
-                    // If  M < old A value, it underflows.
-                    // Carry is cleared if it underflows
-                    new_carry = HB >= (LB + (1 - cpu->P[0]));
-                    cpu->P[0] = new_carry;
-
-                    // Zero flag
-                    cpu->P[1] = cpu->A == 0;
-
-                    // Negative flag
-                    cpu->P[7] = cpu->A >> 7;
-
-                    // Overflow flag
-                    cpu->P[6] = (((HB ^ zpg_addr) & (LB ^ HB)) & 0x80) != 0;
-
-                    cpu->PC++;
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
                     break;
@@ -4331,23 +2592,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xEC
                 // CPX abs
                 case 0xC:
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
-
-                    cpu->PC++;
-                    // Address of the location of new address
-                    address = memory[cpu->PC] << 8 | LB;
-
-                    // Carry Flag
-                    cpu->P[0] = cpu->X >= memory[address];
-
-                    // Zero flag
-                    cpu->P[1] = cpu->X == memory[address];
-
-                    // Negative Flag
-                    cpu->P[7] = ((cpu->X - memory[address]) & 0x80) == 0x80;
-
-                    cpu->PC++;
+                    address = addr_abs(cpu);
+                    instr_CPX(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
@@ -4356,39 +2602,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xED
                 // SBC abs
                 case 0xD:
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
+                    address = addr_abs(cpu);
+                    instr_SBC(cpu, memory[address]);
 
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = memory[cpu->PC] << 8 | LB;
-
-                    // Store Accumulator in HB temporarily.
-                    HB = cpu->A;
-
-                    // Use zpg_addr temporarily as its 16 bit
-                    // equiv. to A = A - memory - ~C
-                    //zpg_addr = (uint16_t)(cpu->A + ~memory[address] + cpu->P[0]);
-                    zpg_addr = (uint16_t)(cpu->A - memory[address] - (1 - cpu->P[0]));
-
-                    cpu->A = zpg_addr & 0xFF;
-
-                    // If  M < old A value, it underflows.
-                    // Carry is cleared if it underflows
-                    new_carry = HB >= (memory[address] + (1 - cpu->P[0]));
-                    cpu->P[0] = new_carry;
-
-                    // Zero flag
-                    cpu->P[1] = cpu->A == 0;
-
-                    // Negative flag
-                    cpu->P[7] = cpu->A >> 7;
-
-                    // Overflow flag
-                    cpu->P[6] = ((HB ^ zpg_addr) & (memory[address] ^ HB) & 0x80) == 0x80;
-
-                    cpu->PC++;
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
                     break;
@@ -4396,21 +2612,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xEE
                 // INC abs
                 case 0xE:
+                    address = addr_abs(cpu);
+                    instr_INC(cpu, &memory[address]);
 
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
-
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = memory[cpu->PC] << 8 | LB;
-
-                    memory[address]++;
-
-                    cpu->P[1] = memory[address] == 0;
-                    cpu->P[7] = (memory[address] & 0x80 )== 0x80;
-
-                    cpu->PC++;
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
                     break;
@@ -4424,88 +2628,19 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xF0
                 // BEQ rel
                 case 0x0:
-                // Increment PC by to get signed offset
-                cpu->PC += 1;
-                uint8_t signed_offset = (uint8_t)memory[cpu->PC];
-                printf("Signed offset at 0x%x: %x\n", cpu->PC, signed_offset);
-
-                //Branch if zero flag is set
-                if (cpu->P[1]) {
-
-                    address = cpu->PC;
-                    //cpu->PC += 1 + signed_offset;
-                    if ((signed_offset & 0x80) == 0x80) {
-                        // Negative
-                        // Convert from 2's complement to regular by negation + 1
-                        cpu->PC += 1 - ((~(signed_offset)  & 0xFF) + 0x01 );
-
-                        printf("Signed offset at 0x%x: %x\n", cpu->PC, signed_offset);
-                        printf("2's complement: %x\n", ((~(signed_offset)  & 0xFF) + 0x01 ));
-
-                    } else {
-                        cpu->PC += 1 + signed_offset;
-                    }
-
-                    ////sleep(1);
-
-                    if ((cpu->PC & 0xFF00) != (address & 0xFF00)) {
-                        emulate_6502_cycle(4);
-                        cpu->cycles += 4;
-                    } else {
-                        emulate_6502_cycle(3);
-                        cpu->cycles += 3;
-                    }
-
-                } else {
-                    cpu->PC++;
-                    emulate_6502_cycle(2);
-                    cpu->cycles += 2;
-                }
+                    instr_BEQ(cpu);
                     break;
 
                 // 0xF1
                 // SBC ind,Y
                 case 0x1:
-                    // Increment to get the lower byte
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
-
-                    // Higher byte is memory[LB]
-                    // Lower byte is memory[LB + 1]
-
-                    // Pointer to the address
-                    address = (memory[LB + 1] << 8 | memory[LB]) +  cpu->Y;
+                    address = addr_ind_Y(cpu);
                     if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
                         cyc = 6;
                     } else {
                         cyc = 5;
                     }
-
-                    // Store Accumulator in HB temporarily.
-                    HB = cpu->A;
-
-                    // Use zpg_addr temporarily as its 16 bit
-                    // equiv. to A = A - memory - ~C
-                    //zpg_addr = (uint16_t)(cpu->A + ~memory[address] + cpu->P[0]);
-                    zpg_addr = (uint16_t)(cpu->A - memory[address] - (1 - cpu->P[0]));
-
-                    cpu->A = zpg_addr & 0xFF;
-
-                    // If  M < old A value, it underflows.
-                    // Carry is cleared if it underflows
-                    new_carry = HB >= (memory[address] + (1 - cpu->P[0]));
-                    cpu->P[0] = new_carry;
-
-                    // Zero flag
-                    cpu->P[1] = cpu->A == 0;
-
-                    // Negative flag
-                    cpu->P[7] = cpu->A >> 7;
-
-                    // Overflow flag
-                    cpu->P[6] = (((zpg_addr ^ memory[address]) & (HB ^ memory[address])) & 0x80) != 0;
-
-                    cpu->PC++;
+                    instr_SBC(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
@@ -4514,37 +2649,9 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xF5
                 // SBC zpg,X
                 case 0x5:
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
+                    address = addr_zpg_X(cpu);
+                    instr_SBC(cpu, memory[address]);
 
-                    // Discard carry, zpg should not exceed 0x00FF
-                    address = (uint16_t) ((LB + cpu->X) & 0xFF);
-
-                    // Hold old value of accumulator
-                    HB = cpu->A;
-
-                    // Use zpg_addr temporarily as its 16 bit
-                    // equiv. to A = A - memory - ~C
-                    //zpg_addr = (uint16_t)(cpu->A + ~memory[address] + cpu->P[0]);
-                    zpg_addr = (uint16_t)(cpu->A - memory[address] - (1 - cpu->P[0]));
-
-                    cpu->A = zpg_addr & 0xFF;
-
-                    // If  M < old A value, it underflows.
-                    // Carry is cleared if it underflows
-                    new_carry = HB >= (memory[address] + (1 - cpu->P[0]));
-                    cpu->P[0] = new_carry;
-
-                    // Zero flag
-                    cpu->P[1] = cpu->A == 0;
-
-                    // Negative flag
-                    cpu->P[7] = cpu->A >> 7;
-
-                    // Overflow flag
-                    cpu->P[6] = (((HB ^ memory[address]) & (HB ^ zpg_addr)) & 0x80) != 0;
-
-                    cpu->PC++;
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
                     break;
@@ -4554,19 +2661,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xF6
                 // INC zpg,X
                 case 0x6:
-                    // Decrement M by One
-                    cpu->PC++;
-                    LB = memory[cpu->PC];
-
-                    // Discard carry, zpg should not exceed 0x00FF
-                    address = (uint16_t) ((LB + cpu->X) & 0xFF);
-
-                    memory[address]++;
-
-                    cpu->PC++;
-
-                    cpu->P[1] = memory[address] == 0;
-                    cpu->P[7] = (memory[address] & 0x80 )== 0x80;
+                    address = addr_zpg_X(cpu);
+                    instr_INC(cpu, &memory[address]);
 
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
@@ -4575,56 +2671,20 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xF8
                 // SED impl
                 case 0x8:
-                    // Set Decimal Flag
-                    cpu->P[3] = 1;
-                    cpu->PC++;
-                    emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    instr_SED(cpu);
                     break;
 
                 // 0xF9
                 // SBC abs,Y
                 case 0x9:
-                    // Compare accumulator with M
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
-
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = (memory[cpu->PC] << 8 | LB) + cpu->Y;
+                    address = addr_abs_Y(cpu);
                     if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
                         cyc = 5;
                     } else {
                         cyc = 4;
                     }
+                    instr_SBC(cpu, memory[address]);
 
-                    // Hold old value of accumulator
-                    HB = cpu->A;
-
-                    // Use zpg_addr temporarily as its 16 bit
-                    // equiv. to A = A - memory - ~C
-                    //zpg_addr = (uint16_t)(cpu->A + ~memory[address] + cpu->P[0]);
-                    zpg_addr = (uint16_t)(cpu->A - memory[address] - (1 - cpu->P[0]));
-
-                    cpu->A = zpg_addr & 0xFF;
-
-                    // If  M < old A value, it underflows.
-                    // Carry is cleared if it underflows
-                    //cpu->P[0] = !(memory[address] < HB);
-                    new_carry = HB >= (memory[address] + (1 - cpu->P[0]));
-                    cpu->P[0] = new_carry;
-
-                    // Zero flag
-                    cpu->P[1] = cpu->A == 0;
-
-                    // Negative flag
-                    cpu->P[7] = cpu->A >> 7;
-
-                    // Overflow flag
-                    cpu->P[6] = ((HB ^ zpg_addr) & (memory[address] ^ HB) & 0x80) != 0;
-
-                    cpu->PC++;
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
                     break;
@@ -4632,45 +2692,14 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xFD
                 // SBC abs,X
                 case 0xD:
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
-
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = (memory[cpu->PC] << 8 | LB) + cpu->X;
+                    address = addr_abs_X(cpu);
                     if ((address & 0xFF00) != ((address - cpu->X) & 0xFF00)) {
                         cyc = 5;
                     } else {
                         cyc = 4;
                     }
+                    instr_SBC(cpu, memory[address]);
 
-                    // Hold old value of accumulator
-                    HB = cpu->A;
-
-                    // Use zpg_addr temporarily as its 16 bit
-                    // equiv. to A = A - memory - ~C
-                    //zpg_addr = (uint16_t)(cpu->A + ~memory[address] + cpu->P[0]);
-                    zpg_addr = (uint16_t)(cpu->A - memory[address] - (1 - cpu->P[0]));
-
-                    cpu->A = zpg_addr & 0xFF;
-
-                    // If  M < old A value, it underflows.
-                    // Carry is cleared if it underflows
-                    //cpu->P[0] = !(memory[address] < HB);
-                    new_carry = HB >= (memory[address] + (1 - cpu->P[0]));
-                    cpu->P[0] = new_carry;
-
-                    // Zero flag
-                    cpu->P[1] = cpu->A == 0;
-
-                    // Negative flag
-                    cpu->P[7] = cpu->A >> 7;
-
-                    // Overflow flag
-                    cpu->P[6] = ((HB ^ zpg_addr) & (memory[address] ^ HB) & 0x80) == 0x80;
-
-                    cpu->PC++;
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
                     break;
@@ -4678,32 +2707,15 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0xFE
                 // INC abs,X
                 case 0xE:
+                    address = addr_abs_X(cpu);
+                    instr_INC(cpu, &memory[address]);
 
-                    // Increment to get the lower byte
-                    cpu->PC += 1;
-                    LB = memory[cpu->PC];
-
-                    // Increment to get the upper byte
-                    cpu->PC += 1;
-                    address = (memory[cpu->PC] << 8 | LB) + cpu->X;
-
-                    memory[address]++;
-
-                    cpu->P[1] = memory[address] == 0;
-                    cpu->P[7] = (memory[address] & 0x80 )== 0x80;
-
-                    cpu->PC++;
                     emulate_6502_cycle(7);
                     cpu->cycles += 7;
                     break;
 
             }
-
-
         break;
-
-
-
     }
 
 
