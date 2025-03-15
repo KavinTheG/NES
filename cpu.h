@@ -67,31 +67,31 @@ void instr_TAY(Cpu6502 *cpu);
 void instr_TYA(Cpu6502 *cpu);
 
 // Arithmetic
-void instr_ADC(Cpu6502 *cpu);
-void instr_SBC(Cpu6502 *cpu);
-void instr_INC(Cpu6502 *cpu);
-void instr_DEC(Cpu6502 *cpu);
+void instr_ADC(Cpu6502 *cpu, uint8_t oper);
+void instr_SBC(Cpu6502 *cpu, uint8_t oper);
+void instr_INC(Cpu6502 *cpu, uint8_t *M);
+void instr_DEC(Cpu6502 *cpu, uint8_t *M);
 void instr_INX(Cpu6502 *cpu);
 void instr_DEX(Cpu6502 *cpu);
 void instr_INY(Cpu6502 *cpu);
 void instr_DEY(Cpu6502 *cpu);
 
 // Shift
-void instr_ASL(Cpu6502 *cpu);
-void instr_LSR(Cpu6502 *cpu);
-void instr_ROL(Cpu6502 *cpu);
-void instr_ROR(Cpu6502 *cpu);
+void instr_ASL(Cpu6502 *cpu, uint8_t *M);
+void instr_LSR(Cpu6502 *cpu, uint8_t *M);
+void instr_ROL(Cpu6502 *cpu, uint8_t *M);
+void instr_ROR(Cpu6502 *cpu, uint8_t *M);
 
 // Bitwise
-void instr_AND(Cpu6502 *cpu);
-void instr_ORA(Cpu6502 *cpu);
-void instr_EOR(Cpu6502 *cpu);
-void instr_BIT(Cpu6502 *cpu);
+void instr_AND(Cpu6502 *cpu, uint8_t M);
+void instr_ORA(Cpu6502 *cpu, uint8_t M);
+void instr_EOR(Cpu6502 *cpu, uint8_t M);
+void instr_BIT(Cpu6502 *cpu, uint8_t M);
 
 // Compare
-void instr_CMP(Cpu6502 *cpu);
-void instr_CPX(Cpu6502 *cpu);
-void instr_CPY(Cpu6502 *cpu);
+void instr_CMP(Cpu6502 *cpu, uint8_t M);
+void instr_CPX(Cpu6502 *cpu, uint8_t M);
+void instr_CPY(Cpu6502 *cpu, uint8_t M);
 
 // Branch
 void instr_BCC(Cpu6502 *cpu);
@@ -104,8 +104,8 @@ void instr_BVC(Cpu6502 *cpu);
 void instr_BVS(Cpu6502 *cpu);
 
 // Jump
-void instr_JMP(Cpu6502 *cpu);
-void instr_JSR(Cpu6502 *cpu);
+void instr_JMP(Cpu6502 *cpu, uint8_t addr);
+void instr_JSR(Cpu6502 *cpu, uint8_t addr);
 void instr_RTS(Cpu6502 *cpu);
 void instr_BRK(Cpu6502 *cpu);
 void instr_RTI(Cpu6502 *cpu);
