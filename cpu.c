@@ -29,6 +29,8 @@ uint16_t address, zpg_addr;
 char new_carry;
 int cyc = 0;
 
+int instr_num = 0;
+
 /**  Helper functions **/
 
 inline void push_stack(uint8_t lower_addr, uint8_t val) {
@@ -182,7 +184,7 @@ void load_rom(Cpu6502 *cpu, char *filename) {
         memcpy(&memory[0xC000], prg_rom, 16384);
     }
 
-    free (prg_rom);
+    free(prg_rom);
 
 }
 
@@ -198,7 +200,8 @@ void dump_log_file(Cpu6502 *cpu) {
     join_char_array(&status, cpu->P);
     fprintf(log_file, "SP: %x ", cpu->S);
     fprintf(log_file, "P: %x (%b) ", status, status);
-    fprintf(log_file, "Cycle: %d\n", cpu->cycles);
+    fprintf(log_file, "Cycle: %d ", cpu->cycles);
+    fprintf(log_file, "Instructions: %d\n", instr_num);
     fprintf(log_file, "{");
     for (int i = 0xf0; i <= 0xff; i++) {
         fprintf(log_file, "M[0x%x]: %x, ", 0x100 | i, memory[0x100 | i]);
@@ -405,6 +408,9 @@ void instr_DEY(Cpu6502 *cpu) {
     cpu->P[1] = cpu->Y == 0;
     cpu->P[7] = (cpu->Y & 0x80 )== 0x80;
     cpu->PC++;
+
+    emulate_6502_cycle(2);
+    cpu->cycles += 2;
 }
 
 // Shift
@@ -669,6 +675,8 @@ void instr_RTS(Cpu6502 *cpu) {
     address = memory[0x100 | cpu->S] << 8 | LB;
 
     cpu->PC = address + 1;
+    emulate_6502_cycle(6);
+    cpu->cycles += 6;
 }
 
 void instr_BRK(Cpu6502 *cpu) {
@@ -995,6 +1003,7 @@ uint16_t addr_zpg_X(Cpu6502 *cpu) {
 
     // Discard carry, zpg should not exceed 0x00FF
     addr = (uint16_t) ((LB + cpu->X) & 0xFF);
+    return addr;
 }
 
 uint16_t addr_zpg_Y(Cpu6502 *cpu) {
@@ -1003,12 +1012,14 @@ uint16_t addr_zpg_Y(Cpu6502 *cpu) {
     LB = memory[cpu->PC];
 
     addr = (LB + cpu->Y) & 0xFF;
+    return addr;
 }
 
 void cpu_execute(Cpu6502 *cpu) {
 
     // Placeholder for instruction
     uint8_t instr = memory[cpu->PC];
+    instr_num++;
 
     cpu->instr = instr;
     printf("\nPC Value: %x\n", cpu->PC);
@@ -1045,7 +1056,6 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x01
                 // ORA X,ind
                 case 0x1:
-
                     address = addr_X_ind(cpu);
                     instr_ORA(cpu, memory[address]);
 
@@ -1404,8 +1414,12 @@ void cpu_execute(Cpu6502 *cpu) {
                 // 0x39
                 // AND abs,Y
                 case 0x9:
-
                     address = addr_abs_Y(cpu);
+                    if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
+                        cyc = 5;
+                    } else {
+                        cyc = 4;
+                    }
                     instr_AND(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
@@ -1693,8 +1707,8 @@ void cpu_execute(Cpu6502 *cpu) {
                     address = addr_zpg(cpu);
                     instr_ROR(cpu, &memory[address]);
 
-                    emulate_6502_cycle(3);
-                    cpu->cycles += 3;
+                    emulate_6502_cycle(5);
+                    cpu->cycles += 5;
                     break;
 
                 // 0x68
@@ -1790,6 +1804,11 @@ void cpu_execute(Cpu6502 *cpu) {
                 case 0x1:
 
                     address = addr_ind_Y(cpu);
+                    if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
+                        cyc = 6;
+                    } else {
+                        cyc = 5;
+                    }
                     instr_ADC(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
@@ -1830,6 +1849,11 @@ void cpu_execute(Cpu6502 *cpu) {
                 case 0x9:
 
                     address = addr_abs_Y(cpu);
+                    if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
+                        cyc = 5;
+                    } else {
+                        cyc = 4;
+                    }
                     instr_ADC(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
@@ -1841,6 +1865,11 @@ void cpu_execute(Cpu6502 *cpu) {
                 case 0xD:
 
                     address = addr_abs_X(cpu);
+                    if ((address & 0xFF00) != ((address - cpu->X) & 0xFF00)) {
+                        cyc = 5;
+                    } else {
+                        cyc = 4;
+                    }
                     instr_ADC(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
@@ -1909,9 +1938,6 @@ void cpu_execute(Cpu6502 *cpu) {
                 // DEY impl
                 case 0x8:
                     instr_DEY(cpu);
-
-                    emulate_6502_cycle(2);
-                    cpu->cycles += 2;
                     break;
 
                 // 0x8A
@@ -2010,9 +2036,6 @@ void cpu_execute(Cpu6502 *cpu) {
                 case 0x8:
                     // Transfer Index Y to Accumulator
                     instr_TYA(cpu);
-
-                    emulate_6502_cycle(2);
-                    cpu->cycles += 2;
                     break;
 
                 // 0x99
@@ -2085,7 +2108,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     address = addr_zpg(cpu);
                     instr_LDY(cpu, memory[address]);
 
-                    emulate_6502_cycle(2);
+                    emulate_6502_cycle(3);
                     cpu->cycles += 3;
                     break;
 
@@ -2179,6 +2202,11 @@ void cpu_execute(Cpu6502 *cpu) {
                 // LDA ind,Y
                 case 0x1:
                     address = addr_ind_Y(cpu);
+                    if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
+                        cyc = 6;
+                    } else {
+                        cyc = 5;
+                    }
                     instr_LDA(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
@@ -2247,6 +2275,11 @@ void cpu_execute(Cpu6502 *cpu) {
                 // LDY abs,X
                 case 0xC:
                     address = addr_abs_X(cpu);
+                    if ((address & 0xFF00) != ((address - cpu->X) & 0xFF00)) {
+                        cyc = 5;
+                    } else {
+                        cyc = 4;
+                    }
                     instr_LDY(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
@@ -2412,9 +2445,9 @@ void cpu_execute(Cpu6502 *cpu) {
                     case 0x1:
                         address = addr_ind_Y(cpu);
                         if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-                            cyc = 5;
+                            cyc = 6;
                         } else {
-                            cyc = 4;
+                            cyc = 5;
                         }
                         instr_CMP(cpu, memory[address]);
 
@@ -2467,7 +2500,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     // CMP abs,X
                     case 0xD:
                         address = addr_abs_X(cpu);
-                        if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
+                        if ((address & 0xFF00) != ((address - cpu->X) & 0xFF00)) {
                             cyc = 5;
                         } else {
                             cyc = 4;

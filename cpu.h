@@ -138,3 +138,16 @@ void instr_CLV(Cpu6502 *cpu);
 
 // Other
 void instr_NOP(Cpu6502 *cpu);
+
+
+// illegal opcodes
+void instr_LAX(Cpu6502 *cpu, uint8_t val);
+void instr_SAX(Cpu6502 *cpu, uint16_t addr);
+
+void instr_DCP(Cpu6502 *cpu, uint8_t M);
+void instr_ISC(Cpu6502 *cpu, uint8_t M);
+
+void instr_RLA();
+void instr_RRA();
+void instr_SLO();
+void instr_SRE();
