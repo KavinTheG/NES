@@ -144,10 +144,10 @@ void instr_NOP(Cpu6502 *cpu);
 void instr_LAX(Cpu6502 *cpu, uint8_t val);
 void instr_SAX(Cpu6502 *cpu, uint16_t addr);
 
-void instr_DCP(Cpu6502 *cpu, uint8_t M);
-void instr_ISC(Cpu6502 *cpu, uint8_t M);
+void instr_DCP(Cpu6502 *cpu, uint8_t *M);
+void instr_ISC(Cpu6502 *cpu, uint8_t *M);
 
-void instr_RLA();
-void instr_RRA();
-void instr_SLO();
-void instr_SRE();
+void instr_RLA(Cpu6502 *cpu, uint8_t *M);
+void instr_RRA(Cpu6502 *cpu, uint8_t *M);
+void instr_SLO(Cpu6502 *cpu, uint8_t *M);
+void instr_SRE(Cpu6502 *cpu, uint8_t *M);

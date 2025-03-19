@@ -1,14 +1,17 @@
 #include <stdio.h>
 #include <unistd.h>
 #include "cpu.h"
+#include "config.h"
 
 int main() {
 
     Cpu6502 cpu;
 
-    //load_rom(&cpu, "test/nestest.nes");
+    #if NES_TEST_ROM
+    load_rom(&cpu, "test/nestest.nes");
+    #endif
     cpu_init(&cpu);
-    load_test_rom(&cpu);
+    //load_test_rom(&cpu);
     sleep(1);
 
     // logging
