@@ -84,11 +84,11 @@ void cpu_init(Cpu6502 *cpu) {
     cpu->X = 0x0;
     cpu->Y = 0x0;
 
-    // Klaus test
-    //cpu->PC = 0x0400;
-
-    // Nes-test
+    #if NES_TEST_ROM
     cpu->PC = 0xC000;
+    #else
+    cpu->PC = 0x400;
+    #endif
 
     cpu->instr = memory[cpu->PC];
     cpu->cycles = 7;
@@ -141,7 +141,7 @@ void load_test_rom(Cpu6502 *cpu) {
         if (bytes_read != file_size)
             printf("File not read.\n");
 
-        printf("M[0x20]: %x\n",memory[0x20]);
+        printf("M[0x20]: %x\n",memory[0x400]);
 }
 
 void load_rom(Cpu6502 *cpu, char *filename) {
@@ -218,13 +218,11 @@ void dump_log_file(Cpu6502 *cpu) {
     fprintf(log_file, "P: %x (%b) ", status, status);
     fprintf(log_file, "Cycle: %d ", cpu->cycles);
     fprintf(log_file, "I #: %d\n", instr_num);
-    // fprintf(log_file, "{");
-    // for (int i = 0xf0; i <= 0xff; i++) {
-    //     fprintf(log_file, "M[0x%x]: %x, ", 0x100 | i, memory[0x100 | i]);
-    // }
-
-
-    // fprintf(log_file, "}\n");
+    fprintf(log_file, "{");
+    for (int i = 0xf0; i <= 0xff; i++) {
+        fprintf(log_file, "M[0x%x]: %x, ", 0x100 | i, memory[0x100 | i]);
+    }
+    fprintf(log_file, "}\n");
 
 
     // fprintf(log_file, "M @ 0x00 = %x\n", memory[0x0]);
@@ -322,49 +320,95 @@ void instr_ADC(Cpu6502 *cpu, uint8_t oper) {
     uint16_t result = 0;
     uint8_t new_A = cpu->A;
 
-    printf("A + M + ~C\n");
-    printf("%x + %x + %b\n", cpu->A, oper, (1 - cpu->P[0]));
-    // Reuse zpg variable (in case it overflows)
-    result = (uint16_t)(cpu->A + oper + cpu->P[0]);
+    printf("A + M + C\n");
+    printf("%x + %x + %b\n", cpu->A, oper, (cpu->P[0]));
 
-    // Use lower byte for A
-    new_A = result & 0xFF;
+    if (!cpu->P[3]) {
 
-    // Set carry bit if upper byte is 1
-    cpu->P[0] = result > 0xFF;
+        result = (uint16_t)(cpu->A + oper + cpu->P[0]);
 
-    // Set zero flag and negative flag
-    cpu->P[1] = new_A == 0;
-    cpu->P[7] = new_A >> 7;
+        // Use lower byte for A
+        new_A = result & 0xFF;
 
-    cpu->P[6] = ((cpu->A ^ new_A) & (new_A ^ oper) & 0x80) == 0x80;
-    cpu->A = new_A;
 
+        // Set carry bit if upper byte is 1
+        cpu->P[0] = result > 0xFF;
+
+        // Set zero flag and negative flag
+        cpu->P[1] = new_A == 0;
+        cpu->P[7] = new_A >> 7;
+
+        cpu->P[6] = ((cpu->A ^ new_A) & (new_A ^ oper) & 0x80) == 0x80;
+        cpu->A = new_A;
+    } else {
+        printf("ADC instr: BCD mode\n");
+        //sleep(5);
+        result = (cpu->A & 0xF) + (oper & 0xF) + cpu->P[0];
+        result += result > 0x9 ? 0x6 : 0;
+        printf("result: %x\n", result);
+
+        uint16_t HB = (cpu->A & 0xF0) + (oper & 0xF0);
+
+        printf("HB: %x\n", HB);
+        HB += HB > 0x90 ? 0x60 : 0;
+        result += HB;
+
+        if ( (result & 0xF0) > 0x90 ) {
+            printf("result is not in BCD: %x");
+            result += 0x60;
+        }
+
+        //result += (result & 0xFF0) > 0x90 ? 0x60 : 0x0;
+        printf("result (after correction): %x\n", result);
+
+        cpu->P[0] = result > 0x99;
+        cpu->A = result & 0xFF;
+        cpu->P[1] = cpu->A == 0;
+    }
     cpu->PC++;
 }
 void instr_SBC(Cpu6502 *cpu, uint8_t oper) {
     uint16_t result = 0;
     uint8_t new_A = cpu->A;
 
-    result = (uint16_t)(cpu->A - oper - (1 - cpu->P[0]));
+    printf("A - M - ~C\n");
+    printf("%x - %x - %b\n", cpu->A, oper, (1 - cpu->P[0]));
 
-    new_A = result & 0xFF;
+    if (!cpu->P[3]) {
+        result = (uint16_t)(cpu->A - oper - (1 - cpu->P[0]));
 
-    // If  M < old A value, it underflows.
-    // Carry is cleared if it underflows
-    char new_carry = cpu->A >= (oper + (1 - cpu->P[0]));
-    cpu->P[0] = new_carry;
+        new_A = result & 0xFF;
 
-    // Zero flag
-    cpu->P[1] = new_A == 0;
+        // If  M < old A value, it underflows.
+        // Carry is cleared if it underflows
+        char new_carry = cpu->A >= (oper + (1 - cpu->P[0]));
+        cpu->P[0] = new_carry;
 
-    // Negative flag
-    cpu->P[7] = new_A >> 7;
+        // Zero flag
+        cpu->P[1] = new_A == 0;
 
-    // Overflow flag
-    cpu->P[6] = (((cpu->A ^ new_A) & (oper ^ cpu->A)) & 0x80) != 0;
-    cpu->A = new_A;
+        // Negative flag
+        cpu->P[7] = new_A >> 7;
 
+        // Overflow flag
+        cpu->P[6] = (((cpu->A ^ new_A) & (oper ^ cpu->A)) & 0x80) != 0;
+        cpu->A = new_A;
+    } else {
+        printf("SBC instr: BCD mode\n");
+        //sleep(5);
+
+        result = cpu->A - oper - (1 - cpu->P[0]);
+        printf("Results: %x\n", result);
+
+        result -= (result & 0xF0) > 0x90 ? 0x60 : 0;
+        result -= (result & 0x0F) > 0x09 ? 0x06 : 0;
+
+        printf("Results (after corrections): %x\n", result);
+
+        cpu->P[0] = result <= 0x99;
+        cpu->A = result & 0xFF;
+        cpu->P[1] = cpu->A == 0;
+    }
     cpu->PC++;
 }
 
@@ -780,7 +824,7 @@ void instr_PLA(Cpu6502 *cpu) {
 void instr_PHP(Cpu6502 *cpu) {
 
     // Push Status Flags to stack, with B flag set
-    cpu->P[4] = 0;
+    cpu->P[4] = 1;
     // Reserve bit set to 1
     cpu->P[5] = 1;
 

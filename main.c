@@ -9,9 +9,11 @@ int main() {
 
     #if NES_TEST_ROM
     load_rom(&cpu, "test/nestest.nes");
+    #else
+    load_test_rom(&cpu);
     #endif
     cpu_init(&cpu);
-    //load_test_rom(&cpu);
+
     sleep(1);
 
     // logging
