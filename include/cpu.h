@@ -41,7 +41,7 @@ typedef struct Cpu6502 {
 
 void cpu_init(Cpu6502 *cpu);
 
-void load_rom(Cpu6502 *cpu, char *filename);
+void load_cpu_mem(Cpu6502 *cpu, char *filename);
 void load_test_rom(Cpu6502 *cpu);
 void cpu_execute(Cpu6502 *cpu);
 

@@ -3,15 +3,19 @@
 #include "cpu.h"
 #include "config.h"
 
+#define NES_HEADER_SIZE 16
+
+
 int main() {
 
     Cpu6502 cpu;
 
     #if NES_TEST_ROM
-    load_rom(&cpu, "test/nestest.nes");
+    load_cpu_mem(&cpu, "test/nestest.nes");
     #else
     load_test_rom(&cpu);
     #endif
+    
     cpu_init(&cpu);
 
     sleep(1);
@@ -31,3 +35,9 @@ int main() {
     }
 
 }
+
+
+
+
+
+

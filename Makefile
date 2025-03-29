@@ -1,6 +1,8 @@
 CC = gcc
-OBJ = main.o cpu.o
-TARGET = emulator
+OBJ = ./build/main.o ./build/cpu.o
+CFLAGS = -Wall -Iinclude
+TARGET = ./bin/emulator
+VPATH = src
 
 # Default rule to build the binary
 all: $(TARGET)
@@ -10,12 +12,12 @@ $(TARGET): $(OBJ)
 	$(CC) $(CFLAGS) -o $(TARGET) $(OBJ)
 
 # Rule to compile main.c into main.o
-main.o: main.c cpu.h
-	$(CC) $(CFLAGS) -c main.c
+./build/main.o: main.c | ./build
+	$(CC) $(CFLAGS) -c $< -o $@
 
 # Rule to compile cpu.c into cpu.o
-cpu.o: cpu.c cpu.h
-	$(CC) $(CFLAGS) -c cpu.c
+./build/cpu.o: cpu.c | ./build
+	$(CC) $(CFLAGS) -c $< -o $@
 
 # Rule to clean up compiled files
 clean:

@@ -1,4 +1,6 @@
 #include "cpu.h"
+#include "config.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -8,7 +10,6 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-#include "config.h"
 
 #define MEMORY_SIZE 0x10000 // 64 KB
 #define NES_HEADER_SIZE 16
@@ -45,7 +46,7 @@ uint16_t page_crossing(uint16_t addr, uint16_t oper) {
     // Check if the page is the same
     if ( ((addr + oper) & 0xFF00) != (addr & 0xFF00) ) {
         // Keep the page from the addr to emulate bug
-        address = addr & 0xFF00 | address & 0xFF;
+        address = (addr & 0xFF00) | (address & 0xFF);
     }
     return address;
 }
@@ -144,7 +145,7 @@ void load_test_rom(Cpu6502 *cpu) {
         printf("M[0x20]: %x\n",memory[0x400]);
 }
 
-void load_rom(Cpu6502 *cpu, char *filename) {
+void load_cpu_mem(Cpu6502 *cpu, char *filename) {
 
     FILE *rom = fopen(filename, "rb");
     if (!rom) {
@@ -354,7 +355,7 @@ void instr_ADC(Cpu6502 *cpu, uint8_t oper) {
         result += HB;
 
         if ( (result & 0xF0) > 0x90 ) {
-            printf("result is not in BCD: %x");
+            //printf("result is not in BCD: %x");
             result += 0x60;
         }
 
