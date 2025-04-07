@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <stdint.h>
 
 typedef struct PPU
@@ -11,16 +13,33 @@ typedef struct PPU
 
     uint8_t OAMADDR;
 
+    uint8_t OAMDATA;
+
     uint8_t PPUSCROLL;
 
-    uint8_t PPUADDR;
+    // PPUADDR is the value CPU writes to $2006
+    uint16_t PPUADDR;
 
     uint8_t PPUDATA;
 
     uint8_t OAMDMA;
+
+
+    // 15 registers
+    uint16_t v, t; 
+    unsigned char w;
 } PPU;
 
 
-void ppu_init(PPU *cpu);
+void ppu_init(PPU *ppu);
+void load_ppu_memory(PPU *ppu, unsigned char *chr_rom, int chr_size);
+void load_ppu_ines_header(unsigned char *header);
 
 void load_ppu_mem(PPU *ppu, char *filename);
+uint8_t read_ppu_mem(uint16_t addr);
+
+// Setters
+void set_w_reg(PPU *ppu, unsigned char w);
+void set_v_reg(PPU *ppu);
+
+void set_PPUADDR(PPU *ppu, uint16_t PPUADDR);

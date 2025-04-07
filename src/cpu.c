@@ -33,6 +33,14 @@ int cyc = 0;
 
 int instr_num = 0;
 
+
+/* PPU Registers */
+unsigned char ppu_w_register = 0;
+
+// Flag
+unsigned char PPUADDR_COMPLETED = 0;
+unsigned char PPUDATA_WRITE = 0;
+
 /**  Helper functions **/
 
 inline void push_stack(uint8_t lower_addr, uint8_t val) {
@@ -72,6 +80,106 @@ void emulate_6502_cycle(int cycle) {
     ts.tv_sec = 0;
     ts.tv_nsec = 558 * cycle; // Approx. 558 nanoseconds
     //nanosleep(&ts, NULL);
+}
+
+/* PPU Functions */
+
+void set_ppu_w_reg(unsigned char ppu_w) {
+    ppu_w_register = ppu_w;
+}
+
+unsigned char get_ppu_w_reg() {
+    return ppu_w_register;
+}
+
+uint16_t get_ppu_PPUADDR(Cpu6502 *cpu) {
+    return cpu->PPUADDR;
+}
+
+unsigned char get_ppu_PPUADDR_completed() {
+    return PPUADDR_COMPLETED;
+}
+
+unsigned char get_ppu_PPUDATA_write() {
+    return PPUDATA_WRITE;
+}
+
+void ppu_registers_modified(Cpu6502 *cpu, uint16_t addr, uint8_t val) {
+    // PPUADDR
+
+    switch (addr)  {
+
+        // PPUCTRL
+        case 0x2000:
+            cpu->PPUCTRL = val;
+
+            PPUDATA_WRITE = 0;
+            break;
+
+        // PPUMASK
+        case 0x2001:
+            cpu->PPUMASK = val;
+
+            PPUDATA_WRITE = 0;
+            break;
+
+        // PPUSTATUS
+        case 0x2002:
+            cpu->PPUSTATUS = val;
+            
+            PPUDATA_WRITE = 0;
+            break;
+
+        // OAMADDR
+        case 0x2003:
+            cpu->OAMADDR = val;
+            
+            PPUDATA_WRITE = 0;
+            break;
+
+        // OAMDATA
+        case 0x2004:
+            cpu->OAMDATA = val;
+            
+            PPUDATA_WRITE = 0;
+            break;
+
+        // PPUSCROLL
+        case 0x2005:
+            cpu->PPUSCROLL = val;
+            
+            PPUDATA_WRITE = 0;
+            break;
+
+        // PPUADDR
+        case 0x2006:
+            // First write
+            if (!ppu_w_register) {
+                cpu->PPUADDR = val;
+                ppu_w_register = 1;
+                PPUADDR_COMPLETED = 0;
+            } else {
+                cpu->PPUADDR |= (val << 8);
+                ppu_w_register = 0;
+                PPUADDR_COMPLETED = 1;
+            }            
+            PPUDATA_WRITE = 0;
+            break;
+
+        // PPUDATA
+        case 0x2007:
+            cpu->PPUDATA = val;
+            PPUDATA_WRITE = 1;
+            break;
+
+        default:
+            PPUDATA_WRITE = 0;
+            break;
+    }
+
+
+
+
 }
 
 // Core functions
@@ -145,65 +253,79 @@ void load_test_rom(Cpu6502 *cpu) {
         printf("M[0x20]: %x\n",memory[0x400]);
 }
 
-void load_cpu_mem(Cpu6502 *cpu, char *filename) {
-
-    FILE *rom = fopen(filename, "rb");
-    if (!rom) {
-        perror("Error opening ROM file");
-        return;
-    }
-
-    // Read INES header
-    unsigned char header[NES_HEADER_SIZE];
-    if (fread(header, 1, NES_HEADER_SIZE, rom) != NES_HEADER_SIZE) {
-        perror("Error: header does not match 16 bytes!");
-        fclose(rom);
-        return;
-    }
-
-    int prg_size = header[4] * 16 * 1024;
-    int chr_size = header[5] * 8 * 1024;
-
-    printf("PRG ROM size: %d bytes\n", prg_size);
-    printf("CHR ROM size: %d bytes\n", chr_size);
-
-    if (prg_size != 16384 && prg_size != 32768) {
-        printf("Unsupported PRG ROM size!\n");
-        fclose(rom);
-        return;
-    }
-
-    // Read PRG ROM into a temporary buffer
-    unsigned char *prg_rom = malloc(prg_size);
-    if (!prg_rom) {
-        printf("Memory allocation failed!\n");
-        fclose(rom);
-        return;
-    }
-
-    if (fread(prg_rom, 1, prg_size, rom) != prg_size) {
-        perror("Error reading PRG ROM");
-        free(prg_rom);
-        fclose(rom);
-        return;
-    }
-
-    fclose(rom);
-
-    // Clear memory
+void load_cpu_memory(Cpu6502 *cpu, unsigned char *prg_rom, int prg_size){
+    //Clear memory
     memset(memory, 0, MEMORY_SIZE);
 
-    // Load PRG ROM into 0x8000 - 0xBFFF
+    //Load PRG ROM into 0x8000 - 0xBFFF
     memcpy(&memory[0x8000], prg_rom, prg_size);
 
-    // If PRG ROM is 16KB, mirror it into $C000-$FFFF (NROM-128 behavior)
+    //If PRG ROM is 16KB, mirror it into $C000-$FFFF (NROM-128 behavior)
     if (prg_size == 16384) {
-        memcpy(&memory[0xC000], prg_rom, 16384);
+       memcpy(&memory[0xC000], prg_rom, 16384);
     }
 
-    free(prg_rom);
-
 }
+
+// void load_cpu_mem(Cpu6502 *cpu, char *filename) {
+
+//     FILE *rom = fopen(filename, "rb");
+//     if (!rom) {
+//         perror("Error opening ROM file");
+//         return;
+//     }
+
+//     // Read INES header
+//     unsigned char header[NES_HEADER_SIZE];
+//     if (fread(header, 1, NES_HEADER_SIZE, rom) != NES_HEADER_SIZE) {
+//         perror("Error: header does not match 16 bytes!");
+//         fclose(rom);
+//         return;
+//     }
+
+//     int prg_size = header[4] * 16 * 1024;
+//     int chr_size = header[5] * 8 * 1024;
+
+//     printf("PRG ROM size: %d bytes\n", prg_size);
+//     printf("CHR ROM size: %d bytes\n", chr_size);
+
+//     if (prg_size != 16384 && prg_size != 32768) {
+//         printf("Unsupported PRG ROM size!\n");
+//         fclose(rom);
+//         return;
+//     }
+
+//     // Read PRG ROM into a temporary buffer
+//     unsigned char *prg_rom = malloc(prg_size);
+//     if (!prg_rom) {
+//         printf("Memory allocation failed!\n");
+//         fclose(rom);
+//         return;
+//     }
+
+//     if (fread(prg_rom, 1, prg_size, rom) != prg_size) {
+//         perror("Error reading PRG ROM");
+//         free(prg_rom);
+//         fclose(rom);
+//         return;
+//     }
+
+//     fclose(rom);
+
+//     // Clear memory
+//     memset(memory, 0, MEMORY_SIZE);
+
+//     // Load PRG ROM into 0x8000 - 0xBFFF
+//     memcpy(&memory[0x8000], prg_rom, prg_size);
+
+//     // If PRG ROM is 16KB, mirror it into $C000-$FFFF (NROM-128 behavior)
+//     if (prg_size == 16384) {
+//         memcpy(&memory[0xC000], prg_rom, 16384);
+//     }
+
+//     free(prg_rom);
+
+// }
 
 
 
@@ -258,6 +380,9 @@ void instr_LDY(Cpu6502 *cpu, uint8_t val) {
 }
 
 void instr_STA(Cpu6502 *cpu, uint16_t addr) {
+    
+    ppu_registers_modified(cpu, addr, cpu->A);
+
     memory[addr] = cpu->A;
     cpu->PC++;
 }

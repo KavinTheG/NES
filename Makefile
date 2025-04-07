@@ -1,5 +1,5 @@
 CC = gcc
-OBJ = ./build/main.o ./build/cpu.o
+OBJ = ./build/main.o ./build/cpu.o ./build/ppu.o
 CFLAGS = -Wall -Iinclude
 TARGET = ./bin/emulator
 VPATH = src
@@ -17,6 +17,10 @@ $(TARGET): $(OBJ)
 
 # Rule to compile cpu.c into cpu.o
 ./build/cpu.o: cpu.c | ./build
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Rule to compile ppu.c into ppu.o
+./build/ppu.o: ppu.c | ./build
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Rule to clean up compiled files

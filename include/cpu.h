@@ -34,14 +34,37 @@ typedef struct Cpu6502 {
     unsigned char P[8];
     //uint8_t P;
 
+    /** Memory mapped PPU registers **/
+
+    // misc settings
+    uint8_t PPUCTRL;
+
+    uint8_t PPUMASK;
+    
+    uint8_t PPUSTATUS;
+
+    uint8_t OAMADDR;
+
+    uint8_t OAMDATA;
+    
+    uint8_t PPUSCROLL;
+
+    // PPUADDR is the value CPU writes to $2006
+    uint16_t PPUADDR;
+
+    uint8_t PPUDATA;
+
+    uint8_t OAMDMA;
+
 
 
 } Cpu6502;
 
 
 void cpu_init(Cpu6502 *cpu);
+void load_cpu_memory(Cpu6502 *cpu, unsigned char *prg_rom, int prg_size);
 
-void load_cpu_mem(Cpu6502 *cpu, char *filename);
+//void load_cpu_mem(Cpu6502 *cpu, char *filename);
 void load_test_rom(Cpu6502 *cpu);
 void cpu_execute(Cpu6502 *cpu);
 
@@ -151,3 +174,10 @@ void instr_RLA(Cpu6502 *cpu, uint8_t *M);
 void instr_RRA(Cpu6502 *cpu, uint8_t *M);
 void instr_SLO(Cpu6502 *cpu, uint8_t *M);
 void instr_SRE(Cpu6502 *cpu, uint8_t *M);
+
+// PPU Functions
+void set_ppu_w_reg(unsigned char ppu_w);
+unsigned char get_ppu_w_reg();
+uint16_t get_ppu_PPUADDR(Cpu6502 *cpu);
+unsigned char get_ppu_PPUADDR_completed();
+unsigned char get_ppu_PPUDATA_write();
