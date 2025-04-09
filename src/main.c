@@ -78,6 +78,21 @@ void load_sys_mem(Cpu6502 *cpu, PPU *ppu, char *filename) {
 
 }
 
+void load_ppu_palette(char *filename) {
+    FILE *pal = fopen("palette/2C02G_wiki.pal", "rb");
+
+    if (!pal) {
+        perror("Failed to open .pal file");
+        return 1;
+    }
+
+    uint8_t palette[192];
+
+    fread(palette, 1, 192, pal);
+    fclose(pal);
+
+    load_palette(palette);
+}
 
 int main() {
 

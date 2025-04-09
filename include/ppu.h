@@ -31,12 +31,18 @@ typedef struct PPU
 } PPU;
 
 
+struct RGB {
+    uint8_t r, g, b;
+} RGB;
+
 void ppu_init(PPU *ppu);
 void load_ppu_memory(PPU *ppu, unsigned char *chr_rom, int chr_size);
 void load_ppu_ines_header(unsigned char *header);
 
-void load_ppu_mem(PPU *ppu, char *filename);
+//void load_ppu_mem(PPU *ppu, char *filename);
 uint8_t read_ppu_mem(uint16_t addr);
+
+void load_palette(uint8_t *palette);
 
 // Setters
 void set_w_reg(PPU *ppu, unsigned char w);
