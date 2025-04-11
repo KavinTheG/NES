@@ -20,6 +20,9 @@ uint8_t ppu_memory[MEMORY_SIZE] = {0};
 uint8_t nes_header[NES_HEADER_SIZE] = {0};
 uint8_t ppu_palette[PALETTE_SIZE * 3];
 
+// Counter for # of cycles and scanlines
+int cycle, scanline;
+
 // Nametable mirror arrangment flag
 // 1 = h, v = 0
 unsigned char nametable_mirror_flag;
@@ -118,45 +121,83 @@ uint8_t fetch_attr_table_byte(PPU *ppu) {
     
 }
 
-// Fetch tile graphics from pattern table
+/* 
+Fetch high and low byte from pattern table
+
 // From address $0000 - $1FFF
-void fetch_pattern_table_bytes() {
+*/
+uint16_t fetch_pattern_table_bytes(uint8_t tile_index) {
+        return  (read_ppu_mem((tile_index * 16) + 8) << 8) | read_ppu_mem(tile_index * 16);  
 }
 
 
-void draw_pixel(PPU *ppu) {
+void ppu_execute_cycle(PPU *ppu) {
 
-    // Step 1
-    uint8_t name_table_byte = fetch_name_table_byte(ppu);
+    uint16_t pattern_table_tile;
+    uint8_t name_table_byte, attribute_byte;
 
+    // Pre-render Scanline -1
 
-    // Step 2
-    uint8_t attribute_byte = fetch_attr_table_byte(ppu);
+    // Visible Scanline 0 - 239
+    if (cycle >= 1 && cycle <= 256) {
+        switch ((cycle - 1) % 8) {
 
-    // Determines which of the four areas of the attribute byte to use
-    uint8_t tile_area_horizontal = (ppu->v & 0x00F) % 4;
-    uint8_t tile_area_vertical = ((ppu->v & 0x0F0) / 0x20) % 4;
-    uint8_t palette_index;
+            // Step 1
+            case 0:
+                name_table_byte = fetch_name_table_byte(ppu);
+                cycle += 2;
+                break;
 
-    if (tile_area_vertical == 0 && tile_area_horizontal == 0) {
-        // Top left quadrant (bit 1 & 0)
-        palette_index = attribute_byte & 0x03; 
-    } else if (tile_area_vertical == 0 && tile_area_horizontal == 1) {
-        // Top right quadrant (bit 3 & 2)
-        palette_index = attribute_byte & 0x0C;
-    } else if (tile_area_vertical == 1 && tile_area_horizontal == 0) {
-        // Bottom left quadrant (bit 5 & 4)
-        palette_index = attribute_byte & 0x30;
-    } else if (tile_area_vertical == 1 && tile_area_horizontal == 1) {
-        // Bottom right quadrant (bit 7 6 6)
-        palette_index = attribute_byte = 0xC0;
+            // Step 2
+            case 2:
+                attribute_byte = fetch_attr_table_byte(ppu);
+
+                // Determines which of the four areas of the attribute byte to use
+                uint8_t tile_area_horizontal = (ppu->v & 0x00F) % 4;
+                uint8_t tile_area_vertical = ((ppu->v & 0x0F0) / 0x20) % 4;
+                uint8_t palette_index;
+
+                if (tile_area_vertical == 0 && tile_area_horizontal == 0) {
+                    // Top left quadrant (bit 1 & 0)
+                    palette_index = attribute_byte & 0x03; 
+                } else if (tile_area_vertical == 0 && tile_area_horizontal == 1) {
+                    // Top right quadrant (bit 3 & 2)
+                    palette_index = attribute_byte & 0x0C;
+                } else if (tile_area_vertical == 1 && tile_area_horizontal == 0) {
+                    // Bottom left quadrant (bit 5 & 4)
+                    palette_index = attribute_byte & 0x30;
+                } else if (tile_area_vertical == 1 && tile_area_horizontal == 1) {
+                    // Bottom right quadrant (bit 7 6 6)
+                    palette_index = attribute_byte = 0xC0;
+                }
+
+            // Step 3
+                ppu->v += (ppu->PPUCTRL & 0x04) == 0x04 ? 32 : 1; 
+                cycle +=2;
+            break;
+
+            // Step 4    
+            case 4:
+                pattern_table_tile = fetch_pattern_table_bytes(name_table_byte);
+                cycle += 3;
+                break;
+
+            case 7:
+                //Pixel output
+
+                
+                cycle += 2;
+                break;
+            // Step 5
+        }
+    } else if (cycle >= 257 && cycle <= 320) {
+        // Tile data for the sprites on the next scanline are fetched
+    }  else if (cycle >= 321 && cycle <= 336) {
+        // First two tiles of the next scanline are fetched
+    }  else if (cycle >= 337 && cycle <= 340) {
+        // Two bytes are fetched for unknown reasons
     }
 
-    // Step 3
-    ppu->v += (ppu->PPUCTRL & 0x04) == 0x04 ? 32 : 1; 
-
-    // Step 4    
-    
-    // Step 5
+    // vblank Scanline 241-260
 
 }

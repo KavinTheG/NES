@@ -18,9 +18,6 @@
 uint8_t memory[MEMORY_SIZE] = {0};
 FILE* log_file;
 
-// stack memory
-//uint8_t stack[0xFF] = {0};
-
 // int to hold status flags
 uint8_t status;
 
@@ -176,10 +173,6 @@ void ppu_registers_modified(Cpu6502 *cpu, uint16_t addr, uint8_t val) {
             PPUDATA_WRITE = 0;
             break;
     }
-
-
-
-
 }
 
 // Core functions
