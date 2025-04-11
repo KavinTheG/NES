@@ -9,6 +9,7 @@ Author: Kavin Gnanapandithan
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h> 
+#include <SDL2/SDL.h>
 
 #define NES_HEADER_SIZE 16
 #define MEMORY_SIZE 0x4000 // 16 KB
@@ -30,8 +31,16 @@ unsigned char nametable_mirror_flag;
 // 256 seperate memoery dedicated to OAM
 uint8_t oam_memory[OAM_SIZE] = {0};
 
+// SDL Variables
+SDL_Window *window;
+SDL_Renderer *renderer;
+unsigned char display[256][240];
+
 void ppu_init(PPU *ppu) {
-    /* TODO */
+    /* init SDL graphics*/
+    SDL_Init(SDL_INIT_EVERYTHING);
+    window = SDL_CreateWindow("NES", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 256, 240, 0);
+
 
     /* Header Config */
     
@@ -134,6 +143,7 @@ uint16_t fetch_pattern_table_bytes(uint8_t tile_index) {
 void ppu_execute_cycle(PPU *ppu) {
 
     uint16_t pattern_table_tile;
+    uint16_t palette_ram_addr;
     uint8_t name_table_byte, attribute_byte;
 
     // Pre-render Scanline -1
@@ -162,13 +172,13 @@ void ppu_execute_cycle(PPU *ppu) {
                     palette_index = attribute_byte & 0x03; 
                 } else if (tile_area_vertical == 0 && tile_area_horizontal == 1) {
                     // Top right quadrant (bit 3 & 2)
-                    palette_index = attribute_byte & 0x0C;
+                    palette_index = (attribute_byte & 0x0C) >> 2;
                 } else if (tile_area_vertical == 1 && tile_area_horizontal == 0) {
                     // Bottom left quadrant (bit 5 & 4)
-                    palette_index = attribute_byte & 0x30;
+                    palette_index = (attribute_byte & 0x30) >> 4;
                 } else if (tile_area_vertical == 1 && tile_area_horizontal == 1) {
                     // Bottom right quadrant (bit 7 6 6)
-                    palette_index = attribute_byte = 0xC0;
+                    palette_index = (attribute_byte & 0xC0) >> 6;
                 }
 
             // Step 3
@@ -183,9 +193,31 @@ void ppu_execute_cycle(PPU *ppu) {
                 break;
 
             case 7:
-                //Pixel output
-
+                /*Pixel output*/
+                palette_ram_addr = 0x3F00;
                 
+                // Determine which colour to use from the pallette (the bits 
+                // from the pattern data)
+                /* TODO 
+                    - Have to combine the lower and uppwer byte of the 
+                      pattern table fetch to get the colour indice
+                    - Will form colour indices for 8x8 pixels
+                    
+                    - Need to select the right row from the 8x8 colour indices
+                      based on scanline to get the 1x8 row
+                    
+                    - Need to select the right pixel from the 1x8 row based
+                      on cycles
+                    
+                      - row # = scanline
+                      - column # = cycle - scanline * 256  
+                */
+
+                // Determine which palette to use (2 bits from the attribute)
+                palette_ram_addr |= (palette_index << 2); 
+
+                // Determine if pixel is sprite or background
+
                 cycle += 2;
                 break;
             // Step 5
