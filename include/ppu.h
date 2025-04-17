@@ -37,10 +37,11 @@ struct RGB {
 
 void ppu_init(PPU *ppu);
 void load_ppu_memory(PPU *ppu, unsigned char *chr_rom, int chr_size);
+void load_ppu_oam_mem(PPU *ppu, uint8_t *dma_mem);
 void load_ppu_ines_header(unsigned char *header);
 
 //void load_ppu_mem(PPU *ppu, char *filename);
-uint8_t read_ppu_mem(uint16_t addr);
+//uint8_t read_ppu_mem(uint16_t addr);
 
 void load_palette(uint8_t *palette);
 

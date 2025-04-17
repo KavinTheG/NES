@@ -181,3 +181,7 @@ unsigned char get_ppu_w_reg();
 uint16_t get_ppu_PPUADDR(Cpu6502 *cpu);
 unsigned char get_ppu_PPUADDR_completed();
 unsigned char get_ppu_PPUDATA_write();
+unsigned char get_ppu_OAM_write();
+unsigned char get_ppu_OAMDMA_write();
+
+void get_ppu_dma_page(Cpu6502 *cpu, uint8_t* page_mem);

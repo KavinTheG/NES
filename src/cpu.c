@@ -37,6 +37,8 @@ unsigned char ppu_w_register = 0;
 // Flag
 unsigned char PPUADDR_COMPLETED = 0;
 unsigned char PPUDATA_WRITE = 0;
+unsigned char OAM_WRITE = 0;
+unsigned char OAMDMA_WRITE = 0;
 
 /**  Helper functions **/
 
@@ -101,6 +103,14 @@ unsigned char get_ppu_PPUDATA_write() {
     return PPUDATA_WRITE;
 }
 
+unsigned char get_ppu_OAM_write() {
+    return OAM_WRITE;
+}
+
+void get_ppu_dma_page(Cpu6502 *cpu,uint8_t* page_mem) {
+    memcpy(page_mem, &memory[cpu->OAMDMA], 0xFF);
+}
+
 void ppu_registers_modified(Cpu6502 *cpu, uint16_t addr, uint8_t val) {
     // PPUADDR
 
@@ -138,6 +148,8 @@ void ppu_registers_modified(Cpu6502 *cpu, uint16_t addr, uint8_t val) {
         case 0x2004:
             cpu->OAMDATA = val;
             
+
+            OAM_WRITE = 1;
             PPUDATA_WRITE = 0;
             break;
 
@@ -167,6 +179,11 @@ void ppu_registers_modified(Cpu6502 *cpu, uint16_t addr, uint8_t val) {
         case 0x2007:
             cpu->PPUDATA = val;
             PPUDATA_WRITE = 1;
+            break;
+
+        case 0x4014:
+            cpu->OAMDMA = val & 0xFF00;
+            OAMDMA_WRITE = 1;
             break;
 
         default:

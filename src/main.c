@@ -132,6 +132,21 @@ int main() {
             set_v_reg(&ppu);
         }
 
+        if (get_ppu_OAM_write()) {
+            // Set OAMADDR and OAMDATA
+        }
+
+        if (get_ppu_OAMDMA_write()) {
+            // Get page of memory of CPU to the PPU OAM ram
+            uint8_t page_mem;
+            
+            // Load page memory into page_mem
+            get_ppu_dma_page(&cpu, page_mem);
+
+            // Store page_mem into OAM ram
+            load_ppu_oam_mem(&ppu, page_mem);
+        }
+
     }
 
 }
