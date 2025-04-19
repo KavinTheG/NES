@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+#include "ppu.h"
 
 #define MEMORY_SIZE 0x10000 // 64 KB
 #define NES_HEADER_SIZE 16
@@ -29,16 +30,6 @@ char new_carry;
 int cyc = 0;
 
 int instr_num = 0;
-
-
-/* PPU Registers */
-unsigned char ppu_w_register = 0;
-
-// Flag
-unsigned char PPUADDR_COMPLETED = 0;
-unsigned char PPUDATA_WRITE = 0;
-unsigned char OAM_WRITE = 0;
-unsigned char OAMDMA_WRITE = 0;
 
 /**  Helper functions **/
 
@@ -83,121 +74,12 @@ void emulate_6502_cycle(int cycle) {
 
 /* PPU Functions */
 
-void set_ppu_w_reg(unsigned char ppu_w) {
-    ppu_w_register = ppu_w;
+void cpu_ppu_write(Cpu6502 *cpu, uint16_t addr, uint8_t val) {
+    ppu_registers_write(&cpu->ppu, addr, val);
 }
 
-unsigned char get_ppu_w_reg() {
-    return ppu_w_register;
-}
-
-uint16_t get_ppu_PPUADDR(Cpu6502 *cpu) {
-    return cpu->PPUADDR;
-}
-
-unsigned char get_ppu_PPUADDR_completed() {
-    return PPUADDR_COMPLETED;
-}
-
-unsigned char get_ppu_PPUDATA_write() {
-    return PPUDATA_WRITE;
-}
-
-unsigned char get_ppu_OAM_write() {
-    return OAM_WRITE;
-}
-
-unsigned char get_cpu_NMI_flag(Cpu6502 *cpu) {
-    return cpu->nmi_flag;
-}
-
-void get_ppu_dma_page(Cpu6502 *cpu,uint8_t* page_mem) {
-    memcpy(page_mem, &memory[cpu->OAMDMA], 0xFF);
-}
-
-void get_ppu_nmi_flag(Cpu6502 *cpu, unsigned char nmi_flag) {
-    cpu->nmi_flag = nmi_flag;
-}
-
-void ppu_registers_modified(Cpu6502 *cpu, uint16_t addr, uint8_t val) {
-    // PPUADDR
-
-    switch (addr)  {
-
-        // PPUCTRL
-        case 0x2000:
-            cpu->PPUCTRL = val;
-
-            PPUDATA_WRITE = 0;
-            break;
-
-        // PPUMASK
-        case 0x2001:
-            cpu->PPUMASK = val;
-
-            PPUDATA_WRITE = 0;
-            break;
-
-        // PPUSTATUS
-        case 0x2002:
-            cpu->PPUSTATUS = val;
-            
-            PPUDATA_WRITE = 0;
-            break;
-
-        // OAMADDR
-        case 0x2003:
-            cpu->OAMADDR = val;
-            
-            PPUDATA_WRITE = 0;
-            break;
-
-        // OAMDATA
-        case 0x2004:
-            cpu->OAMDATA = val;
-            
-
-            OAM_WRITE = 1;
-            PPUDATA_WRITE = 0;
-            break;
-
-        // PPUSCROLL
-        case 0x2005:
-            cpu->PPUSCROLL = val;
-            
-            PPUDATA_WRITE = 0;
-            break;
-
-        // PPUADDR
-        case 0x2006:
-            // First write
-            if (!ppu_w_register) {
-                cpu->PPUADDR = val;
-                ppu_w_register = 1;
-                PPUADDR_COMPLETED = 0;
-            } else {
-                cpu->PPUADDR |= (val << 8);
-                ppu_w_register = 0;
-                PPUADDR_COMPLETED = 1;
-            }            
-            PPUDATA_WRITE = 0;
-            break;
-
-        // PPUDATA
-        case 0x2007:
-            cpu->PPUDATA = val;
-            PPUDATA_WRITE = 1;
-            break;
-
-        case 0x4014:
-            cpu->OAMDMA = val & 0xFF00;
-            OAMDMA_WRITE = 1;
-            break;
-
-        default:
-            PPUDATA_WRITE = 0;
-            break;
-    }
+void cpu_ppu_read(Cpu6502 *cpu, uint16_t addr) {
+    ppu_registers_read(&cpu->ppu, addr);
 }
 
 // Core functions
@@ -245,6 +127,7 @@ void cpu_init(Cpu6502 *cpu) {
     #endif
 }
 
+
 void load_test_rom(Cpu6502 *cpu) {
 
         FILE* ptr;
@@ -284,67 +167,6 @@ void load_cpu_memory(Cpu6502 *cpu, unsigned char *prg_rom, int prg_size){
     }
 
 }
-
-// void load_cpu_mem(Cpu6502 *cpu, char *filename) {
-
-//     FILE *rom = fopen(filename, "rb");
-//     if (!rom) {
-//         perror("Error opening ROM file");
-//         return;
-//     }
-
-//     // Read INES header
-//     unsigned char header[NES_HEADER_SIZE];
-//     if (fread(header, 1, NES_HEADER_SIZE, rom) != NES_HEADER_SIZE) {
-//         perror("Error: header does not match 16 bytes!");
-//         fclose(rom);
-//         return;
-//     }
-
-//     int prg_size = header[4] * 16 * 1024;
-//     int chr_size = header[5] * 8 * 1024;
-
-//     printf("PRG ROM size: %d bytes\n", prg_size);
-//     printf("CHR ROM size: %d bytes\n", chr_size);
-
-//     if (prg_size != 16384 && prg_size != 32768) {
-//         printf("Unsupported PRG ROM size!\n");
-//         fclose(rom);
-//         return;
-//     }
-
-//     // Read PRG ROM into a temporary buffer
-//     unsigned char *prg_rom = malloc(prg_size);
-//     if (!prg_rom) {
-//         printf("Memory allocation failed!\n");
-//         fclose(rom);
-//         return;
-//     }
-
-//     if (fread(prg_rom, 1, prg_size, rom) != prg_size) {
-//         perror("Error reading PRG ROM");
-//         free(prg_rom);
-//         fclose(rom);
-//         return;
-//     }
-
-//     fclose(rom);
-
-//     // Clear memory
-//     memset(memory, 0, MEMORY_SIZE);
-
-//     // Load PRG ROM into 0x8000 - 0xBFFF
-//     memcpy(&memory[0x8000], prg_rom, prg_size);
-
-//     // If PRG ROM is 16KB, mirror it into $C000-$FFFF (NROM-128 behavior)
-//     if (prg_size == 16384) {
-//         memcpy(&memory[0xC000], prg_rom, 16384);
-//     }
-
-//     free(prg_rom);
-
-// }
-
 
 
 void dump_log_file(Cpu6502 *cpu) {
@@ -398,10 +220,11 @@ void instr_LDY(Cpu6502 *cpu, uint8_t val) {
 }
 
 void instr_STA(Cpu6502 *cpu, uint16_t addr) {
-    
-    ppu_registers_modified(cpu, addr, cpu->A);
-
-    memory[addr] = cpu->A;
+    if (addr >= 0x2000 && addr <= 0x3FFF) {
+        cpu_ppu_write(cpu, addr, cpu->A);
+    } else {
+        memory[addr] = cpu->A;
+    }
     cpu->PC++;
 }
 

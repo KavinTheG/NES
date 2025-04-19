@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdio.h>
+#include "ppu.h"
 
 typedef struct Cpu6502 {
 
@@ -34,35 +35,15 @@ typedef struct Cpu6502 {
     unsigned char P[8];
     //uint8_t P;
 
-    /** Memory mapped PPU registers **/
-
-    // misc settings
-    uint8_t PPUCTRL;
-
-    uint8_t PPUMASK;
-    
-    uint8_t PPUSTATUS;
-
-    uint8_t OAMADDR;
-
-    uint8_t OAMDATA;
-    
-    uint8_t PPUSCROLL;
-
-    // PPUADDR is the value CPU writes to $2006
-    uint16_t PPUADDR;
-
-    uint8_t PPUDATA;
-
-    uint8_t OAMDMA;
-
     unsigned char nmi_flag;
 
+    PPU* ppu;
 
 } Cpu6502;
 
 
 void cpu_init(Cpu6502 *cpu);
+
 void load_cpu_memory(Cpu6502 *cpu, unsigned char *prg_rom, int prg_size);
 
 //void load_cpu_mem(Cpu6502 *cpu, char *filename);
@@ -187,4 +168,4 @@ unsigned char get_ppu_OAMDMA_write();
 
 void get_ppu_dma_page(Cpu6502 *cpu, uint8_t* page_mem);
 
-void get_cpu_NMI_flag(Cpu6502 *cpu, unsigned char nmi_flag);
+void get_cpu_NMI_flag(Cpu6502 *cpu);

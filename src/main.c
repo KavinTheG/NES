@@ -109,6 +109,8 @@ int main() {
     cpu_init(&cpu);
     ppu_init(&ppu);
 
+    cpu.ppu = &ppu;
+
     sleep(1);
 
     // logging

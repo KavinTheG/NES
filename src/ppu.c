@@ -66,6 +66,9 @@ SDL_Window *window;
 SDL_Renderer *renderer;
 unsigned char display[256][240];
 
+
+uint8_t open_bus;
+
 void ppu_init(PPU *ppu) {
     /* init SDL graphics*/
     SDL_Init(SDL_INIT_EVERYTHING);
@@ -107,6 +110,116 @@ void load_ppu_oam_mem(PPU *ppu, uint8_t *dma_mem) {
     free(dma_mem);
 }
 
+void ppu_registers_write(PPU *ppu, uint16_t addr, uint8_t val) {
+    switch (addr)  {
+
+        // PPUCTRL
+        case 0x2000:
+            ppu->PPUCTRL = val;
+            break;
+
+        // PPUMASK
+        case 0x2001:
+            ppu->PPUMASK = val;
+            break;
+
+        // PPUSTATUS
+        case 0x2002:
+            ppu->PPUSTATUS = val;
+            break;
+
+        // OAMADDR
+        case 0x2003:
+            ppu->OAMADDR = val;
+            break;
+
+        // OAMDATA
+        case 0x2004:
+            ppu->OAMDATA = val;
+            break;
+
+        // PPUSCROLL
+        case 0x2005:
+            ppu->PPUSCROLL = val;
+            ppu->w = (ppu->w == 0) ? 1 : 0;
+            break;
+
+        // PPUADDR
+        case 0x2006:
+            // First write
+            if (!ppu->w) {
+                ppu->PPUADDR = val;
+                ppu->w = 1;
+            } else {
+                ppu->PPUADDR |= (val << 8);
+                ppu->w = 0;
+            }            
+            break;
+
+        // PPUDATA
+        case 0x2007:
+            ppu->PPUDATA = val;
+            break;
+
+        case 0x4014:
+            ppu->OAMDMA = val & 0xFF00;
+            break;
+    }
+}
+
+uint8_t ppu_registers_read(PPU *ppu, uint16_t addr) {
+
+    switch (addr)  {
+
+        // PPUCTRL
+        case 0x2000:
+            return open_bus;
+            break;
+
+        // PPUMASK
+        case 0x2001:
+            return open_bus;
+            break;
+
+        // PPUSTATUS
+        case 0x2002:
+            open_bus = ppu->PPUSTATUS;
+            return open_bus;
+            break;
+
+        // OAMADDR
+        case 0x2003:
+            return open_bus;
+            break;
+
+        // OAMDATA
+        case 0x2004:
+            open_bus = ppu->OAMDATA;
+            return open_bus;
+            break;
+
+        // PPUSCROLL
+        case 0x2005:
+            return open_bus;
+            break;
+
+        // PPUADDR
+        case 0x2006:
+            return open_bus;
+            break;
+
+        // PPUDATA
+        case 0x2007:
+            open_bus = ppu->PPUDATA;
+            return open_bus;
+            break;
+
+        case 0x4014:
+            return open_bus;
+            break;
+    }
+}
+
 
 uint8_t read_mem(PPU *ppu, uint16_t addr) {
     switch (addr & 0xF000) {
@@ -140,64 +253,6 @@ uint8_t read_mem(PPU *ppu, uint16_t addr) {
     }
  
 }
-
-void set_w_reg(PPU *ppu, unsigned char w) {
-    ppu->w = w;
-}
-
-void set_v_reg(PPU *ppu) {
-    ppu->v = ppu->PPUADDR;
-}
-
-void set_PPUCTRL_reg(PPU *ppu, uint8_t reg) {
-    ppu->PPUCTRL = reg;
-}
-
-void set_PPUMASK_reg(PPU *ppu, uint8_t reg) {
-    ppu->PPUMASK = reg;
-}   
-
-void set_PPUSTATUS_reg(PPU *ppu, uint8_t reg) {
-    ppu->PPUSTATUS = reg;
-};
-
-// Return PPUSTATUS, vblank bit can be set
-uint8_t get_PPUSTATUS_reg(PPU *ppu) {
-    return ppu->PPUSTATUS;
-}
-
-void set_OAMADDR_reg(PPU *ppu, uint8_t reg) {
-    ppu->OAMADDR = reg;    
-}
-
-void set_OAMDATA_reg(PPU *ppu, uint8_t reg) {
-    ppu->OAMDATA = reg;
-}
-
-void set_PPUSCROLL_reg(PPU *ppu, uint8_t reg) {
-    ppu->PPUSCROLL = reg;
-};
-
-void set_PPUADDR_reg(PPU *ppu, uint16_t reg) {
-    ppu->PPUADDR = reg;
-}
-
-void set_PPUDATA_reg(PPU *ppu, uint8_t reg) {
-    ppu->PPUDATA = reg;
-}
-
-void set_OAMDMA_reg(PPU *ppu, uint8_t reg) {
-    ppu->OAMDMA = reg;
-}
-
-unsigned char get_ppu_NMI_flag(PPU *ppu) {
-    return ppu->nmi_flag;
-}
-
-void set_ppu_NMI_Flag(PPU *ppu, unsigned char nmi_flag) {
-    ppu->nmi_flag = nmi_flag;
-}
-
 
 /* 
 Fe_reg(PPU *ppu) {}h tile from name table
