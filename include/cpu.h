@@ -56,6 +56,7 @@ typedef struct Cpu6502 {
 
     uint8_t OAMDMA;
 
+    unsigned char nmi_flag;
 
 
 } Cpu6502;
@@ -185,3 +186,5 @@ unsigned char get_ppu_OAM_write();
 unsigned char get_ppu_OAMDMA_write();
 
 void get_ppu_dma_page(Cpu6502 *cpu, uint8_t* page_mem);
+
+void get_cpu_NMI_flag(Cpu6502 *cpu, unsigned char nmi_flag);

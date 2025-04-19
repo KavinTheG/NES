@@ -107,8 +107,16 @@ unsigned char get_ppu_OAM_write() {
     return OAM_WRITE;
 }
 
+unsigned char get_cpu_NMI_flag(Cpu6502 *cpu) {
+    return cpu->nmi_flag;
+}
+
 void get_ppu_dma_page(Cpu6502 *cpu,uint8_t* page_mem) {
     memcpy(page_mem, &memory[cpu->OAMDMA], 0xFF);
+}
+
+void get_ppu_nmi_flag(Cpu6502 *cpu, unsigned char nmi_flag) {
+    cpu->nmi_flag = nmi_flag;
 }
 
 void ppu_registers_modified(Cpu6502 *cpu, uint16_t addr, uint8_t val) {
@@ -1228,6 +1236,10 @@ void instr_SRE(Cpu6502 *cpu, uint8_t *M) {
     cpu->PC++;
 }
 
+void cpu_nmi_triggered(Cpu6502 *cpu) {
+    // Push PC and jump to $FFFA
+    cpu->nmi_flag = 0;
+}
 // Addresing modes
 
 uint16_t addr_abs(Cpu6502 *cpu) {
@@ -1258,7 +1270,6 @@ uint16_t addr_abs_X(Cpu6502 *cpu) {
 
     //addr = (memory[cpu->PC] << 8 | LB) + cpu->X;
     addr = (HB << 8 | LB) + cpu->X;
-    printf("addr: %x + %x = %x", (HB << 8 | LB), cpu->X, addr);
 
     return addr;
 }
@@ -1404,6 +1415,13 @@ void cpu_execute(Cpu6502 *cpu) {
             exit(0);
         }
     #endif
+    
+    // PPU set NMI flag
+    if (cpu->nmi_flag) {
+        cpu_nmi_triggered(cpu);
+        return;
+    }
+
 
     // Compare the upper 4 bits
     switch ((instr >> 4) & 0x0F) {

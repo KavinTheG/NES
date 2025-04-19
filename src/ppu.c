@@ -3,7 +3,6 @@ NES PPU implementation
 Author: Kavin Gnanapandithan
 */
 
-
 #include "ppu.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -150,12 +149,58 @@ void set_v_reg(PPU *ppu) {
     ppu->v = ppu->PPUADDR;
 }
 
-void set_PPUADDR(PPU *ppu, uint16_t PPUADDR) {
-    ppu->PPUADDR = PPUADDR;
+void set_PPUCTRL_reg(PPU *ppu, uint8_t reg) {
+    ppu->PPUCTRL = reg;
 }
 
+void set_PPUMASK_reg(PPU *ppu, uint8_t reg) {
+    ppu->PPUMASK = reg;
+}   
+
+void set_PPUSTATUS_reg(PPU *ppu, uint8_t reg) {
+    ppu->PPUSTATUS = reg;
+};
+
+// Return PPUSTATUS, vblank bit can be set
+uint8_t get_PPUSTATUS_reg(PPU *ppu) {
+    return ppu->PPUSTATUS;
+}
+
+void set_OAMADDR_reg(PPU *ppu, uint8_t reg) {
+    ppu->OAMADDR = reg;    
+}
+
+void set_OAMDATA_reg(PPU *ppu, uint8_t reg) {
+    ppu->OAMDATA = reg;
+}
+
+void set_PPUSCROLL_reg(PPU *ppu, uint8_t reg) {
+    ppu->PPUSCROLL = reg;
+};
+
+void set_PPUADDR_reg(PPU *ppu, uint16_t reg) {
+    ppu->PPUADDR = reg;
+}
+
+void set_PPUDATA_reg(PPU *ppu, uint8_t reg) {
+    ppu->PPUDATA = reg;
+}
+
+void set_OAMDMA_reg(PPU *ppu, uint8_t reg) {
+    ppu->OAMDMA = reg;
+}
+
+unsigned char get_ppu_NMI_flag(PPU *ppu) {
+    return ppu->nmi_flag;
+}
+
+void set_ppu_NMI_Flag(PPU *ppu, unsigned char nmi_flag) {
+    ppu->nmi_flag = nmi_flag;
+}
+
+
 /* 
-Fetch tile from name table
+Fe_reg(PPU *ppu) {}h tile from name table
 Note: 
 - PPU has 2KB of VRAM
 - Mapped to 4KB of PPU memory ($2000 - $2FFF)
@@ -205,173 +250,221 @@ void ppu_execute_cycle(PPU *ppu) {
     uint8_t name_table_byte, attribute_byte, palette_data;
     // Pre-render Scanline -1
 
-    // Visible Scanline 0 - 239
-    if (cycle >= 1 && cycle <= 256) {
-        if (cycle == 1) {
-            // set secondary oam to 0xFF
-            memset(&oam_memory_secondary, 0xFF, 32);
-        }
+    /* 
+    Visible Scanline 0 - 239
+        - Visible dots (1 to 256)
+        - Sprite prefetch
+        - Tile prefetch
 
-        uint8_t sprite_byte;
-        if (cycle >= 65) {
-
-            int oam_index = cycle - 65;
-            int sprite_index = oam_index % 4;
-            int sprite_size = (ppu->PPUCTRL & 0x20) == 0x20 ? 16 : 8;
-            unsigned char copy_flag = 0;
-            sprite_byte = oam_memory[oam_index];
-
-            if (sprite_index == 0) {
-                if ( (sprite_byte - 1) <= scanline && scanline < (sprite_byte - 1 + sprite_size) ) {
-                    copy_flag = 1;
-                } else {
-                    copy_flag = 0;
-                }
-            }   
-
-            if (copy_flag) {
-                oam_secondary_top = oam_index % 32;
-                oam_memory_secondary[oam_secondary_top] = sprite_byte;
+        - Tile prefetch (321 to 336)
+            - Same process as visible dots
+            - No rendering
+    */
+   if (scanline >= 0 && scanline <= 239) {
+        if ((cycle >= 1 && cycle <= 256) || (cycle >= 321 && cycle <= 336) ) {
+            if (cycle == 1) {
+                // set secondary oam to 0xFF
+                memset(&oam_memory_secondary, 0xFF, 32);
             }
-        }
 
+            uint8_t sprite_byte;
+            if (cycle >= 65) {
 
-        drawing_bg_flag = 1;
-        
-        // Store the index of the sprite if it exists in the current pixel
-        int sprite_index = -1;
+                int oam_index = cycle - 65;
+                int sprite_index = oam_index % 4;
+                int sprite_size = (ppu->PPUCTRL & 0x20) == 0x20 ? 16 : 8;
+                unsigned char copy_flag = 0;
+                sprite_byte = oam_memory[oam_index];
 
-        // Check if tile is background or sprite
-        for (int i = 0; i <= oam_secondary_top; i += 4) {
-
-            uint8_t byte_3 = oam_buffer_latches[i + 3];
-            
-            if (byte_3 <= cycle && byte_3 > cycle) {
-                // This pixel is a sprite pixel
-                drawing_bg_flag = 0;
-                sprite_index = i;
-            }
-        }
-
-
-
-    
-        
-        switch (cycle % 8) {
-
-            // Step 1
-            case 1:
-                name_table_byte = fetch_name_table_byte(ppu);
-                break;
-
-            // Step 2
-            case 3:
-                attribute_byte = fetch_attr_table_byte(ppu);
-
-                // Determines which of the four areas of the attribute byte to use
-                uint8_t tile_area_horizontal = (ppu->v & 0x00F) % 4;
-                uint8_t tile_area_vertical = ((ppu->v & 0x0F0) / 0x20) % 4;
-                uint8_t palette_index;
-
-                if (tile_area_vertical == 0 && tile_area_horizontal == 0) {
-                    // Top left quadrant (bit 1 & 0)
-                    palette_index = attribute_byte & 0x03; 
-                } else if (tile_area_vertical == 0 && tile_area_horizontal == 1) {
-                    // Top right quadrant (bit 3 & 2)
-                    palette_index = (attribute_byte & 0x0C) >> 2;
-                } else if (tile_area_vertical == 1 && tile_area_horizontal == 0) {
-                    // Bottom left quadrant (bit 5 & 4)
-                    palette_index = (attribute_byte & 0x30) >> 4;
-                } else if (tile_area_vertical == 1 && tile_area_horizontal == 1) {
-                    // Bottom right quadrant (bit 7 6 6)
-                    palette_index = (attribute_byte & 0xC0) >> 6;
-                }
-
-            break;
-
-            // Step 4    
-            case 5:
-                if (drawing_bg_flag) {
-                    pattern_table_tile = fetch_pattern_table_bytes(ppu, name_table_byte);
-                } else {
-                    // byte 1 is tile number
-                    pattern_table_tile = fetch_pattern_table_bytes(ppu, oam_buffer_latches[sprite_index + 1]);
-                }
-                /* Tile fetch from cycle i is rendered on pixel i + 16 */
-                for (int i = cycle + 16; i < cycle + 24; i++) {
-                    unsigned char msb = (pattern_table_tile & 0x00FF) & (1 << (8- (i - cycle + 1)));
-                    unsigned char lsb = ((pattern_table_tile & 0xFF) >> 8) & (1 << (8- (i - cycle + 1)));
-
-                    // 0-indexed, subtract i from 1
-                    display[scanline][i - 1] = (msb >> 1) | lsb; 
-                }
-                break;
-
-            case 0:
-
-                // Increment v 
-                ppu->v += (ppu->PPUCTRL & 0x04) == 0x04 ? 32 : 1; 
-                
-                /* On the 8th cycle, data for tile N + 2 is fetched 
-                    - Use the pixel value from tile pattern data,
-                      palette number from attributes & background/sprite select
-                      to generate a palette address
-                    - Push this palette data from this address to the queue buffer
-                */
-
-                /* Pop tile buffer to get tile N*/
-                memset(&tile_palette_data, pop(tile_buffer_queue), TILE_SIZE);  
-
-                /* Push tile N + 2 to buffer */
-                for (int i = 0; i < TILE_SIZE; i++) {
-
-                    // Background/sprite select
-                    if (drawing_bg_flag) {
-                        palette_ram_addr = 0x3F00;
+                if (sprite_index == 0) {
+                    if ( (sprite_byte - 1) <= scanline && scanline < (sprite_byte - 1 + sprite_size) ) {
+                        copy_flag = 1;
                     } else {
-                        palette_ram_addr = 0x3F10;
+                        copy_flag = 0;
                     }
-                    
-                    // Add 16 to get to position Tile N + 2
-                    // Subtract 1 due to 0-index
-                    palette_ram_addr |= display[scanline][i + 16 - 1];
-                    
-                    // Bit 3 and 2 are the palette number from attributes
-                    palette_ram_addr |= (palette_index) << 2;
+                }   
 
-                    // Store in array of length 8 for 8 pixels (1 tile)
-                    tile_palette_data[i] = palette_ram_addr;
+                if (copy_flag) {
+                    oam_secondary_top = oam_index % 32;
+                    oam_memory_secondary[oam_secondary_top] = sprite_byte;
                 }
+            }
 
-                // Push tile to buffer
-                push(tile_buffer_queue, tile_palette_data);
 
-                break;
+            drawing_bg_flag = 1;
             
+            // Store the index of the sprite if it exists in the current pixel
+            int sprite_index = -1;
+
+            // Check if tile is background or sprite
+            for (int i = 0; i <= oam_secondary_top; i += 4) {
+
+                uint8_t byte_3 = oam_buffer_latches[i + 3];
+                
+                if (byte_3 <= cycle && byte_3 > cycle) {
+                    // This pixel is a sprite pixel
+                    drawing_bg_flag = 0;
+                    sprite_index = i;
+                }
+            }
+
+
+
+        
+            
+            switch (cycle % 8) {
+
+                // Step 1
+                case 1:
+                    name_table_byte = fetch_name_table_byte(ppu);
+                    break;
+
+                // Step 2
+                case 3:
+                    attribute_byte = fetch_attr_table_byte(ppu);
+
+                    // Determines which of the four areas of the attribute byte to use
+                    uint8_t tile_area_horizontal = (ppu->v & 0x00F) % 4;
+                    uint8_t tile_area_vertical = ((ppu->v & 0x0F0) / 0x20) % 4;
+                    uint8_t palette_index;
+
+                    if (tile_area_vertical == 0 && tile_area_horizontal == 0) {
+                        // Top left quadrant (bit 1 & 0)
+                        palette_index = attribute_byte & 0x03; 
+                    } else if (tile_area_vertical == 0 && tile_area_horizontal == 1) {
+                        // Top right quadrant (bit 3 & 2)
+                        palette_index = (attribute_byte & 0x0C) >> 2;
+                    } else if (tile_area_vertical == 1 && tile_area_horizontal == 0) {
+                        // Bottom left quadrant (bit 5 & 4)
+                        palette_index = (attribute_byte & 0x30) >> 4;
+                    } else if (tile_area_vertical == 1 && tile_area_horizontal == 1) {
+                        // Bottom right quadrant (bit 7 6 6)
+                        palette_index = (attribute_byte & 0xC0) >> 6;
+                    }
+                break;
+
+                // Step 4    
+                case 5:
+                    if (drawing_bg_flag) {
+                        pattern_table_tile = fetch_pattern_table_bytes(ppu, name_table_byte);
+                    } else {
+                        // byte 1 is tile number
+                        pattern_table_tile = fetch_pattern_table_bytes(ppu, oam_buffer_latches[sprite_index + 1]);
+                    }
+                    /* Tile fetch from cycle i is rendered on pixel i + 8 */
+                    for (int i = cycle + 8; i < cycle + 16; i++) {
+                        unsigned char msb = (pattern_table_tile & 0x00FF) & (1 << (8- (i - cycle + 1)));
+                        unsigned char lsb = ((pattern_table_tile & 0xFF) >> 8) & (1 << (8- (i - cycle + 1)));
+
+                        // 0-indexed, subtract i from 1
+                        display[scanline][i - 1] = (msb >> 1) | lsb; 
+                    }
+                    break;
+
+                case 0:
+
+                    // Increment v 
+                    ppu->v += (ppu->PPUCTRL & 0x04) == 0x04 ? 32 : 1; 
+
+                    /* On the 8th cycle, data for tile N + 2 is fetched 
+                        - Use the pixel value from tile pattern data,
+                        palette number from attributes & background/sprite select
+                        to generate a palette address
+                        - Push this palette data from this address to the queue buffer
+                    */
+
+                    /* Pop tile buffer to get tile N*/
+                    memset(&tile_palette_data, pop(tile_buffer_queue), TILE_SIZE);  
+
+                    /* 
+                    Push tile N + 2 to buffer 
+                    - Two tiles ahead
+                        - On cycle 8, tile 3 is being fetched
+                        - So on cycle 240, tile 32 is being
+                        - ignore tile fetched on cycle 248 
+                    */
+                    if (cycle != 248 && cycle != 256) {
+                        for (int i = 0; i < TILE_SIZE; i++) {
+
+                            // Background/sprite select
+                            if (drawing_bg_flag) {
+                                palette_ram_addr = 0x3F00;
+                            } else {
+                                palette_ram_addr = 0x3F10;
+                            }
+                            
+                            // Add 16 to get to position Tile N + 2
+                            // Subtract 1 due to 0-index
+                            palette_ram_addr |= display[scanline][i + 8 - 1];
+                            
+                            // Bit 3 and 2 are the palette number from attributes
+                            palette_ram_addr |= (palette_index) << 2;
+
+                            // Store in array of length 8 for 8 pixels (1 tile)
+                            tile_palette_data[i] = palette_ram_addr;
+                        }
+
+                        // Push tile to buffer
+                        push(tile_buffer_queue, tile_palette_data);
+                    }
+                    break;
+                
+            }
+
+            // Only generate pixels during cycle 1-256
+            if (cycle <= 256) {
+                palette_data = tile_palette_data[(cycle % 8) - 1 ];
+
+                // Pixel gen
+                SDL_SetRenderDrawColor(renderer, 
+                    ppu_palette[palette_data * 3],
+                    ppu_palette[palette_data * 3 + 1],
+                    ppu_palette[palette_data * 3 + 2],
+                    255);
+
+                SDL_Rect rect = {cycle, scanline, 1, 1};
+                SDL_RenderFillRect(renderer, &rect);
+            }
+        } else if (cycle >= 257 && cycle <= 320) {
+
+            if (cycle == 257) {
+                // Reset register v's horizontal position (first 5 bits - 0x1F - 0b11111)
+                ppu->v |= (ppu->t) & 0x1F;
+            }
+
+            // Tile data for the sprites on the next scanline are loaded into rendering latches
+            oam_buffer_latches[(cycle - 257) % 32] = oam_memory_secondary[(cycle - 257) % 32];
+
+        }  
+
+        else if (cycle >= 337 && cycle <= 340) {
+            // Two bytes are fetched for unknown reasons
         }
-
-        palette_data = tile_palette_data[(cycle % 8) - 1 ];
-
-        // Pixel gen
-        SDL_SetRenderDrawColor(renderer, 
-            ppu_palette[palette_data * 3],
-            ppu_palette[palette_data * 3 + 1],
-            ppu_palette[palette_data * 3 + 2],
-            255);
-
-        SDL_Rect rect = {cycle, scanline, 1, 1};
-        SDL_RenderFillRect(renderer, &rect);
-
-    } else if (cycle >= 257 && cycle <= 320) {
-        // Tile data for the sprites on the next scanline are loaded into rendering latches
-        oam_buffer_latches[(cycle - 257) % 32] = oam_memory_secondary[(cycle - 257) % 32];
-
-    }  else if (cycle >= 321 && cycle <= 336) {
-        // First two tiles of the next scanline are fetched
-    }  else if (cycle >= 337 && cycle <= 340) {
-        // Two bytes are fetched for unknown reasons
     }
 
-    // vblank Scanline 241-260
+    // Post-render scanline (240)
+    // PPU is idle
+    else if (scanline == 240) {
+        // Do nothing
+    } 
 
+    /* 
+    vblank Scanline 241-260
+     - PPU is essentially idle
+     - VBlank flag of the PPU is set at tick 1 (the second tick) of scanline 241
+        - VBlank NMI also occurs
+    */
+    else if (scanline >= 241 && scanline <= 260) {
+        // Set vblank after tick 1 (second tick)
+        if (cycle == 1) {
+            ppu->vblank_flag = 1;
+            ppu->PPUSTATUS |= 0b10000000;
+
+            // PPUCTRL bit 7 determins if CPU accepts NMI
+            if (ppu->vblank_flag & (ppu->PPUCTRL >> 7)) {
+                // Set NMI
+                ppu->nmi_flag = 1;
+            }
+        }
+    }
 }

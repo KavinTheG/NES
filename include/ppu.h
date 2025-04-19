@@ -28,6 +28,8 @@ typedef struct PPU
     // 15 registers
     uint16_t v, t; 
     unsigned char w;
+    unsigned char vblank_flag, nmi_flag;
+
 } PPU;
 
 
@@ -49,4 +51,18 @@ void load_palette(uint8_t *palette);
 void set_w_reg(PPU *ppu, unsigned char w);
 void set_v_reg(PPU *ppu);
 
-void set_PPUADDR(PPU *ppu, uint16_t PPUADDR);
+void set_PPUCTRL_reg(PPU *ppu, uint8_t reg); 
+void set_PPUMASK_reg(PPU *ppu, uint8_t reg); 
+void set_PPUSTATUS_reg(PPU *ppu, uint8_t reg);
+void set_OAMADDR_reg(PPU *ppu, uint8_t reg); 
+void set_OAMDATA_reg(PPU *ppu, uint8_t reg); 
+void set_PPUSCROLL_reg(PPU *ppu, uint8_t reg);
+void set_PPUADDR_reg(PPU *ppu, uint16_t reg);
+void set_PPUDATA_reg(PPU *ppu, uint8_t reg); 
+void set_OAMDMA_reg(PPU *ppu, uint8_t reg);
+
+
+void ppu_execute_cycle(PPU *ppu);
+
+unsigned char get_ppu_NMI_flag(PPU *ppu);
+void set_ppu_NMI_flag(PPU *ppu);

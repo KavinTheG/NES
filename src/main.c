@@ -119,33 +119,14 @@ int main() {
     fprintf(log, "Program started\n");
 
     while (1) {
-        //dump_log(&cpu, log);
-        cpu_execute(&cpu);
         
-        set_w_reg(&ppu, get_ppu_w_reg());
-        set_PPUADDR(&ppu, get_ppu_PPUADDR(&cpu));
 
+        // Execute cpu cycle
+        cpu_execute(&cpu);
 
-        if (get_ppu_PPUADDR_completed()) {
-            // If cpu has completen the write to PPUADDR
-            // Update PPU's internal register v with PPUADDR
-            set_v_reg(&ppu);
-        }
-
-        if (get_ppu_OAM_write()) {
-            // Set OAMADDR and OAMDATA
-        }
-
-        if (get_ppu_OAMDMA_write()) {
-            // Get page of memory of CPU to the PPU OAM ram
-            uint8_t page_mem;
-            
-            // Load page memory into page_mem
-            get_ppu_dma_page(&cpu, page_mem);
-
-            // Store page_mem into OAM ram
-            load_ppu_oam_mem(&ppu, page_mem);
-        }
+        ppu_execute_cycle(&ppu);
+        ppu_execute_cycle(&ppu);
+        ppu_execute_cycle(&ppu);
 
     }
 
