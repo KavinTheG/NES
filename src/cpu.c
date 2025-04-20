@@ -75,11 +75,11 @@ void emulate_6502_cycle(int cycle) {
 /* PPU Functions */
 
 void cpu_ppu_write(Cpu6502 *cpu, uint16_t addr, uint8_t val) {
-    ppu_registers_write(&cpu->ppu, addr, val);
+    ppu_registers_write(cpu->ppu, addr, val);
 }
 
 void cpu_ppu_read(Cpu6502 *cpu, uint16_t addr) {
-    ppu_registers_read(&cpu->ppu, addr);
+    ppu_registers_read(cpu->ppu, addr);
 }
 
 // Core functions
@@ -92,6 +92,8 @@ void cpu_init(Cpu6502 *cpu) {
     cpu->A = 0x0;
     cpu->X = 0x0;
     cpu->Y = 0x0;
+
+    cpu->nmi_state = 0;
 
     #if NES_TEST_ROM
     cpu->PC = 0xC000;
@@ -222,6 +224,11 @@ void instr_LDY(Cpu6502 *cpu, uint8_t val) {
 void instr_STA(Cpu6502 *cpu, uint16_t addr) {
     if (addr >= 0x2000 && addr <= 0x3FFF) {
         cpu_ppu_write(cpu, addr, cpu->A);
+    } else if (addr == 0x4014) {
+        uint8_t page_mem[0xFF];
+
+        memcpy(page_mem, &memory[cpu->A << 8], 0xFF);
+        load_ppu_oam_mem(cpu->ppu, page_mem);
     } else {
         memory[addr] = cpu->A;
     }
@@ -1061,7 +1068,7 @@ void instr_SRE(Cpu6502 *cpu, uint8_t *M) {
 
 void cpu_nmi_triggered(Cpu6502 *cpu) {
     // Push PC and jump to $FFFA
-    cpu->nmi_flag = 0;
+    cpu->nmi_state = 1;
 }
 // Addresing modes
 
@@ -1240,7 +1247,7 @@ void cpu_execute(Cpu6502 *cpu) {
     #endif
     
     // PPU set NMI flag
-    if (cpu->nmi_flag) {
+    if (cpu->ppu->nmi_flag && cpu->nmi_state == 0) {
         cpu_nmi_triggered(cpu);
         return;
     }
@@ -2738,6 +2745,8 @@ void cpu_execute(Cpu6502 *cpu) {
                     address = addr_X_ind(cpu);
                     instr_LDA(cpu, memory[address]);
 
+                    cpu_ppu_read(cpu, address);
+                    
                     emulate_6502_cycle(6);
                     cpu->cycles += 6;
                     break;
@@ -2778,6 +2787,8 @@ void cpu_execute(Cpu6502 *cpu) {
                     address = addr_zpg(cpu);
                     instr_LDA(cpu, memory[address]);
 
+                    cpu_ppu_read(cpu, address);
+
                     emulate_6502_cycle(3);
                     cpu->cycles += 3;
                     break;
@@ -2814,6 +2825,8 @@ void cpu_execute(Cpu6502 *cpu) {
                     address = addr_imm(cpu);
                     instr_LDA(cpu, memory[address]);
 
+                    cpu_ppu_read(cpu, address);
+
                     emulate_6502_cycle(2);
                     cpu->cycles += 2;
                     break;
@@ -2839,6 +2852,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 case 0xD:
                     address = addr_abs(cpu);
                     instr_LDA(cpu, memory[address]);
+
+                    cpu_ppu_read(cpu, address);
 
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
@@ -2890,6 +2905,8 @@ void cpu_execute(Cpu6502 *cpu) {
                     }
                     instr_LDA(cpu, memory[address]);
 
+                    cpu_ppu_read(cpu, address);
+
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
                     break;
@@ -2924,6 +2941,8 @@ void cpu_execute(Cpu6502 *cpu) {
                 case 0x5:
                     address = addr_zpg_X(cpu);
                     instr_LDA(cpu, memory[address]);
+
+                    cpu_ppu_read(cpu, address);
 
                     emulate_6502_cycle(4);
                     cpu->cycles += 4;
@@ -2966,6 +2985,8 @@ void cpu_execute(Cpu6502 *cpu) {
                     }
                     instr_LDA(cpu, memory[address]);
 
+                    cpu_ppu_read(cpu, address);
+
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
                     break;
@@ -3003,6 +3024,9 @@ void cpu_execute(Cpu6502 *cpu) {
                     }
 
                     instr_LDA(cpu, memory[address]);
+
+                    cpu_ppu_read(cpu, address);
+
                     emulate_6502_cycle(cyc);
                     cpu->cycles += cyc;
                     break;

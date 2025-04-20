@@ -83,7 +83,7 @@ void load_ppu_palette(char *filename) {
 
     if (!pal) {
         perror("Failed to open .pal file");
-        return 1;
+        return;
     }
 
     uint8_t palette[192];

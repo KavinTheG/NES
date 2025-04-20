@@ -33,11 +33,10 @@ typedef struct Cpu6502 {
     Bit 0 - C: Carry
     **/
     unsigned char P[8];
-    //uint8_t P;
-
-    unsigned char nmi_flag;
 
     PPU* ppu;
+
+    unsigned char nmi_state;
 
 } Cpu6502;
 

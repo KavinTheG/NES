@@ -1,3 +1,6 @@
+#ifndef PPU_H
+#define PPU_H
+
 #include "config.h"
 
 #include <stdint.h>
@@ -20,7 +23,7 @@ typedef struct PPU
     // PPUADDR is the value CPU writes to $2006
     uint16_t PPUADDR;
 
-    uint8_t PPUDATA;
+    uint8_t PPUDATA, PPUDATA_READ_BUFFER;
 
     uint8_t OAMDMA;
 
@@ -31,11 +34,6 @@ typedef struct PPU
     unsigned char vblank_flag, nmi_flag;
 
 } PPU;
-
-
-struct RGB {
-    uint8_t r, g, b;
-} RGB;
 
 void ppu_init(PPU *ppu);
 void load_ppu_memory(PPU *ppu, unsigned char *chr_rom, int chr_size);
@@ -52,3 +50,6 @@ void ppu_execute_cycle(PPU *ppu);
 
 void ppu_registers_write(PPU *ppu, uint16_t addr, uint8_t val);
 uint8_t ppu_registers_read(PPU *ppu, uint16_t addr);
+
+
+#endif
