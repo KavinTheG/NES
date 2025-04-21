@@ -126,9 +126,9 @@ int main() {
         // Execute cpu cycle
         cpu_execute(&cpu);
 
-        ppu_execute_cycle(&ppu);
-        ppu_execute_cycle(&ppu);
-        ppu_execute_cycle(&ppu);
+        // ppu_execute_cycle(&ppu);
+        // ppu_execute_cycle(&ppu);
+        // ppu_execute_cycle(&ppu);
 
     }
 

@@ -254,7 +254,7 @@ void instr_TAX(Cpu6502 *cpu) {
     cpu->PC++;
 
     emulate_6502_cycle(2);
-    cpu->cycles += 2;
+    cyc = 2;
 }
 
 void instr_TXA(Cpu6502 *cpu) {
@@ -265,7 +265,7 @@ void instr_TXA(Cpu6502 *cpu) {
     cpu->PC++;
 
     emulate_6502_cycle(2);
-    cpu->cycles += 2;
+    cyc = 2;
 }
 void instr_TAY(Cpu6502 *cpu) {
     cpu->Y = cpu->A;
@@ -275,7 +275,7 @@ void instr_TAY(Cpu6502 *cpu) {
     cpu->PC++;
 
     emulate_6502_cycle(2);
-    cpu->cycles += 2;
+    cyc = 2;
 }
 void instr_TYA(Cpu6502 *cpu) {
     cpu->A = cpu->Y;
@@ -285,7 +285,7 @@ void instr_TYA(Cpu6502 *cpu) {
     cpu->PC++;
 
     emulate_6502_cycle(2);
-    cpu->cycles += 2;
+    cyc = 2;
 }
 
 // Arithmetic
@@ -410,7 +410,7 @@ void instr_INX(Cpu6502 *cpu) {
     cpu->PC++;
 
     emulate_6502_cycle(2);
-    cpu->cycles += 2;
+    cyc = 2;
 }
 
 void instr_DEX(Cpu6502 *cpu) {
@@ -421,7 +421,7 @@ void instr_DEX(Cpu6502 *cpu) {
     cpu->PC++;
 
     emulate_6502_cycle(2);
-    cpu->cycles += 2;
+    cyc = 2;
 }
 
 void instr_INY(Cpu6502 *cpu) {
@@ -432,7 +432,7 @@ void instr_INY(Cpu6502 *cpu) {
     cpu->PC++;
 
     emulate_6502_cycle(2);
-    cpu->cycles += 2;
+    cyc = 2;
 }
 
 void instr_DEY(Cpu6502 *cpu) {
@@ -443,7 +443,7 @@ void instr_DEY(Cpu6502 *cpu) {
     cpu->PC++;
 
     emulate_6502_cycle(2);
-    cpu->cycles += 2;
+    cyc = 2;
 }
 
 // Shift
@@ -630,10 +630,10 @@ void instr_branch(Cpu6502 *cpu, char flag) {
 
         if ((cpu->PC & 0xFF00) != ((old_addr + 2)& 0xFF00)) {
             emulate_6502_cycle(4);
-            cpu->cycles += 4;
+            cyc = 4;
         } else {
             emulate_6502_cycle(3);
-            cpu->cycles += 3;
+            cyc = 3;
         }
 
         if (old_addr - 1 == cpu->PC) {
@@ -644,7 +644,7 @@ void instr_branch(Cpu6502 *cpu, char flag) {
     } else {
         cpu->PC++;
         emulate_6502_cycle(2);
-        cpu->cycles += 2;
+        cyc = 2;
     }
 }
 
@@ -709,7 +709,7 @@ void instr_RTS(Cpu6502 *cpu) {
 
     cpu->PC = address + 1;
     emulate_6502_cycle(6);
-    cpu->cycles += 6;
+    cyc = 6;
 }
 
 void instr_BRK(Cpu6502 *cpu) {
@@ -744,7 +744,7 @@ void instr_BRK(Cpu6502 *cpu) {
     cpu->PC = memory[0xFFFF] << 8 | memory[0xFFFE];
 
     emulate_6502_cycle(7);
-    cpu->cycles += 7;
+    cyc = 7;
 }
 
 void instr_RTI(Cpu6502 *cpu) {
@@ -765,7 +765,7 @@ void instr_RTI(Cpu6502 *cpu) {
 
     cpu->PC = address;
     emulate_6502_cycle(6);
-    cpu->cycles += 6;
+    cyc = 6;
 }
 
 // Stack
@@ -778,7 +778,7 @@ void instr_PHA(Cpu6502 *cpu) {
     cpu->PC++;
 
     emulate_6502_cycle(3);
-    cpu->cycles += 3;
+    cyc = 3;
 }
 
 void instr_PLA(Cpu6502 *cpu) {
@@ -792,7 +792,7 @@ void instr_PLA(Cpu6502 *cpu) {
     cpu->P[7] = (cpu->A & 0x80) == 0x80;
 
     emulate_6502_cycle(4);
-    cpu->cycles += 4;
+    cyc = 4;
 }
 
 void instr_PHP(Cpu6502 *cpu) {
@@ -808,7 +808,7 @@ void instr_PHP(Cpu6502 *cpu) {
 
     cpu->PC++;
     emulate_6502_cycle(3);
-    cpu->cycles += 3;
+    cyc = 3;
 }
 
 void instr_PLP(Cpu6502 *cpu) {
@@ -823,7 +823,7 @@ void instr_PLP(Cpu6502 *cpu) {
 
     cpu->PC++;
     emulate_6502_cycle(4);
-    cpu->cycles += 4;
+    cyc = 4;
 }
 
 void instr_TXS(Cpu6502 *cpu) {
@@ -831,7 +831,7 @@ void instr_TXS(Cpu6502 *cpu) {
     cpu->PC++;
 
     emulate_6502_cycle(2);
-    cpu->cycles += 2;
+    cyc = 2;
 }
 
 void instr_TSX(Cpu6502 *cpu) {
@@ -841,7 +841,7 @@ void instr_TSX(Cpu6502 *cpu) {
     cpu->P[1] = cpu->X == 0;
     cpu->P[7] = (cpu->X & 0x80) == 0x80;
     emulate_6502_cycle(2);
-    cpu->cycles += 2;
+    cyc = 2;
 }
 
 // Flags
@@ -851,7 +851,7 @@ void instr_CLC(Cpu6502 *cpu) {
 
     cpu->PC++;
     emulate_6502_cycle(2);
-    cpu->cycles += 2;
+    cyc = 2;
 }
 
 void instr_SEC(Cpu6502 *cpu) {
@@ -860,7 +860,7 @@ void instr_SEC(Cpu6502 *cpu) {
 
     cpu->PC++;
     emulate_6502_cycle(2);
-    cpu->cycles += 2;
+    cyc = 2;
 }
 
 void instr_CLI(Cpu6502 *cpu) {
@@ -869,7 +869,7 @@ void instr_CLI(Cpu6502 *cpu) {
 
     cpu->PC++;
     emulate_6502_cycle(2);
-    cpu->cycles += 2;
+    cyc = 2;
 }
 
 void instr_SEI(Cpu6502 *cpu) {
@@ -877,7 +877,7 @@ void instr_SEI(Cpu6502 *cpu) {
 
     cpu->PC++;
     emulate_6502_cycle(2);
-    cpu->cycles += 2;
+    cyc = 2;
 }
 
 void instr_CLD(Cpu6502 *cpu) {
@@ -885,7 +885,7 @@ void instr_CLD(Cpu6502 *cpu) {
 
     cpu->PC++;
     emulate_6502_cycle(2);
-    cpu->cycles += 2;
+    cyc = 2;
 }
 
 void instr_SED(Cpu6502 *cpu) {
@@ -893,7 +893,7 @@ void instr_SED(Cpu6502 *cpu) {
 
     cpu->PC++;
     emulate_6502_cycle(2);
-    cpu->cycles += 2;
+    cyc = 2;
 }
 
 void instr_CLV(Cpu6502 *cpu) {
@@ -901,14 +901,14 @@ void instr_CLV(Cpu6502 *cpu) {
 
     cpu->PC++;
     emulate_6502_cycle(2);
-    cpu->cycles += 2;
+    cyc = 2;
 }
 
 // Other
 void instr_NOP(Cpu6502 *cpu) {
     cpu->PC++;
     emulate_6502_cycle(2);
-    cpu->cycles += 2;
+    cyc = 2;
 }
 
 // Illegal opcodes
@@ -1267,7 +1267,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_BRK(cpu);
 
                     emulate_6502_cycle(7);
-                    cpu->cycles += 7;
+                    cyc = 7;
 
                     break;
 
@@ -1280,7 +1280,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     //cpu->PC++;
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // 0x03
@@ -1290,14 +1290,14 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SLO(cpu, &memory[address]);
 
                     emulate_6502_cycle(8);
-                    cpu->cycles += 8;
+                    cyc = 8;
                     break;
 
                 // NOP zpg
                 case 0x4:
                     cpu->PC += 2;
                     emulate_6502_cycle(3);
-                    cpu->cycles += 3;
+                    cyc = 3;
                     break;
 
                 // 0x05
@@ -1307,7 +1307,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ORA(cpu, memory[address]);
 
                     emulate_6502_cycle(3);
-                    cpu->cycles += 3;
+                    cyc = 3;
                     break;
 
                 // 0x06
@@ -1318,7 +1318,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ASL(cpu, &memory[address]);
 
                     emulate_6502_cycle(5);
-                    cpu->cycles += 5;
+                    cyc = 5;
                     break;
 
                 // 0x06
@@ -1328,7 +1328,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SLO(cpu, &memory[address]);
 
                     emulate_6502_cycle(5);
-                    cpu->cycles += 5;
+                    cyc = 5;
                     break;
 
                 // 0x08
@@ -1344,7 +1344,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ORA(cpu, memory[address]);
 
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0x0A
@@ -1353,14 +1353,14 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ASL(cpu, &cpu->A);
 
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                     // NOP abs
                     case 0xc:
                         cpu->PC += 3;
                         emulate_6502_cycle(cyc);
-                        cpu->cycles += cyc;
+                        
                         break;
 
                 // 0x0D
@@ -1370,7 +1370,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ORA(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0x0E
@@ -1380,7 +1380,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ASL(cpu, &memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // 0x0F
@@ -1390,7 +1390,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SLO(cpu, &memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
             }
 
@@ -1417,7 +1417,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ORA(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
-                    cpu->cycles += cyc;
+                    
                     break;
 
                 // 0x13
@@ -1427,14 +1427,14 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SLO(cpu, &memory[address]);
 
                     emulate_6502_cycle(8);
-                    cpu->cycles += 8;
+                    cyc = 8;
                     break;
 
                     // NOP zpg,X
                     case 0x4:
                         cpu->PC += 2;
                         emulate_6502_cycle(4);
-                        cpu->cycles += 4;
+                        cyc = 4;
                         break;
 
                 // 0x15
@@ -1444,7 +1444,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ORA(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0x16
@@ -1454,7 +1454,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ASL(cpu, &memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // 0x17
@@ -1464,7 +1464,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SLO(cpu, &memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
 
@@ -1488,13 +1488,13 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ORA(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
-                    cpu->cycles += cyc;
+                    
                     break;
 
                 case 0xA:
                     cpu->PC++;
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0x1B
@@ -1504,7 +1504,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SLO(cpu, &memory[address]);
 
                     emulate_6502_cycle(7);
-                    cpu->cycles += 7;
+                    cyc = 7;
                     break;
 
                     case 0xc:
@@ -1516,7 +1516,7 @@ void cpu_execute(Cpu6502 *cpu) {
                         }
                         cpu->PC++;
                         emulate_6502_cycle(cyc);
-                        cpu->cycles += cyc;
+                        
                         break;
 
                 // 0x1D
@@ -1532,7 +1532,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ORA(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
-                    cpu->cycles += cyc;
+                    
                     break;
 
                 // 0x1E
@@ -1542,7 +1542,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ASL(cpu, &memory[address]);
 
                     emulate_6502_cycle(7);
-                    cpu->cycles += 7;
+                    cyc = 7;
                     break;
 
                 // 0x1F
@@ -1552,7 +1552,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SLO(cpu, &memory[address]);
 
                     emulate_6502_cycle(7);
-                    cpu->cycles += 7;
+                    cyc = 7;
                     break;
             }
             break;
@@ -1568,7 +1568,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_JSR(cpu, address);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // 0x21
@@ -1578,7 +1578,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_AND(cpu, memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // 0x23
@@ -1588,7 +1588,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_RLA(cpu, &memory[address]);
 
                     emulate_6502_cycle(8);
-                    cpu->cycles += 8;
+                    cyc = 8;
                     break;
 
                 // 0x24
@@ -1598,7 +1598,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_BIT(cpu, memory[address]);
 
                     emulate_6502_cycle(3);
-                    cpu->cycles += 3;
+                    cyc = 3;
                     break;
 
                 // 0x25
@@ -1608,7 +1608,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_AND(cpu, memory[address]);
 
                     emulate_6502_cycle(3);
-                    cpu->cycles += 3;
+                    cyc = 3;
                     break;
 
                 // 0x26
@@ -1618,7 +1618,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ROL(cpu, &memory[address]);
 
                     emulate_6502_cycle(5);
-                    cpu->cycles += 5;
+                    cyc = 5;
                     break;
 
                 // 0x27
@@ -1628,7 +1628,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_RLA(cpu, &memory[address]);
 
                     emulate_6502_cycle(5);
-                    cpu->cycles += 5;
+                    cyc = 5;
                     break;
 
                 // 0x28
@@ -1644,7 +1644,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_AND(cpu, memory[address]);
 
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0x2A
@@ -1653,7 +1653,7 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     instr_ROL(cpu, &cpu->A);
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0x2C
@@ -1663,7 +1663,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_BIT(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0x2D
@@ -1674,7 +1674,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_AND(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0x2E
@@ -1685,7 +1685,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ROL(cpu, &memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // 0x2F
@@ -1695,7 +1695,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_RLA(cpu, &memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
                 }
 
@@ -1722,7 +1722,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_AND(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
-                    cpu->cycles += cyc;
+                    
                     break;
 
                 // 0x33
@@ -1732,14 +1732,14 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_RLA(cpu, &memory[address]);
 
                     emulate_6502_cycle(8);
-                    cpu->cycles += 8;
+                    cyc = 8;
                     break;
 
                     // NOP zpg,X
                     case 0x4:
                         cpu->PC += 2;
                         emulate_6502_cycle(4);
-                        cpu->cycles += 4;
+                        cyc = 4;
                         break;
 
                 // 0x35
@@ -1749,7 +1749,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_AND(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0x36
@@ -1759,7 +1759,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ROL(cpu, &memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // 0x36
@@ -1769,7 +1769,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_RLA(cpu, &memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // 0x38
@@ -1791,14 +1791,14 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_AND(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
-                    cpu->cycles += cyc;
+                    
                     break;
 
                 // NOP imp
                 case 0xA:
                     cpu->PC++;
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0x3B
@@ -1808,7 +1808,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_RLA(cpu, &memory[address]);
 
                     emulate_6502_cycle(7);
-                    cpu->cycles += 7;
+                    cyc = 7;
                     break;
 
                     case 0xc:
@@ -1820,7 +1820,7 @@ void cpu_execute(Cpu6502 *cpu) {
                         }
                         cpu->PC++;
                         emulate_6502_cycle(cyc);
-                        cpu->cycles += cyc;
+                        
                         break;
 
                 // 0x3D
@@ -1835,7 +1835,7 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     instr_AND(cpu, memory[address]);
                     emulate_6502_cycle(cyc);
-                    cpu->cycles += cyc;
+                    
                     break;
 
                 // 0x3E
@@ -1845,7 +1845,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ROL(cpu, &memory[address]);
 
                     emulate_6502_cycle(7);
-                    cpu->cycles += 7;
+                    cyc = 7;
                     break;
 
                 // 0x3F
@@ -1855,7 +1855,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_RLA(cpu, &memory[address]);
 
                     emulate_6502_cycle(7);
-                    cpu->cycles += 7;
+                    cyc = 7;
                     break;
 
                 }
@@ -1877,7 +1877,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_EOR(cpu, memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // 0x43
@@ -1887,14 +1887,14 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SRE(cpu, &memory[address]);
 
                     emulate_6502_cycle(8);
-                    cpu->cycles += 8;
+                    cyc = 8;
                     break;
 
                     // NOP zpg
                     case 0x4:
                         cpu->PC += 2;
                         emulate_6502_cycle(3);
-                        cpu->cycles += 3;
+                        cyc = 3;
                         break;
 
                 // 0x45
@@ -1904,7 +1904,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_EOR(cpu, memory[address]);
 
                     emulate_6502_cycle(3);
-                    cpu->cycles += 3;
+                    cyc = 3;
                     break;
 
                 // 0x46
@@ -1914,7 +1914,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_LSR(cpu, &memory[address]);
 
                     emulate_6502_cycle(5);
-                    cpu->cycles += 5;
+                    cyc = 5;
                     break;
 
                 // 0x47
@@ -1924,7 +1924,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SRE(cpu, &memory[address]);
 
                     emulate_6502_cycle(5);
-                    cpu->cycles += 5;
+                    cyc = 5;
                     break;
 
                 // 0x48
@@ -1941,7 +1941,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_EOR(cpu, memory[address]);
 
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0x4A
@@ -1951,7 +1951,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_LSR(cpu, &cpu->A);
 
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0x4B
@@ -1961,7 +1961,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SRE(cpu, &memory[address]);
 
                     emulate_6502_cycle(7);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // 0x4C
@@ -1972,7 +1972,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_JMP(cpu, address);
 
                     emulate_6502_cycle(3);
-                    cpu->cycles += 3;
+                    cyc = 3;
                     break;
 
                 // 0x4D
@@ -1983,7 +1983,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_EOR(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0x4E
@@ -1993,7 +1993,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_LSR(cpu, &memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // 0x4F
@@ -2003,7 +2003,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SRE(cpu, &memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 }
@@ -2035,7 +2035,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_EOR(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
-                    cpu->cycles += cyc;
+                    
                     break;
 
                 // 0x53
@@ -2045,14 +2045,14 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SRE(cpu, &memory[address]);
 
                     emulate_6502_cycle(8);
-                    cpu->cycles += 8;
+                    cyc = 8;
                     break;
 
                     // NOP zpg,X
                     case 0x4:
                         cpu->PC += 2;
                         emulate_6502_cycle(4);
-                        cpu->cycles += 4;
+                        cyc = 4;
                         break;
 
                 // 0x55
@@ -2063,7 +2063,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_EOR(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0x56
@@ -2074,7 +2074,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_LSR(cpu, &memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // 0x57
@@ -2084,7 +2084,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SRE(cpu, &memory[address]);
 
                     emulate_6502_cycle(5);
-                    cpu->cycles += 5;
+                    cyc = 5;
                     break;
 
                 // 0x58
@@ -2105,14 +2105,14 @@ void cpu_execute(Cpu6502 *cpu) {
                     }
                     instr_EOR(cpu, memory[address]);
                     emulate_6502_cycle(cyc);
-                    cpu->cycles += cyc;
+                    
                     break;
 
                 // NOP imp
                 case 0xA:
                     cpu->PC++;
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                     case 0xc:
@@ -2124,7 +2124,7 @@ void cpu_execute(Cpu6502 *cpu) {
                         }
                         cpu->PC++;
                         emulate_6502_cycle(cyc);
-                        cpu->cycles += cyc;
+                        
                         break;
 
                 // 0x5B
@@ -2134,7 +2134,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SRE(cpu, &memory[address]);
 
                     emulate_6502_cycle(7);
-                    cpu->cycles += 7;
+                    cyc = 7;
                     break;
 
                 // 0x5D
@@ -2150,7 +2150,7 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     instr_EOR(cpu, memory[address]);
                     emulate_6502_cycle(cyc);
-                    cpu->cycles += cyc;
+                    
                     break;
 
                 // 0x5E
@@ -2161,7 +2161,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_LSR(cpu, &memory[address]);
 
                     emulate_6502_cycle(7);
-                    cpu->cycles += 7;
+                    cyc = 7;
                     break;
 
                 // 0x5F
@@ -2171,7 +2171,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SRE(cpu, &memory[address]);
 
                     emulate_6502_cycle(7);
-                    cpu->cycles += 7;
+                    cyc = 7;
                     break;
                 }
 
@@ -2192,7 +2192,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ADC(cpu, memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // 0x63
@@ -2202,14 +2202,14 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_RRA(cpu, &memory[address]);
 
                     emulate_6502_cycle(8);
-                    cpu->cycles += 8;
+                    cyc = 8;
                     break;
 
                     // NOP zpg
                     case 0x4:
                         cpu->PC += 2;
                         emulate_6502_cycle(3);
-                        cpu->cycles += 3;
+                        cyc = 3;
                         break;
 
                 // 0x65
@@ -2219,7 +2219,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ADC(cpu, memory[address]);
 
                     emulate_6502_cycle(3);
-                    cpu->cycles += 3;
+                    cyc = 3;
                     break;
 
                 // 0x66
@@ -2229,7 +2229,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ROR(cpu, &memory[address]);
 
                     emulate_6502_cycle(5);
-                    cpu->cycles += 5;
+                    cyc = 5;
                     break;
 
                 // 0x67
@@ -2239,7 +2239,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_RRA(cpu, &memory[address]);
 
                     emulate_6502_cycle(5);
-                    cpu->cycles += 5;
+                    cyc = 5;
                     break;
 
                 // 0x68
@@ -2256,7 +2256,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ADC(cpu, memory[address]);
 
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0x6A
@@ -2264,7 +2264,7 @@ void cpu_execute(Cpu6502 *cpu) {
                 case 0xA:
                 instr_ROR(cpu, &cpu->A);
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0x6C
@@ -2293,7 +2293,7 @@ void cpu_execute(Cpu6502 *cpu) {
                         cpu->PC = memory[address + 1] << 8 | memory[address];
                     }
                     emulate_6502_cycle(5);
-                    cpu->cycles += 5;
+                    cyc = 5;
                     break;
 
                 // 0x6D
@@ -2304,7 +2304,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ADC(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0x6E
@@ -2314,7 +2314,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ROR(cpu, &memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // 0x6F
@@ -2324,7 +2324,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_RRA(cpu, &memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
                 }
 
@@ -2351,7 +2351,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ADC(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
-                    cpu->cycles += cyc;
+                    
                     break;
 
                 // 0x73
@@ -2361,14 +2361,14 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_RRA(cpu, &memory[address]);
 
                     emulate_6502_cycle(8);
-                    cpu->cycles += 8;
+                    cyc = 8;
                     break;
 
                     // NOP zpg,X
                     case 0x4:
                         cpu->PC += 2;
                         emulate_6502_cycle(4);
-                        cpu->cycles += 4;
+                        cyc = 4;
                         break;
 
                 // 0x75
@@ -2378,7 +2378,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ADC(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0x76
@@ -2388,7 +2388,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ROR(cpu, &memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // 0x77
@@ -2398,7 +2398,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_RRA(cpu, &memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // 0x78
@@ -2419,14 +2419,14 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ADC(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
-                    cpu->cycles += cyc;
+                    
                     break;
 
                 // NOP imp
                 case 0xA:
                     cpu->PC++;
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0x7B
@@ -2436,7 +2436,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_RRA(cpu, &memory[address]);
 
                     emulate_6502_cycle(7);
-                    cpu->cycles += 7;
+                    cyc = 7;
                     break;
 
                     case 0xc:
@@ -2448,7 +2448,7 @@ void cpu_execute(Cpu6502 *cpu) {
                         }
                         cpu->PC++;
                         emulate_6502_cycle(cyc);
-                        cpu->cycles += cyc;
+                        
                         break;
 
                 // 0x7D
@@ -2463,7 +2463,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ADC(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
-                    cpu->cycles += cyc;
+                    
                     break;
 
                 // 0x7E
@@ -2473,7 +2473,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ROR(cpu, &memory[address]);
 
                     emulate_6502_cycle(7);
-                    cpu->cycles += 7;
+                    cyc = 7;
                     break;
 
                 // 0x7F
@@ -2483,7 +2483,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_RRA(cpu, &memory[address]);
 
                     emulate_6502_cycle(7);
-                    cpu->cycles += 7;
+                    cyc = 7;
                     break;
                 }
 
@@ -2497,7 +2497,7 @@ void cpu_execute(Cpu6502 *cpu) {
                 case 0x0:
                     cpu->PC += 2;
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0x81
@@ -2507,14 +2507,14 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_STA(cpu, address);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // NOP imm
                 case 0x2:
                     cpu->PC += 2;
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0x83
@@ -2524,7 +2524,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SAX(cpu, address);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // 0x84
@@ -2534,7 +2534,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_STY(cpu, address);
 
                     emulate_6502_cycle(3);
-                    cpu->cycles += 3;
+                    cyc = 3;
                     break;
 
                 // 0x85
@@ -2544,7 +2544,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_STA(cpu, address);
 
                     emulate_6502_cycle(3);
-                    cpu->cycles += 3;
+                    cyc = 3;
                     break;
 
                 // 0x86
@@ -2554,7 +2554,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_STX(cpu, address);
 
                     emulate_6502_cycle(3);
-                    cpu->cycles += 3;
+                    cyc = 3;
                     break;
 
                 // 0x87
@@ -2564,7 +2564,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SAX(cpu, address);
 
                     emulate_6502_cycle(3);
-                    cpu->cycles += 3;
+                    cyc = 3;
                     break;
 
                 // 0x88
@@ -2577,7 +2577,7 @@ void cpu_execute(Cpu6502 *cpu) {
                 case 0x9:
                     cpu->PC += 2;
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0x8A
@@ -2593,7 +2593,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_STY(cpu, address);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0x8D
@@ -2603,7 +2603,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_STA(cpu, address);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0x8E
@@ -2613,7 +2613,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_STX(cpu, address);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0x8F
@@ -2623,7 +2623,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SAX(cpu, address);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
             }
 
@@ -2645,7 +2645,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_STA(cpu, address);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // 0x94
@@ -2655,7 +2655,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_STY(cpu, address);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0x95
@@ -2665,7 +2665,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_STA(cpu, address);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0x96
@@ -2675,7 +2675,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_STX(cpu, address);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0x97
@@ -2685,7 +2685,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SAX(cpu, address);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0x98
@@ -2703,7 +2703,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_STA(cpu, address);
 
                     emulate_6502_cycle(5);
-                    cpu->cycles += 5;
+                    cyc = 5;
                     break;
 
                 // 0x9A
@@ -2718,7 +2718,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     address = addr_abs_X(cpu);
                     instr_STA(cpu, address);
                     emulate_6502_cycle(5);
-                    cpu->cycles += 5;
+                    cyc = 5;
                     break;
             }
 
@@ -2736,7 +2736,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_LDY(cpu, memory[address]);
 
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0xA1
@@ -2748,7 +2748,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu_ppu_read(cpu, address);
                     
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // 0xA2
@@ -2758,7 +2758,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_LDX(cpu, memory[address]);
 
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0xA2
@@ -2768,7 +2768,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_LAX(cpu, memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // 0xA4
@@ -2778,7 +2778,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_LDY(cpu, memory[address]);
 
                     emulate_6502_cycle(3);
-                    cpu->cycles += 3;
+                    cyc = 3;
                     break;
 
                 // 0xA5
@@ -2790,7 +2790,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu_ppu_read(cpu, address);
 
                     emulate_6502_cycle(3);
-                    cpu->cycles += 3;
+                    cyc = 3;
                     break;
 
                 // 0xA6
@@ -2800,7 +2800,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_LDX(cpu, memory[address]);
 
                     emulate_6502_cycle(3);
-                    cpu->cycles += 3;
+                    cyc = 3;
                     break;
 
                 // Ilegal Opcode 0xA7
@@ -2810,7 +2810,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_LAX(cpu, memory[address]);
 
                     emulate_6502_cycle(3);
-                    cpu->cycles += 3;
+                    cyc = 3;
                     break;
 
                 // 0xA8
@@ -2828,7 +2828,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu_ppu_read(cpu, address);
 
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0xAA
@@ -2844,7 +2844,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_LDY(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0xAD
@@ -2856,7 +2856,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu_ppu_read(cpu, address);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0xAE
@@ -2866,7 +2866,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_LDX(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0xAF
@@ -2877,7 +2877,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_LAX(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
             }
@@ -2908,7 +2908,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu_ppu_read(cpu, address);
 
                     emulate_6502_cycle(cyc);
-                    cpu->cycles += cyc;
+                    
                     break;
 
                 // 0xB3
@@ -2923,7 +2923,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_LAX(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
-                    cpu->cycles += cyc;
+                    
                     break;
 
                 // 0xB4
@@ -2933,7 +2933,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_LDY(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0xB5
@@ -2945,7 +2945,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu_ppu_read(cpu, address);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0xB6
@@ -2955,7 +2955,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_LDX(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // Illegal opcode 0xB7
@@ -2965,7 +2965,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_LAX(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0xB8
@@ -2988,7 +2988,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu_ppu_read(cpu, address);
 
                     emulate_6502_cycle(cyc);
-                    cpu->cycles += cyc;
+                    
                     break;
 
                 // 0xBA
@@ -3009,7 +3009,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_LDY(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
-                    cpu->cycles += cyc;
+                    
                     break;
 
                 // 0xBD
@@ -3028,7 +3028,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     cpu_ppu_read(cpu, address);
 
                     emulate_6502_cycle(cyc);
-                    cpu->cycles += cyc;
+                    
                     break;
 
                 // 0xBE
@@ -3043,7 +3043,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_LDX(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
-                    cpu->cycles += cyc;
+                    
                     break;
 
                 // 0xBF
@@ -3058,7 +3058,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_LAX(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
-                    cpu->cycles += cyc;
+                    
                     break;
 
             }
@@ -3076,7 +3076,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_CPY(cpu, memory[address]);
 
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0xC1
@@ -3086,7 +3086,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_CMP(cpu, memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
 
@@ -3094,7 +3094,7 @@ void cpu_execute(Cpu6502 *cpu) {
                 case 0x2:
                     cpu->PC += 2;
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0xC3
@@ -3104,7 +3104,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_DCP(cpu, &memory[address]);
 
                     emulate_6502_cycle(8);
-                    cpu->cycles += 8;
+                    cyc = 8;
                     break;
 
                 // 0xC4
@@ -3114,7 +3114,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_CPY(cpu, memory[address]);
 
                     emulate_6502_cycle(3);
-                    cpu->cycles += 3;
+                    cyc = 3;
                     break;
 
                 // 0xC5
@@ -3124,7 +3124,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_CMP(cpu, memory[address]);
 
                     emulate_6502_cycle(3);
-                    cpu->cycles += 3;
+                    cyc = 3;
                     break;
 
                 // 0xC6
@@ -3134,7 +3134,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_DEC(cpu, &memory[address]);
 
                     emulate_6502_cycle(5);
-                    cpu->cycles += 5;
+                    cyc = 5;
                     break;
 
                 // 0xC7
@@ -3144,7 +3144,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_DCP(cpu, &memory[address]);
 
                     emulate_6502_cycle(5);
-                    cpu->cycles += 5;
+                    cyc = 5;
                     break;
 
                 // 0xC8
@@ -3160,7 +3160,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_CMP(cpu, memory[address]);
 
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0xCA
@@ -3176,7 +3176,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_CPY(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0xCD
@@ -3186,7 +3186,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_CMP(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0xCE
@@ -3196,7 +3196,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_DEC(cpu, &memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // 0xCF
@@ -3206,7 +3206,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_DCP(cpu, &memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
             }
             break;
@@ -3233,7 +3233,7 @@ void cpu_execute(Cpu6502 *cpu) {
                         instr_CMP(cpu, memory[address]);
 
                         emulate_6502_cycle(cyc);
-                        cpu->cycles += cyc;
+                        
                         break;
 
                     // 0xD3
@@ -3243,14 +3243,14 @@ void cpu_execute(Cpu6502 *cpu) {
                         instr_DCP(cpu, &memory[address]);
 
                         emulate_6502_cycle(8);
-                        cpu->cycles += 8;
+                        cyc = 8;
                         break;
 
                         // NOP zpg,X
                         case 0x4:
                             cpu->PC += 2;
                             emulate_6502_cycle(4);
-                            cpu->cycles += 4;
+                            cyc = 4;
                             break;
 
                     // 0xD5
@@ -3260,7 +3260,7 @@ void cpu_execute(Cpu6502 *cpu) {
                         instr_CMP(cpu, memory[address]);
 
                         emulate_6502_cycle(4);
-                        cpu->cycles += 4;
+                        cyc = 4;
                         break;
 
                     // 0xD7
@@ -3270,7 +3270,7 @@ void cpu_execute(Cpu6502 *cpu) {
                         instr_DCP(cpu, &memory[address]);
 
                         emulate_6502_cycle(6);
-                        cpu->cycles += 6;
+                        cyc = 6;
                         break;
 
                     // 0xD6
@@ -3280,7 +3280,7 @@ void cpu_execute(Cpu6502 *cpu) {
                         instr_DEC(cpu, &memory[address]);
 
                         emulate_6502_cycle(6);
-                        cpu->cycles += 6;
+                        cyc = 6;
                         break;
 
                     // 0xD8
@@ -3301,14 +3301,14 @@ void cpu_execute(Cpu6502 *cpu) {
                         instr_CMP(cpu, memory[address]);
 
                         emulate_6502_cycle(cyc);
-                        cpu->cycles += cyc;
+                        
                         break;
 
                     // NOP imp
                     case 0xA:
                         cpu->PC++;
                         emulate_6502_cycle(2);
-                        cpu->cycles += 2;
+                        cyc = 2;
                         break;
 
                     // 0xDB
@@ -3318,7 +3318,7 @@ void cpu_execute(Cpu6502 *cpu) {
                         instr_DCP(cpu, &memory[address]);
 
                         emulate_6502_cycle(7);
-                        cpu->cycles += 7;
+                        cyc = 7;
                         break;
 
                         case 0xc:
@@ -3330,7 +3330,7 @@ void cpu_execute(Cpu6502 *cpu) {
                             }
                             cpu->PC++;
                             emulate_6502_cycle(cyc);
-                            cpu->cycles += cyc;
+                            
                             break;
 
                     // 0xDD
@@ -3345,7 +3345,7 @@ void cpu_execute(Cpu6502 *cpu) {
                         instr_CMP(cpu, memory[address]);
 
                         emulate_6502_cycle(cyc);
-                        cpu->cycles += cyc;
+                        
                         break;
 
                     // 0xDE
@@ -3355,7 +3355,7 @@ void cpu_execute(Cpu6502 *cpu) {
                         instr_DEC(cpu, &memory[address]);
 
                         emulate_6502_cycle(7);
-                        cpu->cycles += 7;
+                        cyc = 7;
                         break;
 
                     // 0xDF
@@ -3365,7 +3365,7 @@ void cpu_execute(Cpu6502 *cpu) {
                         instr_DCP(cpu, &memory[address]);
 
                         emulate_6502_cycle(7);
-                        cpu->cycles += 7;
+                        cyc = 7;
                         break;
             }
 
@@ -3382,7 +3382,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_CPX(cpu, memory[address]);
 
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0xE1
@@ -3392,14 +3392,14 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SBC(cpu, memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // NOP imm
                 case 0x2:
                     cpu->PC += 2;
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0xE3
@@ -3409,7 +3409,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ISC(cpu, &memory[address]);
 
                     emulate_6502_cycle(8);
-                    cpu->cycles += 8;
+                    cyc = 8;
                     break;
 
                 // 0xE4
@@ -3419,7 +3419,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_CPX(cpu, memory[address]);
 
                     emulate_6502_cycle(3);
-                    cpu->cycles += 3;
+                    cyc = 3;
                     break;
 
                 // 0xE5
@@ -3429,7 +3429,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SBC(cpu, memory[address]);
 
                     emulate_6502_cycle(3);
-                    cpu->cycles += 3;
+                    cyc = 3;
                     break;
 
                 // 0xE6
@@ -3439,7 +3439,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_INC(cpu, &memory[address]);
 
                     emulate_6502_cycle(5);
-                    cpu->cycles += 5;
+                    cyc = 5;
                     break;
 
                 // 0xE7
@@ -3449,7 +3449,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ISC(cpu, &memory[address]);
 
                     emulate_6502_cycle(5);
-                    cpu->cycles += 5;
+                    cyc = 5;
                     break;
 
                 // 0xE8
@@ -3465,7 +3465,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SBC(cpu, memory[address]);
 
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0xEA
@@ -3473,7 +3473,7 @@ void cpu_execute(Cpu6502 *cpu) {
                 case 0xA:
                     cpu->PC++;
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0xEB
@@ -3483,7 +3483,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SBC(cpu, memory[address]);
 
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0xEC
@@ -3493,7 +3493,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_CPX(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0xED
@@ -3503,7 +3503,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SBC(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0xEE
@@ -3513,7 +3513,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_INC(cpu, &memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // 0xE7
@@ -3523,7 +3523,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ISC(cpu, &memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
             }
             break;
@@ -3550,7 +3550,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SBC(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
-                    cpu->cycles += cyc;
+                    
                     break;
 
                 // 0xF3
@@ -3560,14 +3560,14 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ISC(cpu, &memory[address]);
 
                     emulate_6502_cycle(8);
-                    cpu->cycles += 8;
+                    cyc = 8;
                     break;
 
                     // NOP zpg,X
                     case 0x4:
                         cpu->PC += 2;
                         emulate_6502_cycle(4);
-                        cpu->cycles += 4;
+                        cyc = 4;
                         break;
 
                 // 0xF5
@@ -3577,7 +3577,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SBC(cpu, memory[address]);
 
                     emulate_6502_cycle(4);
-                    cpu->cycles += 4;
+                    cyc = 4;
                     break;
 
                 // 0xF6
@@ -3587,7 +3587,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_INC(cpu, &memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // 0xF7
@@ -3597,7 +3597,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ISC(cpu, &memory[address]);
 
                     emulate_6502_cycle(6);
-                    cpu->cycles += 6;
+                    cyc = 6;
                     break;
 
                 // 0xF8
@@ -3618,14 +3618,14 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SBC(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
-                    cpu->cycles += cyc;
+                    
                     break;
 
                 // NOP imp
                 case 0xA:
                     cpu->PC++;
                     emulate_6502_cycle(2);
-                    cpu->cycles += 2;
+                    cyc = 2;
                     break;
 
                 // 0xFB
@@ -3635,7 +3635,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ISC(cpu, &memory[address]);
 
                     emulate_6502_cycle(7);
-                    cpu->cycles += 7;
+                    cyc = 7;
                     break;
 
                     case 0xc:
@@ -3647,7 +3647,7 @@ void cpu_execute(Cpu6502 *cpu) {
                         }
                         cpu->PC++;
                         emulate_6502_cycle(cyc);
-                        cpu->cycles += cyc;
+                        
                         break;
 
                 // 0xFD
@@ -3662,7 +3662,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_SBC(cpu, memory[address]);
 
                     emulate_6502_cycle(cyc);
-                    cpu->cycles += cyc;
+                    
                     break;
 
                 // 0xFE
@@ -3672,7 +3672,7 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_INC(cpu, &memory[address]);
 
                     emulate_6502_cycle(7);
-                    cpu->cycles += 7;
+                    cyc = 7;
                     break;
 
                 // 0xFF
@@ -3682,13 +3682,17 @@ void cpu_execute(Cpu6502 *cpu) {
                     instr_ISC(cpu, &memory[address]);
 
                     emulate_6502_cycle(7);
-                    cpu->cycles += 7;
+                    cyc = 7;
                     break;
 
             }
         break;
     }
 
+    for (int i = 0; i < cyc; i++) {
+        ppu_execute_cycle(cpu->ppu);
+    }
+    cpu->cycles += cyc;
 
     printf("Stack Memory: {");
     for (int i = 0xF0; i <= 0xFF; i++) {

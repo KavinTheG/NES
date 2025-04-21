@@ -33,6 +33,11 @@ typedef struct PPU
     unsigned char w;
     unsigned char vblank_flag, nmi_flag;
 
+    // Counters 
+    int current_frame_cycle, total_cycles; 
+    int scanline;
+    int frame;
+
 } PPU;
 
 void ppu_init(PPU *ppu);

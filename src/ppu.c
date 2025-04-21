@@ -31,10 +31,6 @@ uint8_t ppu_memory[MEMORY_SIZE] = {0};
 uint8_t nes_header[NES_HEADER_SIZE] = {0};
 uint8_t ppu_palette[PALETTE_SIZE * 3];
 
-// Counter for # of cycles and scanlines
-int cycle, total_cycles; 
-int scanline = -1;
-int frame;
 
 // Nametable mirror arrangment flag
 // 1 = h, v = 0
@@ -73,6 +69,7 @@ void ppu_init(PPU *ppu) {
     /* init SDL graphics*/
     SDL_Init(SDL_INIT_EVERYTHING);
     window = SDL_CreateWindow("NES", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 256, 240, 0);
+    renderer = SDL_CreateRenderer(window, -1, 0);
 
     init_queue(&tile_buffer_queue);
     /* Header Config */
@@ -313,23 +310,30 @@ void ppu_execute_cycle(PPU *ppu) {
     uint8_t tile_palette_data[TILE_SIZE];
     uint8_t name_table_byte, attribute_byte, palette_data;
 
-    if ((cycle >= 1 && cycle <= 256) || (cycle >= 321 && cycle <= 336) ) {
-        if (cycle == 1) {
+    if ((ppu->current_frame_cycle 
+>= 1 && ppu->current_frame_cycle 
+<= 256) || (ppu->current_frame_cycle 
+>= 321 && ppu->current_frame_cycle 
+<= 336) ) {
+        if (ppu->current_frame_cycle 
+== 1) {
             // set secondary oam to 0xFF
             memset(oam_memory_secondary, 0xFF, 32);
         }
 
         uint8_t sprite_byte;
-        if (cycle >= 65) {
+        if (ppu->current_frame_cycle 
+>= 65) {
 
-            int oam_index = cycle - 65;
+            int oam_index = ppu->current_frame_cycle 
+- 65;
             int sprite_index = oam_index % 4;
             int sprite_size = (ppu->PPUCTRL & 0x20) == 0x20 ? 16 : 8;
             unsigned char copy_flag = 0;
             sprite_byte = oam_memory[oam_index];
 
             if (sprite_index == 0) {
-                if ( (sprite_byte - 1) <= scanline && scanline < (sprite_byte - 1 + sprite_size) ) {
+                if ( (sprite_byte - 1) <= ppu->scanline && ppu->scanline < (sprite_byte - 1 + sprite_size) ) {
                     copy_flag = 1;
                 } else {
                     copy_flag = 0;
@@ -353,7 +357,7 @@ void ppu_execute_cycle(PPU *ppu) {
 
             uint8_t byte_3 = oam_buffer_latches[i + 3];
             
-            if (byte_3 <= cycle && byte_3 > cycle) {
+            if (byte_3 <= ppu->current_frame_cycle && byte_3 > ppu->current_frame_cycle) {
                 // This pixel is a sprite pixel
                 drawing_bg_flag = 0;
                 sprite_index = i;
@@ -361,7 +365,8 @@ void ppu_execute_cycle(PPU *ppu) {
         }
 
 
-        switch (cycle % 8) {
+        switch (ppu->current_frame_cycle
+% 8) {
 
             // Step 1
             case 1:
@@ -401,12 +406,12 @@ void ppu_execute_cycle(PPU *ppu) {
                     pattern_table_tile = fetch_pattern_table_bytes(ppu, oam_buffer_latches[sprite_index + 1]);
                 }
                 /* Tile fetch from cycle i is rendered on pixel i + 8 */
-                for (int i = cycle + 8; i < cycle + 16; i++) {
-                    unsigned char msb = (pattern_table_tile & 0x00FF) & (1 << (8- (i - cycle + 1)));
-                    unsigned char lsb = ((pattern_table_tile & 0xFF) >> 8) & (1 << (8- (i - cycle + 1)));
+                for (int i = ppu->current_frame_cycle + 8; i < ppu->current_frame_cycle + 16; i++) {
+                    unsigned char msb = (pattern_table_tile & 0x00FF) & (1 << (8- (i - ppu->current_frame_cycle+ 1)));
+                    unsigned char lsb = ((pattern_table_tile & 0xFF) >> 8) & (1 << (8- (i - ppu->current_frame_cycle+ 1)));
 
                     // 0-indexed, subtract i from 1
-                    display[scanline][i - 1] = (msb >> 1) | lsb; 
+                    display[ppu->scanline][i - 1] = (msb >> 1) | lsb; 
                 }
                 break;
 
@@ -432,7 +437,7 @@ void ppu_execute_cycle(PPU *ppu) {
                     - So on cycle 240, tile 32 is being
                     - ignore tile fetched on cycle 248 
                 */
-                if (cycle != 248 && cycle != 256) {
+                if (ppu->current_frame_cycle!= 248 && ppu->current_frame_cycle!= 256) {
                     for (int i = 0; i < TILE_SIZE; i++) {
 
                         // Background/sprite select
@@ -444,7 +449,7 @@ void ppu_execute_cycle(PPU *ppu) {
                         
                         // Add 16 to get to position Tile N + 2
                         // Subtract 1 due to 0-index
-                        palette_ram_addr |= display[scanline][i + 8 - 1];
+                        palette_ram_addr |= display[ppu->scanline][i + 8 - 1];
                         
                         // Bit 3 and 2 are the palette number from attributes
                         palette_ram_addr |= (palette_index) << 2;
@@ -461,8 +466,8 @@ void ppu_execute_cycle(PPU *ppu) {
         }
 
         // Only generate pixels during cycle 1-256
-        if (cycle <= 256 || scanline != -1) {
-            palette_data = tile_palette_data[(cycle % 8) - 1 ];
+        if (ppu->current_frame_cycle<= 256 && ppu->scanline != -1) {
+            palette_data = tile_palette_data[(ppu->current_frame_cycle% 8) - 1 ];
 
             // Pixel gen
             SDL_SetRenderDrawColor(renderer, 
@@ -471,31 +476,33 @@ void ppu_execute_cycle(PPU *ppu) {
                 ppu_palette[palette_data * 3 + 2],
                 255);
 
-            SDL_Rect rect = {cycle, scanline, 1, 1};
+            SDL_Rect rect = {ppu->current_frame_cycle, ppu->scanline, 1, 1};
             SDL_RenderFillRect(renderer, &rect);
-        }
-    } else if (cycle >= 257 && cycle <= 320) {
 
-        if (cycle == 257) {
+            SDL_RenderPresent(renderer);
+        }
+    } else if (ppu->current_frame_cycle>= 257 && ppu->current_frame_cycle<= 320) {
+
+        if (ppu->current_frame_cycle== 257) {
             // Reset register v's horizontal position (first 5 bits - 0x1F - 0b11111)
             ppu->v |= (ppu->t) & 0x1F;
         }
 
         // Tile data for the sprites on the next scanline are loaded into rendering latches
-        oam_buffer_latches[(cycle - 257) % 32] = oam_memory_secondary[(cycle - 257) % 32];
+        oam_buffer_latches[(ppu->current_frame_cycle- 257) % 32] = oam_memory_secondary[(ppu->current_frame_cycle- 257) % 32];
 
     }  
 
-    else if (cycle >= 337 && cycle <= 340) {
+    else if (ppu->current_frame_cycle>= 337 && ppu->current_frame_cycle<= 340) {
         // Two bytes are fetched for unknown reasons
     }
     
 
 
 
-    if (scanline >= 241 && scanline <= 260) {
+    if (ppu->scanline >= 241 && ppu->scanline <= 260) {
         // Set vblank after tick 1 (second tick)
-        if (cycle == 1) {
+        if (ppu->current_frame_cycle== 1) {
             ppu->vblank_flag = 1;
             ppu->PPUSTATUS |= 0b10000000;
 
@@ -509,5 +516,23 @@ void ppu_execute_cycle(PPU *ppu) {
 
 
 
-    cycle++; 
+    ppu->current_frame_cycle++;
+    
+    if (ppu->current_frame_cycle > 340) {
+        ppu->scanline++;
+
+        /*
+        TODO:
+            - set current_frame_cycle to 0 or 1 is frame is even or odd
+        */
+        ppu->total_cycles += ppu->current_frame_cycle - 1;
+        ppu->current_frame_cycle = 0;
+    } 
+
+    if (ppu->scanline > 260) {
+        // Frame is completed
+        // Set scanline back to pre-render
+        ppu->scanline = -1;
+    }
+
 }
