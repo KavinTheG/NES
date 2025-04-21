@@ -564,7 +564,7 @@ void instr_BIT(Cpu6502 *cpu, uint8_t M) {
 // Compare
 void instr_CMP(Cpu6502 *cpu, uint8_t M) {
 
-    printf("CMPing A (%x) and M(%x)\n", cpu->A, M);
+    // printf("CMPing A (%x) and M(%x)\n", cpu->A, M);
 
     // Carry Flag
     cpu->P[0] = cpu->A >= M;
@@ -637,7 +637,7 @@ void instr_branch(Cpu6502 *cpu, char flag) {
         }
 
         if (old_addr - 1 == cpu->PC) {
-            printf("\nCAUGHT IN A TRAP!\n");
+            // printf("\nCAUGHT IN A TRAP!\n");
             exit(0);
         }
 
@@ -1015,8 +1015,8 @@ void instr_RRA(Cpu6502 *cpu, uint8_t *M) {
     uint16_t result = 0;
     uint8_t new_A = cpu->A;
 
-    printf("A + M + ~C\n");
-    printf("%x + %x + %b\n", cpu->A, *M, (1 - cpu->P[0]));
+    // printf("A + M + ~C\n");
+    // printf("%x + %x + %b\n", cpu->A, *M, (1 - cpu->P[0]));
     // Reuse zpg variable (in case it overflows)
     result = (uint16_t)(cpu->A + *M + cpu->P[0]);
 
@@ -1039,12 +1039,12 @@ void instr_RRA(Cpu6502 *cpu, uint8_t *M) {
 void instr_SLO(Cpu6502 *cpu, uint8_t *M) {
     // Set the carry flag to the 7th bit of Accumulator.
     cpu->P[0] = (*M & 0x80) >> 7;
-    printf("Before ASL: %x\n", *M);
+    // printf("Before ASL: %x\n", *M);
     *M = *M << 1;
-    printf("After ASL: %x\n", *M);
-    printf("Before A: %x\n", cpu->A);
+    // printf("After ASL: %x\n", *M);
+    // printf("Before A: %x\n", cpu->A);
     cpu->A |= *M;
-    printf("After A: %x\n", cpu->A);
+    // printf("After A: %x\n", cpu->A);
     // Set zero flag and negative flag
     cpu->P[1] = cpu->A == 0;
     cpu->P[7] = cpu->A >> 7;
@@ -1095,8 +1095,8 @@ uint16_t addr_abs_X(Cpu6502 *cpu) {
     cpu->PC++;
     uint8_t HB = memory[cpu->PC];
 
-    printf("LB: %x\n", LB);
-    printf("HB: %x\n", HB);
+    // printf("LB: %x\n", LB);
+    // printf("HB: %x\n", HB);
 
     //addr = (memory[cpu->PC] << 8 | LB) + cpu->X;
     addr = (HB << 8 | LB) + cpu->X;
@@ -1160,14 +1160,14 @@ uint16_t addr_X_ind(Cpu6502 *cpu) {
     // Ignore carry if it exists
     uint8_t BB = (memory[cpu->PC] + cpu->X) & 0xFF;
 
-    printf("BB: %x \n", BB);
+    // printf("BB: %x \n", BB);
 
     uint8_t LB = memory[BB];
     uint8_t HB = memory[page_crossing(BB, 1)];
 
 
-    printf("LB: %x\n", LB);
-    printf("HB: %x\n", HB);
+    // printf("LB: %x\n", LB);
+    // printf("HB: %x\n", HB);
 
     addr = HB << 8 | LB;
     return addr;
@@ -1183,8 +1183,8 @@ uint16_t addr_ind_Y(Cpu6502 *cpu) {
     uint8_t LB = memory[BB];
     uint8_t HB = memory[page_crossing(BB, 1)];
 
-    printf("LB: %x\n", LB);
-    printf("HB: %x\n", HB);
+    // printf("LB: %x\n", LB);
+    // printf("HB: %x\n", HB);
 
     //addr = page_crossing(HB << 8 | LB, cpu->Y);
     addr = (HB << 8 | LB) + cpu->Y;
@@ -1226,22 +1226,22 @@ void cpu_execute(Cpu6502 *cpu) {
     instr_num++;
 
     cpu->instr = instr;
-    printf("\nPC Value: %x\n", cpu->PC);
-    printf("Instruction: %x\n", instr);
-    printf("Stack Pointer: %x\n", cpu->S);
+    // printf("\nPC Value: %x\n", cpu->PC);
+    // printf("Instruction: %x\n", instr);
+    // printf("Stack Pointer: %x\n", cpu->S);
     join_char_array(&status, cpu->P);
-    printf("Status: %b\n", status);
-    printf("A: %x\n", cpu->A );
-    printf("X: %x\n", cpu->X );
-    printf("Y: %x\n", cpu->Y );
-    printf("Cycle: %d\n\n", cpu->cycles);
+    // printf("Status: %b\n", status);
+    // printf("A: %x\n", cpu->A );
+    // printf("X: %x\n", cpu->X );
+    // printf("Y: %x\n", cpu->Y );
+    // printf("Cycle: %d\n\n", cpu->cycles);
 
-    dump_log_file(cpu);
-    printf("M[0x0] = %x\n\n", memory[0x0]);
+    // dump_log_file(cpu);
+    // printf("M[0x0] = %x\n\n", memory[0x0]);
 
     #if NES_TEST_ROM
         if (cpu->PC == 0x7000) {
-            printf("Reached addressed originally pushed to stack!");
+            // printf("Reached addressed originally pushed to stack!");
             exit(0);
         }
     #endif
@@ -3694,10 +3694,10 @@ void cpu_execute(Cpu6502 *cpu) {
     }
     cpu->cycles += cyc;
 
-    printf("Stack Memory: {");
+    // print("Stack Memory: {");
     for (int i = 0xF0; i <= 0xFF; i++) {
-        printf("0x01%x: %x, ", i, memory[0x0100 | i]);
+        // print("0x01%x: %x, ", i, memory[0x0100 | i]);
     }
 
-    printf("}\n");
+    // print("}\n");
 }

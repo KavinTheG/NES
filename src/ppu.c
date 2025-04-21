@@ -60,8 +60,11 @@ int oam_secondary_top = 0;
 // SDL Variables
 SDL_Window *window;
 SDL_Renderer *renderer;
-unsigned char display[256][240];
+SDL_Texture *texture;
+unsigned char display[SCREEN_WIDTH_VIS * SCREEN_HEIGHT_VIS];
 
+// Store RGB values in frame_buffer
+uint32_t frame_buffer[256 * 240];
 
 uint8_t open_bus;
 
@@ -70,6 +73,12 @@ void ppu_init(PPU *ppu) {
     SDL_Init(SDL_INIT_EVERYTHING);
     window = SDL_CreateWindow("NES", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 256, 240, 0);
     renderer = SDL_CreateRenderer(window, -1, 0);
+    texture = SDL_CreateTexture(
+        renderer,
+        SDL_PIXELFORMAT_RGBA8888,   
+        SDL_TEXTUREACCESS_STREAMING,
+        SCREEN_WIDTH_VIS, SCREEN_HEIGHT_VIS
+    );
 
     init_queue(&tile_buffer_queue);
     /* Header Config */
@@ -77,6 +86,10 @@ void ppu_init(PPU *ppu) {
     // Flag 6
     // Bit 0 determine h/v n.t arrangment (h = 1, v = 0)
     nametable_mirror_flag = ((nes_header[6] & 0x01) == 0x01);
+
+    // ppu->current_frame_cycle = 0;
+    // ppu->scanline = -1;
+    // ppu->frame = 0;
 }
 
 void load_ppu_memory(PPU *ppu, unsigned char *chr_rom, int chr_size) {
@@ -310,23 +323,31 @@ void ppu_execute_cycle(PPU *ppu) {
     uint8_t tile_palette_data[TILE_SIZE];
     uint8_t name_table_byte, attribute_byte, palette_data;
 
-    if ((ppu->current_frame_cycle 
->= 1 && ppu->current_frame_cycle 
-<= 256) || (ppu->current_frame_cycle 
->= 321 && ppu->current_frame_cycle 
-<= 336) ) {
-        if (ppu->current_frame_cycle 
-== 1) {
+    if (!ppu) {
+        printf("PPU is null!\n");
+        exit(1);
+    }
+
+    printf("\n******* PPU *******\n");
+    printf("PPU Cycle: %d \n", ppu->current_frame_cycle);
+    printf("PPU Scanline: %d \n", ppu->scanline);
+    printf("PPU Frame: %d \n", ppu->frame);
+    printf("test");
+
+    if ((ppu->current_frame_cycle >= 1 && ppu->current_frame_cycle <= 256) 
+     || (ppu->current_frame_cycle >= 321 && ppu->current_frame_cycle <= 336) ) {
+        
+        printf("test");
+        
+        if (ppu->current_frame_cycle == 1) {
             // set secondary oam to 0xFF
             memset(oam_memory_secondary, 0xFF, 32);
         }
 
         uint8_t sprite_byte;
-        if (ppu->current_frame_cycle 
->= 65) {
+        if (ppu->current_frame_cycle >= 65) {
 
-            int oam_index = ppu->current_frame_cycle 
-- 65;
+            int oam_index = ppu->current_frame_cycle - 65;
             int sprite_index = oam_index % 4;
             int sprite_size = (ppu->PPUCTRL & 0x20) == 0x20 ? 16 : 8;
             unsigned char copy_flag = 0;
@@ -351,7 +372,7 @@ void ppu_execute_cycle(PPU *ppu) {
         
         // Store the index of the sprite if it exists in the current pixel
         int sprite_index = -1;
-
+        
         // Check if tile is background or sprite
         for (int i = 0; i <= oam_secondary_top; i += 4) {
 
@@ -364,9 +385,7 @@ void ppu_execute_cycle(PPU *ppu) {
             }
         }
 
-
-        switch (ppu->current_frame_cycle
-% 8) {
+        switch (ppu->current_frame_cycle % 8) {
 
             // Step 1
             case 1:
@@ -533,6 +552,7 @@ void ppu_execute_cycle(PPU *ppu) {
         // Frame is completed
         // Set scanline back to pre-render
         ppu->scanline = -1;
+        ppu->frame++;
     }
 
 }
