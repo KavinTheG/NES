@@ -30,11 +30,15 @@ typedef struct PPU
 
     // 15 registers
     uint16_t v, t; 
-    unsigned char w;
+    uint8_t w;
+    uint8_t x;
     unsigned char vblank_flag, nmi_flag;
+    unsigned char update_graphics;
+
+    uint32_t frame_buffer_render[256 * 240];
 
     // Counters 
-    int current_frame_cycle, total_cycles; 
+    int current_scanline_cycle, total_cycles; 
     int scanline;
     int frame;
 
@@ -55,6 +59,8 @@ void ppu_execute_cycle(PPU *ppu);
 
 void ppu_registers_write(PPU *ppu, uint16_t addr, uint8_t val);
 uint8_t ppu_registers_read(PPU *ppu, uint16_t addr);
+uint32_t* get_frame_buffer(PPU *ppu);
 
+void reset_graphics_flag(PPU *ppu);
 
 #endif

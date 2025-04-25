@@ -66,11 +66,11 @@ uint16_t addr_zpg_Y(Cpu6502 *cpu);
 
 
 // Access
-void instr_LDA(Cpu6502 *cpu, uint8_t val);
+void instr_LDA(Cpu6502 *cpu, uint16_t addr);
 void instr_STA(Cpu6502 *cpu, uint16_t addr);
-void instr_LDX(Cpu6502 *cpu, uint8_t val);
+void instr_LDX(Cpu6502 *cpu, uint16_t addr);
 void instr_STX(Cpu6502 *cpu, uint16_t addr);
-void instr_LDY(Cpu6502 *cpu, uint8_t val);
+void instr_LDY(Cpu6502 *cpu, uint16_t addr);
 void instr_STY(Cpu6502 *cpu, uint16_t addr);
 
 // Transfer

@@ -8,8 +8,8 @@ Author: Kavin Gnanapandithan
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h> 
-#include <SDL2/SDL.h>
-#include "queue.h"
+//#include <SDL2/SDL.h>
+
 
 /* Memory info*/
 #define NES_HEADER_SIZE 16
@@ -25,6 +25,8 @@ Author: Kavin Gnanapandithan
 #define NUM_DOTS 341
 #define NUM_SCANLINES 262
 
+#define LOG(fmt, ...)\
+    do { if (PPU_LOGGING) fprintf(stderr, fmt, ##__VA_ARGS__); } while (0)
 
 // Main PPU memory
 uint8_t ppu_memory[MEMORY_SIZE] = {0};
@@ -51,45 +53,47 @@ uint8_t oam_buffer_latches[32] = {0};
 // Output buffer
 uint8_t pixel_output_buffer[8] = {0};
 
-// Tile buffer
-Queue tile_buffer_queue;
-
 // Top of the secondary oam memory
 int oam_secondary_top = 0;
 
 // SDL Variables
-SDL_Window *window;
-SDL_Renderer *renderer;
-SDL_Texture *texture;
-unsigned char display[SCREEN_WIDTH_VIS * SCREEN_HEIGHT_VIS];
+// SDL_Window *window;
+// SDL_Renderer *renderer;
+// SDL_Texture *texture;
 
 // Store RGB values in frame_buffer
-uint32_t frame_buffer[256 * 240];
+uint32_t frame_buffer[SCREEN_WIDTH_VIS * SCREEN_HEIGHT_VIS] = {0};
 
 uint8_t open_bus;
 
 void ppu_init(PPU *ppu) {
     /* init SDL graphics*/
-    SDL_Init(SDL_INIT_EVERYTHING);
-    window = SDL_CreateWindow("NES", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 256, 240, 0);
-    renderer = SDL_CreateRenderer(window, -1, 0);
-    texture = SDL_CreateTexture(
-        renderer,
-        SDL_PIXELFORMAT_RGBA8888,   
-        SDL_TEXTUREACCESS_STREAMING,
-        SCREEN_WIDTH_VIS, SCREEN_HEIGHT_VIS
-    );
+    // SDL_Init(SDL_INIT_VIDEO);
 
-    init_queue(&tile_buffer_queue);
-    /* Header Config */
+    // window = SDL_CreateWindow("NES Emulator",
+    //     SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+    //     SCREEN_WIDTH_VIS, SCREEN_HEIGHT_VIS,
+    //     SDL_WINDOW_SHOWN);
+
+    // renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    // texture = SDL_CreateTexture(renderer,
+    //     SDL_PIXELFORMAT_ARGB8888,
+    //     SDL_TEXTUREACCESS_STREAMING,
+    //     SCREEN_WIDTH_VIS, SCREEN_HEIGHT_VIS);
+
+    // texture = SDL_CreateTexture(renderer,
+    //     SDL_PIXELFORMAT_ARGB8888,
+    //     SDL_TEXTUREACCESS_STREAMING,
+    //     256, 240);
+        /* Header Config */
     
     // Flag 6
     // Bit 0 determine h/v n.t arrangment (h = 1, v = 0)
     nametable_mirror_flag = ((nes_header[6] & 0x01) == 0x01);
 
-    // ppu->current_frame_cycle = 0;
-    // ppu->scanline = -1;
-    // ppu->frame = 0;
+    ppu->current_scanline_cycle = 0;
+    ppu->scanline = -1;
+    ppu->frame = 0;
 }
 
 void load_ppu_memory(PPU *ppu, unsigned char *chr_rom, int chr_size) {
@@ -125,7 +129,7 @@ uint8_t read_mem(PPU *ppu, uint16_t addr) {
             uint16_t nt_base_addr;
             
             if (drawing_bg_flag) {
-                nt_base_addr = (ppu->PPUCTRL & 0x10) == 0x10 ? 1000 : 0;
+                nt_base_addr = (ppu->PPUCTRL & 0x10) == 0x10 ? 0x1000 : 0;
             } else {
                 
                 if ( ppu->PPUCTRL & 0x10) {
@@ -136,12 +140,12 @@ uint8_t read_mem(PPU *ppu, uint16_t addr) {
                 }
             }
 
-            return ppu_memory[nt_base_addr | addr];
+            return ppu_memory[nt_base_addr | (addr & 0x0FFF)];
             break;
 
         // Nametable memory region ($2000 - $2FFF)
         case 0x2000:
-            return ppu_memory[(addr & 0x7FF & !nametable_mirror_flag) | (addr & ~0xF400 & nametable_mirror_flag)];
+            return ppu_memory[nametable_mirror_flag ? (addr & ~0xF400) : (addr & 0x07FF)];
             break;
 
         default:
@@ -150,6 +154,33 @@ uint8_t read_mem(PPU *ppu, uint16_t addr) {
     }
  
 }
+
+
+void write_mem(PPU *ppu, uint16_t addr, uint8_t val) {
+    addr &= 0x3FFF; // Mirror addresses above $3FFF
+
+    if (addr < 0x2000) {
+        // Pattern table / CHR RAM
+        ppu_memory[addr] = val;
+    } else if (addr < 0x3F00) {
+        // Nametable range with mirroring
+        uint16_t mirrored_addr = 0x2000 + (addr & 0x0FFF); // mirror $2000–$2FFF every 4KB
+        ppu_memory[mirrored_addr] = val;
+    } else if (addr < 0x4000) {
+        // Palette RAM with mirroring
+        uint16_t mirrored_addr = 0x3F00 + (addr & 0x1F);
+
+        // Handle mirroring of universal background color
+        if (mirrored_addr == 0x3F10) mirrored_addr = 0x3F00;
+        if (mirrored_addr == 0x3F14) mirrored_addr = 0x3F04;
+        if (mirrored_addr == 0x3F18) mirrored_addr = 0x3F08;
+        if (mirrored_addr == 0x3F1C) mirrored_addr = 0x3F0C;
+
+        ppu_memory[mirrored_addr] = val;
+    }
+}
+
+
 
 void ppu_registers_write(PPU *ppu, uint16_t addr, uint8_t val) {
     switch (addr)  {
@@ -181,28 +212,40 @@ void ppu_registers_write(PPU *ppu, uint16_t addr, uint8_t val) {
 
         // PPUSCROLL
         case 0x2005:
-            ppu->PPUSCROLL = val;
-            ppu->w = (ppu->w == 0) ? 1 : 0;
+            if (ppu->w == 0) {
+                // First write: horizontal scroll (fine X and coarse X)
+                ppu->t = (ppu->t & 0xFFE0) | ((val >> 3) & 0x1F);
+                ppu->x = val & 0x07;
+                ppu->w = 1;
+            } else {
+                // Second write: vertical scroll (fine Y and coarse Y)
+                ppu->t = (ppu->t & 0x8FFF) | ((val & 0x07) << 12);     // fine Y
+                ppu->t = (ppu->t & 0xFC1F) | ((val & 0xF8) << 2);       // coarse Y
+                ppu->w = 0;
+            }
             break;
 
         // PPUADDR
         case 0x2006:
             // First write
-            if (!ppu->w) {
-                ppu->PPUADDR = val << 8;
-                ppu->t = ppu->PPUADDR;
+            if (ppu->w == 0) {
+                ppu->t = (ppu->t & 0x00FF) | ((val & 0x3F) << 8);  
+                ppu->w = 1;
             } else {
-                ppu->PPUADDR |= val;
-                ppu->t = ppu->PPUADDR;
-                ppu->v = ppu->PPUADDR;
-                ppu->PPUDATA = read_mem(ppu, ppu->PPUADDR);
-            }     
-            ppu->w = !ppu->w;
+                ppu->t = (ppu->t & 0xFF00) | val;
+                ppu->v = ppu->t;
+                ppu->w = 0;
+                LOG("WRITTEN TO V: %x\n", ppu->v);
+                //sleep(5);
+            }
+
             break;
 
         // PPUDATA
         case 0x2007:
-            ppu->PPUDATA = val;
+            write_mem(ppu, ppu->v & 0x3FFF, val);
+            ppu->v += (ppu->PPUCTRL & 0x04) ? 32 : 1;
+
             break;
 
         case 0x4014:
@@ -228,9 +271,8 @@ uint8_t ppu_registers_read(PPU *ppu, uint16_t addr) {
         // PPUSTATUS
         case 0x2002:
             open_bus = ppu->PPUSTATUS;
-
             // Clear the 7th bit (vblank flag)
-            ppu->PPUSTATUS &= ~0x80;
+            ppu->PPUSTATUS &= 0x7F;
             ppu->vblank_flag = 0;
 
             // Clear w register
@@ -268,15 +310,40 @@ uint8_t ppu_registers_read(PPU *ppu, uint16_t addr) {
             // If data is within palette ram, do immediate return
             // Otherwise, return buffer
             if ((ppu->v & 0x3FFF) >= 0x3F00) {
-                open_bus = ppu->PPUDATA_READ_BUFFER;
+                open_bus = read_mem(ppu, ppu->v & 0x3FFF);
             }
 
             // Increment v after PPUDATA read
             ppu->v += (ppu->PPUCTRL & 0x04) == 0x04 ? 32 : 1; 
             return open_bus;
             break;
+
+        default:
+            return open_bus;
+            break;
     }
 }
+
+uint32_t* get_frame_buffer(PPU *ppu) {
+    return ppu->frame_buffer_render;
+}
+
+void reset_graphics_flag(PPU *ppu) {
+    ppu->update_graphics = 0;
+}
+
+void print_ppu_registers(PPU *ppu) {
+    LOG("PPU Registers:\n");
+    LOG("  $2000 (CTRL):     0x%02X\n", ppu->PPUCTRL);
+    LOG("  $2001 (MASK):     0x%02X\n", ppu->PPUMASK);
+    LOG("  $2002 (STATUS):   0x%02X\n", ppu->PPUSTATUS);
+    LOG("  $2003 (OAMADDR):  0x%02X\n", ppu->OAMADDR);
+    LOG("  $2004 (OAMDATA):  0x%02X\n", ppu->OAMDATA);
+    LOG("  $2005 (SCROLL):   0x%02X\n", ppu->PPUSCROLL);
+    LOG("  $2006 (ADDR):     0x%02X\n", ppu->PPUADDR);
+    LOG("  $2007 (DATA):     0x%02X\n", ppu->PPUDATA);
+}
+
 
 /* 
 Fetch tile from name table
@@ -318,36 +385,52 @@ uint16_t fetch_pattern_table_bytes(PPU *ppu, uint8_t tile_index) {
 void ppu_execute_cycle(PPU *ppu) {
 
     // Pixel generation variables
-    uint16_t pattern_table_tile;
-    uint16_t palette_ram_addr;
-    uint8_t tile_palette_data[TILE_SIZE];
-    uint8_t name_table_byte, attribute_byte, palette_data;
+
+    // Fetch tile id from name table 
+    uint8_t name_table_byte = 0;
+
+    // Fetch attribute byte for the corresponding nametable byte
+    uint8_t attribute_byte = 0;
+
+    // Fetch high and low pattern table bytes
+    uint8_t pattern_table_lsb = 0;
+    uint8_t pattern_table_msb = 0;
+
+    // Final palette ram address
+    uint16_t palette_ram_addr = 0;
+
+    // Determines which palette to use for tile
+    uint8_t palette_index = 0;
+
+    // Palette data
+    uint8_t palette_data = 0;
+
+    uint8_t tile_pixel_value[TILE_SIZE] = {0};
 
     if (!ppu) {
-        printf("PPU is null!\n");
+        LOG("PPU is null!\n");
         exit(1);
     }
 
-    printf("\n******* PPU *******\n");
-    printf("PPU Cycle: %d \n", ppu->current_frame_cycle);
-    printf("PPU Scanline: %d \n", ppu->scanline);
-    printf("PPU Frame: %d \n", ppu->frame);
-    printf("test");
+    LOG("\n******* PPU *******\n");
+    LOG("PPU Cycle: %d \n", ppu->current_scanline_cycle);
+    LOG("PPU Scanline: %d \n", ppu->scanline);
+    LOG("PPU Frame: %d \n", ppu->frame);
+    LOG("V: %x \n", ppu->v);
 
-    if ((ppu->current_frame_cycle >= 1 && ppu->current_frame_cycle <= 256) 
-     || (ppu->current_frame_cycle >= 321 && ppu->current_frame_cycle <= 336) ) {
-        
-        printf("test");
-        
-        if (ppu->current_frame_cycle == 1) {
+
+    if ((ppu->current_scanline_cycle >= 1 && ppu->current_scanline_cycle <= 256) 
+     || (ppu->current_scanline_cycle >= 321 && ppu->current_scanline_cycle <= 336) ) {
+                
+        if (ppu->current_scanline_cycle == 1) {
             // set secondary oam to 0xFF
             memset(oam_memory_secondary, 0xFF, 32);
         }
 
         uint8_t sprite_byte;
-        if (ppu->current_frame_cycle >= 65) {
+        if (ppu->current_scanline_cycle >= 65) {
 
-            int oam_index = ppu->current_frame_cycle - 65;
+            int oam_index = ppu->current_scanline_cycle - 65;
             int sprite_index = oam_index % 4;
             int sprite_size = (ppu->PPUCTRL & 0x20) == 0x20 ? 16 : 8;
             unsigned char copy_flag = 0;
@@ -378,28 +461,37 @@ void ppu_execute_cycle(PPU *ppu) {
 
             uint8_t byte_3 = oam_buffer_latches[i + 3];
             
-            if (byte_3 <= ppu->current_frame_cycle && byte_3 > ppu->current_frame_cycle) {
+            if (byte_3 <= ppu->current_scanline_cycle && ppu->current_scanline_cycle < (byte_3 + 8)) {
                 // This pixel is a sprite pixel
                 drawing_bg_flag = 0;
                 sprite_index = i;
             }
         }
 
-        switch (ppu->current_frame_cycle % 8) {
+        switch (ppu->current_scanline_cycle % 8) {
 
-            // Step 1
+            /*
+            Cycle 1 & Cycle 2
+             - Fetch Nametable byte
+            */
             case 1:
                 name_table_byte = fetch_name_table_byte(ppu);
+                LOG("Register v: %x\n", ppu->v);
+                LOG("Name Table Byte: %x\n", name_table_byte);
                 break;
 
-            // Step 2
+            /*
+            Cycle 3 & Cycle 4
+             - Fetch the correspond Attribute table byte
+               from the Nametable
+            */
             case 3:
                 attribute_byte = fetch_attr_table_byte(ppu);
+                LOG("Attribute Table Byte: %x", attribute_byte);
 
                 // Determines which of the four areas of the attribute byte to use
                 uint8_t tile_area_horizontal = (ppu->v & 0x00F) % 4;
                 uint8_t tile_area_vertical = ((ppu->v & 0x0F0) / 0x20) % 4;
-                uint8_t palette_index;
 
                 if (tile_area_vertical == 0 && tile_area_horizontal == 0) {
                     // Top left quadrant (bit 1 & 0)
@@ -414,23 +506,33 @@ void ppu_execute_cycle(PPU *ppu) {
                     // Bottom right quadrant (bit 7 6 6)
                     palette_index = (attribute_byte & 0xC0) >> 6;
                 }
+
+                LOG("Palette Index: %x\n", palette_index);
             break;
 
-            // Step 4    
+            /*
+            Cycle 5, Cycle 6 & Cycle 7
+             - Fetch Nametable low byte + high byte 
+            */  
             case 5:
                 if (drawing_bg_flag) {
-                    pattern_table_tile = fetch_pattern_table_bytes(ppu, name_table_byte);
+                    pattern_table_lsb = read_mem(ppu, (name_table_byte * 16) + ppu->scanline);
+                    pattern_table_msb = read_mem(ppu, (name_table_byte * 16) + ppu->scanline + 8);
+
                 } else {
                     // byte 1 is tile number
-                    pattern_table_tile = fetch_pattern_table_bytes(ppu, oam_buffer_latches[sprite_index + 1]);
+                    pattern_table_lsb = read_mem(ppu, (oam_buffer_latches[sprite_index + 1] * 16) + ppu->scanline);
+                    pattern_table_msb = read_mem(ppu, (oam_buffer_latches[sprite_index + 1] * 16) + ppu->scanline + 8);
                 }
-                /* Tile fetch from cycle i is rendered on pixel i + 8 */
-                for (int i = ppu->current_frame_cycle + 8; i < ppu->current_frame_cycle + 16; i++) {
-                    unsigned char msb = (pattern_table_tile & 0x00FF) & (1 << (8- (i - ppu->current_frame_cycle+ 1)));
-                    unsigned char lsb = ((pattern_table_tile & 0xFF) >> 8) & (1 << (8- (i - ppu->current_frame_cycle+ 1)));
 
-                    // 0-indexed, subtract i from 1
-                    display[ppu->scanline][i - 1] = (msb >> 1) | lsb; 
+                /* Tile fetch from cycle i is rendered on pixel i + 8 */
+                for (int i = 0; i < 8; i++) {
+                    uint8_t bit = 7 - i; 
+                    uint8_t lo = (pattern_table_lsb >> bit) & 1;
+                    uint8_t hi = (pattern_table_msb >> bit) & 1;
+
+                    tile_pixel_value[i] = (hi << 1) | lo; 
+                    LOG("Tile Pixel[i] Value: %x\n", tile_pixel_value[i]);
                 }
                 break;
 
@@ -439,120 +541,140 @@ void ppu_execute_cycle(PPU *ppu) {
                 // Increment v 
                 ppu->v += (ppu->PPUCTRL & 0x04) == 0x04 ? 32 : 1; 
 
-                /* On the 8th cycle, data for tile N + 2 is fetched 
-                    - Use the pixel value from tile pattern data,
-                    palette number from attributes & background/sprite select
-                    to generate a palette address
-                    - Push this palette data from this address to the queue buffer
-                */
-
-                /* Pop tile buffer to get tile N*/
-                memcpy(&tile_palette_data, pop(&tile_buffer_queue), TILE_SIZE);  
-
-                /* 
-                Push tile N + 2 to buffer 
-                - Two tiles ahead
-                    - On cycle 8, tile 3 is being fetched
-                    - So on cycle 240, tile 32 is being
-                    - ignore tile fetched on cycle 248 
-                */
-                if (ppu->current_frame_cycle!= 248 && ppu->current_frame_cycle!= 256) {
+                if (ppu->scanline + 1 < 239 && 
+                    ppu->current_scanline_cycle >= 321 && 
+                    ppu->current_scanline_cycle >= 336) {
+                    /*
+                    Populate frame buffer with tile 1 & tile 2 of scanline N + 1
+                    frame_buffer[(scanline + 1) * 256 + ppu->current_scanline_cycle]
+                        = tile 1
+                    frame_buffer[(scanline + 1) * 256 + ppu->current_scanline_cycle + 1]
+                        = tile 2
+                    */
                     for (int i = 0; i < TILE_SIZE; i++) {
+                        palette_ram_addr = drawing_bg_flag ? 0x3F00 : 0x3F10;
 
-                        // Background/sprite select
-                        if (drawing_bg_flag) {
-                            palette_ram_addr = 0x3F00;
-                        } else {
-                            palette_ram_addr = 0x3F10;
-                        }
-                        
-                        // Add 16 to get to position Tile N + 2
-                        // Subtract 1 due to 0-index
-                        palette_ram_addr |= display[ppu->scanline][i + 8 - 1];
-                        
-                        // Bit 3 and 2 are the palette number from attributes
+                        // Bit 0 & Bit 1 determine Pixel Value
+                        palette_ram_addr |= tile_pixel_value[i];
+
+                        // Bit 3 & Bit 2 determine Palette # from attribute table
                         palette_ram_addr |= (palette_index) << 2;
 
-                        // Store in array of length 8 for 8 pixels (1 tile)
-                        tile_palette_data[i] = palette_ram_addr;
-                    }
+                        palette_data = read_mem(ppu, palette_ram_addr);
 
-                    // Push tile to buffer
-                    push(&tile_buffer_queue, tile_palette_data);
+                        // RGBA format
+                        uint8_t r = ppu_palette[palette_data * 3];
+                        uint8_t g = ppu_palette[palette_data * 3 + 1];
+                        uint8_t b = ppu_palette[palette_data * 3 + 2];
+                        frame_buffer[(ppu->scanline + 1) * 256 + ppu->current_scanline_cycle - (7 - i) - 1]
+                        = (r << 24) | (g << 16) | (b << 8) | (tile_pixel_value[i] == 0 ? 0x0: 0xFF);
+                    
+                    }
+                }
+
+  
+
+                if (ppu->current_scanline_cycle < 256 && ppu->scanline <= 239 && ppu->scanline > -1) {
+                    for (int i = 0; i < TILE_SIZE; i++) {
+                        palette_ram_addr = drawing_bg_flag ? 0x3F00 : 0x3F10;
+
+                        // Bit 0 & Bit 1 determine Pixel Value
+                        palette_ram_addr |= tile_pixel_value[i];
+
+                        // Bit 3 & Bit 2 determine Palette # from attribute table
+                        palette_ram_addr |= (palette_index) << 2;
+                        LOG("Palette Address: %x\n", palette_ram_addr);
+
+                        palette_data = read_mem(ppu, palette_ram_addr);
+                        LOG("Palette Data: %x\n", palette_data);
+
+
+                        uint8_t r = ppu_palette[palette_data * 3];
+                        uint8_t g = ppu_palette[palette_data * 3 + 1];
+                        uint8_t b = ppu_palette[palette_data * 3 + 2];
+                        
+                        LOG("Red: %u, Green: %u, Blue: %u\n", r, g, b);
+                        // RGBA format
+                        frame_buffer[ppu->scanline * 256 + ppu->current_scanline_cycle - (7 - i) - 1]
+                            = (r << 24) | (g << 16) | (b << 8) | (tile_pixel_value[i] == 0 ? 0x0: 0xFF);
+
+                        LOG("Frame Buffer Val (%d) : %x\n", ppu->scanline * 256 + ppu->current_scanline_cycle - (7 - i) - 1,
+                                                (r << 24) | (g << 16) | (b << 8) | (tile_pixel_value[i] == 0 ? 0x0: 0xFF) );
+
+                        LOG("Current scanline: %d\n", ppu->scanline);
+                        LOG("Current cycle: %d\n", ppu->current_scanline_cycle );
+                        //sleep(1);
+                    }
                 }
                 break;
             
         }
 
-        // Only generate pixels during cycle 1-256
-        if (ppu->current_frame_cycle<= 256 && ppu->scanline != -1) {
-            palette_data = tile_palette_data[(ppu->current_frame_cycle% 8) - 1 ];
+    } else if (ppu->current_scanline_cycle >= 257 && ppu->current_scanline_cycle <= 320) {
 
-            // Pixel gen
-            SDL_SetRenderDrawColor(renderer, 
-                ppu_palette[palette_data * 3],
-                ppu_palette[palette_data * 3 + 1],
-                ppu_palette[palette_data * 3 + 2],
-                255);
-
-            SDL_Rect rect = {ppu->current_frame_cycle, ppu->scanline, 1, 1};
-            SDL_RenderFillRect(renderer, &rect);
-
-            SDL_RenderPresent(renderer);
-        }
-    } else if (ppu->current_frame_cycle>= 257 && ppu->current_frame_cycle<= 320) {
-
-        if (ppu->current_frame_cycle== 257) {
+        if (ppu->current_scanline_cycle == 257) {
             // Reset register v's horizontal position (first 5 bits - 0x1F - 0b11111)
             ppu->v |= (ppu->t) & 0x1F;
         }
 
         // Tile data for the sprites on the next scanline are loaded into rendering latches
-        oam_buffer_latches[(ppu->current_frame_cycle- 257) % 32] = oam_memory_secondary[(ppu->current_frame_cycle- 257) % 32];
+        oam_buffer_latches[(ppu->current_scanline_cycle- 257) % 32] = oam_memory_secondary[(ppu->current_scanline_cycle- 257) % 32];
 
     }  
 
-    else if (ppu->current_frame_cycle>= 337 && ppu->current_frame_cycle<= 340) {
+    else if (ppu->current_scanline_cycle>= 337 && ppu->current_scanline_cycle<= 340) {
         // Two bytes are fetched for unknown reasons
     }
+
+    if (ppu->scanline == 241 && ppu->current_scanline_cycle == 1) {
+        LOG("Scanline 241: VBLANK. Cycle: %x\n", ppu->current_scanline_cycle);
+        fflush(stdout);
+
+        ppu->vblank_flag = 1;
+        ppu->PPUSTATUS |= 0b10000000;
     
-
-
-
-    if (ppu->scanline >= 241 && ppu->scanline <= 260) {
-        // Set vblank after tick 1 (second tick)
-        if (ppu->current_frame_cycle== 1) {
-            ppu->vblank_flag = 1;
-            ppu->PPUSTATUS |= 0b10000000;
-
-            // PPUCTRL bit 7 determins if CPU accepts NMI
-            if (ppu->vblank_flag & (ppu->PPUCTRL >> 7)) {
-                // Set NMI
-                ppu->nmi_flag = 1;
-            }
+        // PPUCTRL bit 7 determines if CPU accepts NMI
+        if (ppu->PPUCTRL & 0x80) { 
+            // Set NMI
+            ppu->nmi_flag = 1;
+            LOG("NMI triggered\n");
+            fflush(stdout);
+            //sleep(5);
         }
+        
+    }
+    if (ppu->current_scanline_cycle == 340 && ppu->scanline == 239) {
+        // Fill the frame buffer with red (test)
+        // for (int i = 0; i < 256 * 240; i++) {
+        //     frame_buffer[i] = 0xFF0000FF;  // Red
+        // }
+        memcpy(ppu->frame_buffer_render, frame_buffer, sizeof(frame_buffer[0]) * 256 * 240);
+        ppu->update_graphics = 1;
+        //sleep(1);
     }
 
 
-
-    ppu->current_frame_cycle++;
+    ppu->current_scanline_cycle++;
     
-    if (ppu->current_frame_cycle > 340) {
+    if (ppu->current_scanline_cycle >= 341) {
         ppu->scanline++;
 
         /*
         TODO:
-            - set current_frame_cycle to 0 or 1 is frame is even or odd
+            - set current_scanline_cycle to 0 or 1 if frame is even or odd
         */
-        ppu->total_cycles += ppu->current_frame_cycle - 1;
-        ppu->current_frame_cycle = 0;
+        ppu->total_cycles += ppu->current_scanline_cycle - 1;
+        ppu->current_scanline_cycle = ppu->frame % 2 == 0 ? 0 : 1;
     } 
 
     if (ppu->scanline > 260) {
         // Frame is completed
         // Set scanline back to pre-render
+
+        LOG("Update frame\n");
+        LOG("Frame: %d\n\n", ppu->frame);
+
         ppu->scanline = -1;
         ppu->frame++;
     }
-
 }

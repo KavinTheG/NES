@@ -1,6 +1,6 @@
 CC = gcc
-OBJ = ./build/main.o ./build/cpu.o ./build/ppu.o ./build/queue.o -lSDL2
-CFLAGS = -Wall -Iinclude
+OBJ = ./build/main.o ./build/cpu.o ./build/ppu.o ./build/queue.o 
+CFLAGS = -Wall -Iinclude -lSDL2
 TARGET = ./bin/emulator
 VPATH = src
 
