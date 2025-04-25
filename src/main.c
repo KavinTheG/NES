@@ -119,12 +119,15 @@ int main() {
     SDL_Init(SDL_INIT_VIDEO);
     SDL_Window* window = SDL_CreateWindow("NES",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        256, 240, SDL_WINDOW_SHOWN);
+        SCREEN_WIDTH_VIS * SCALE, SCREEN_HEIGHT_VIS * SCALE, SDL_WINDOW_SHOWN);
 
     SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     SDL_Texture* texture = SDL_CreateTexture(renderer,
         SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING,
-        256, 240);
+        SCREEN_WIDTH_VIS, SCREEN_HEIGHT_VIS);
+
+    SDL_RenderSetLogicalSize(renderer, SCREEN_WIDTH_VIS, SCREEN_HEIGHT_VIS);
+
 
     //uint32_t frame_buffer[256 * 240]; 
 
@@ -174,6 +177,12 @@ int main() {
         }
 
     }
+
+    SDL_DestroyTexture(texture);
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    return 0;
 
 }
 

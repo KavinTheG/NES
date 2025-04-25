@@ -16,4 +16,9 @@
 #define PPU_LOGGING 0
 #define CPU_LOGGING 0
 
+#define SCREEN_WIDTH_VIS 256
+#define SCREEN_HEIGHT_VIS 240
+
+#define SCALE 4
+
 #endif

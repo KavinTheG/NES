@@ -19,9 +19,6 @@ Author: Kavin Gnanapandithan
 
 #define OAM_SIZE 0xFF
 
-#define SCREEN_WIDTH_VIS 256
-#define SCREEN_HEIGHT_VIS 240
-
 #define NUM_DOTS 341
 #define NUM_SCANLINES 262
 
@@ -67,26 +64,16 @@ uint32_t frame_buffer[SCREEN_WIDTH_VIS * SCREEN_HEIGHT_VIS] = {0};
 uint8_t open_bus;
 
 void ppu_init(PPU *ppu) {
-    /* init SDL graphics*/
-    // SDL_Init(SDL_INIT_VIDEO);
+    // Initial PPU MMIO Register values
+    ppu->PPUCTRL = 0;
+    ppu->PPUMASK = 0;
+    ppu->PPUSTATUS=0b10100000;
+    ppu->OAMADDR = 0;
+    ppu->w = 0;
+    ppu->PPUSCROLL = 0;
+    ppu->PPUADDR = 0;
+    ppu->PPUDATA = 0;
 
-    // window = SDL_CreateWindow("NES Emulator",
-    //     SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-    //     SCREEN_WIDTH_VIS, SCREEN_HEIGHT_VIS,
-    //     SDL_WINDOW_SHOWN);
-
-    // renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    // texture = SDL_CreateTexture(renderer,
-    //     SDL_PIXELFORMAT_ARGB8888,
-    //     SDL_TEXTUREACCESS_STREAMING,
-    //     SCREEN_WIDTH_VIS, SCREEN_HEIGHT_VIS);
-
-    // texture = SDL_CreateTexture(renderer,
-    //     SDL_PIXELFORMAT_ARGB8888,
-    //     SDL_TEXTUREACCESS_STREAMING,
-    //     256, 240);
-        /* Header Config */
-    
     // Flag 6
     // Bit 0 determine h/v n.t arrangment (h = 1, v = 0)
     nametable_mirror_flag = ((nes_header[6] & 0x01) == 0x01);
@@ -428,6 +415,7 @@ void ppu_execute_cycle(PPU *ppu) {
         }
 
         uint8_t sprite_byte;
+        // If you wonder why 65, take a look at sprite evaluation
         if (ppu->current_scanline_cycle >= 65) {
 
             int oam_index = ppu->current_scanline_cycle - 65;
@@ -566,7 +554,7 @@ void ppu_execute_cycle(PPU *ppu) {
                         uint8_t r = ppu_palette[palette_data * 3];
                         uint8_t g = ppu_palette[palette_data * 3 + 1];
                         uint8_t b = ppu_palette[palette_data * 3 + 2];
-                        frame_buffer[(ppu->scanline + 1) * 256 + ppu->current_scanline_cycle - (7 - i) - 1]
+                        frame_buffer[ppu->current_scanline_cycle - 321 + (ppu->scanline + 1) * 256]
                         = (r << 24) | (g << 16) | (b << 8) | (tile_pixel_value[i] == 0 ? 0x0: 0xFF);
                     
                     }
@@ -595,7 +583,7 @@ void ppu_execute_cycle(PPU *ppu) {
                         
                         LOG("Red: %u, Green: %u, Blue: %u\n", r, g, b);
                         // RGBA format
-                        frame_buffer[ppu->scanline * 256 + ppu->current_scanline_cycle - (7 - i) - 1]
+                        frame_buffer[ppu->current_scanline_cycle - 321 + ppu->scanline * 256]
                             = (r << 24) | (g << 16) | (b << 8) | (tile_pixel_value[i] == 0 ? 0x0: 0xFF);
 
                         LOG("Frame Buffer Val (%d) : %x\n", ppu->scanline * 256 + ppu->current_scanline_cycle - (7 - i) - 1,
@@ -659,10 +647,6 @@ void ppu_execute_cycle(PPU *ppu) {
     if (ppu->current_scanline_cycle >= 341) {
         ppu->scanline++;
 
-        /*
-        TODO:
-            - set current_scanline_cycle to 0 or 1 if frame is even or odd
-        */
         ppu->total_cycles += ppu->current_scanline_cycle - 1;
         ppu->current_scanline_cycle = ppu->frame % 2 == 0 ? 0 : 1;
     } 

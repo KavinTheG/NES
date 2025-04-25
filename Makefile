@@ -1,6 +1,6 @@
 CC = gcc
 OBJ = ./build/main.o ./build/cpu.o ./build/ppu.o ./build/queue.o 
-CFLAGS = -Wall -Iinclude -lSDL2
+CFLAGS = -Wall -Iinclude -lSDL2 -g
 TARGET = ./bin/emulator
 VPATH = src
 
@@ -9,7 +9,7 @@ all: $(TARGET)
 
 # Link the object files to create the final binary
 $(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) -o $(TARGET) $(OBJ)
+	$(CC) $(CFLAGS) -o  $(TARGET) $(OBJ)
 
 # Rule to compile main.c into main.o
 ./build/main.o: main.c | ./build
