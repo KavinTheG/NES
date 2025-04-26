@@ -37,6 +37,28 @@ typedef struct PPU
 
     uint32_t frame_buffer_render[256 * 240];
 
+
+    // Fetch tile id from name table 
+    uint8_t name_table_byte;
+
+    // Fetch attribute byte for the corresponding nametable byte
+    uint8_t attribute_byte;
+
+    // Fetch high and low pattern table bytes
+    uint8_t pattern_table_lsb;
+    uint8_t pattern_table_msb;
+
+    // Final palette ram address
+    uint16_t palette_ram_addr;
+
+    // Determines which palette to use for tile
+    uint8_t palette_index;
+
+    // Palette data
+    uint8_t palette_data;
+
+    uint8_t tile_pixel_value[TILE_SIZE];
+
     // Counters 
     int current_scanline_cycle, total_cycles; 
     int scanline;

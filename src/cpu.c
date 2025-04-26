@@ -35,6 +35,10 @@ int cyc = 0;
 
 int instr_num = 0;
 
+
+unsigned char dma_active_flag;
+int dma_cycles = 0;
+
 /**  Helper functions **/
 
 inline void push_stack(uint8_t lower_addr, uint8_t val) {
@@ -82,8 +86,13 @@ void cpu_ppu_write(Cpu6502 *cpu, uint16_t addr, uint8_t val) {
     LOG("PPU MMIO WRITE: $%X; val: %x\n", addr, val);
     //sleep(1);
 
-    if ((addr == 0x2000 || addr == 0x2001 || addr == 0x2005 || addr == 0x2006) && cpu->cycles <= 29658)
-        return;
+    if (addr == 0x2001) {
+        printf("Writing to PPUMASK %X\n", val);
+        fflush(stdout);
+        //sleep(5);
+    }
+    // if ((addr == 0x2000 || addr == 0x2001 || addr == 0x2005 || addr == 0x2006) && cpu->cycles <= 29658)
+    //     return;
     ppu_registers_write(cpu->ppu, addr, val);
 }
 
@@ -258,6 +267,8 @@ void instr_STA(Cpu6502 *cpu, uint16_t addr) {
         LOG("CPU: WRITING TO PPU REG $%04X: %02X\n", reg_addr, cpu->A);
         cpu_ppu_write(cpu, reg_addr, cpu->A);
     } else if (addr == 0x4014) {
+        dma_active_flag = 1;
+        dma_cycles = cpu->cycles % 2 == 0 ? 513: 514;
         uint8_t page_mem[0x100];
         memcpy(page_mem, &memory[cpu->A << 8], 0x100);
         load_ppu_oam_mem(cpu->ppu, page_mem);
@@ -275,6 +286,9 @@ void instr_STX(Cpu6502 *cpu, uint16_t addr) {
         LOG("CPU: WRITING TO PPU REG $%04X: %02X\n", reg_addr, cpu->X);
         cpu_ppu_write(cpu, reg_addr, cpu->X);
     } else if (addr == 0x4014) {
+        dma_active_flag = 1;
+        dma_cycles = cpu->cycles % 2 == 0 ? 513: 514;
+
         uint8_t page_mem[0x100];
         memcpy(page_mem, &memory[cpu->X << 8], 0x100);
         load_ppu_oam_mem(cpu->ppu, page_mem);
@@ -291,6 +305,9 @@ void instr_STY(Cpu6502 *cpu, uint16_t addr) {
         LOG("CPU: WRITING TO PPU REG $%04X: %02X\n", reg_addr, cpu->Y);
         cpu_ppu_write(cpu, reg_addr, cpu->Y);
     } else if (addr == 0x4014) {
+        dma_active_flag = 1;
+        dma_cycles = cpu->cycles % 2 == 0 ? 513: 514;
+
         uint8_t page_mem[0x100];
         memcpy(page_mem, &memory[cpu->Y << 8], 0x100);
         load_ppu_oam_mem(cpu->ppu, page_mem);
@@ -1311,6 +1328,18 @@ void cpu_execute(Cpu6502 *cpu) {
         cpu_nmi_triggered(cpu);
         cpu->ppu->nmi_flag = 0;
         return;
+    }
+
+    if (dma_active_flag) {
+        if (dma_cycles > 0) {
+            dma_cycles--;
+            ppu_execute_cycle(cpu->ppu);
+            ppu_execute_cycle(cpu->ppu);
+            ppu_execute_cycle(cpu->ppu);
+            return;
+        } else {
+            dma_active_flag = 0;
+        }
     }
 
 
@@ -3734,6 +3763,8 @@ void cpu_execute(Cpu6502 *cpu) {
             }
         break;
     }
+
+    printf("ADDR: %X\n", address);
 
     for (int i = 0; i < cyc; i++) {
         ppu_execute_cycle(cpu->ppu);
