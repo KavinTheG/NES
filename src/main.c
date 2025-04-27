@@ -7,6 +7,17 @@
 #include "config.h"
 #include "ppu.h"
 
+uint32_t test_buffer[240][256];
+
+void fill_test_buffer_red() {
+    uint32_t red = 0xFF0000FF;  // R = 255, G = 0, B = 0, A = 255
+
+    for (int y = 0; y < 240; y++) {
+        for (int x = 0; x < 256; x++) {
+            test_buffer[y][x] = red;
+        }
+    }
+}
 
 void load_sys_mem(Cpu6502 *cpu, PPU *ppu, char *filename) {
 
@@ -148,13 +159,14 @@ int main() {
     cpu.ppu = &ppu;
 
     sleep(1);
-
+    //fill_test_buffer_red();
     // logging
     const char *filename = "log.txt";
 
     FILE *log = fopen(filename, "a");
 
     fprintf(log, "Program started\n");
+
 
     while (1) {
         
@@ -168,7 +180,7 @@ int main() {
             // for (int i = 0; i < 256 * 240; i++) {
             //     frame_buffer[i] = 0xFF0000FF;  // Red
             // }
-            SDL_UpdateTexture(texture, NULL, get_frame_buffer(&ppu), 256 * sizeof(uint32_t));
+            SDL_UpdateTexture(texture, NULL, &cpu.ppu->frame_buffer[0][0], 256 * sizeof(uint32_t));            
             SDL_RenderClear(renderer);
             SDL_RenderCopy(renderer, texture, NULL, NULL);
             SDL_RenderPresent(renderer);

@@ -35,8 +35,6 @@ typedef struct PPU
     unsigned char vblank_flag, nmi_flag;
     unsigned char update_graphics;
 
-    uint32_t frame_buffer_render[256 * 240];
-
 
     // Fetch tile id from name table 
     uint8_t name_table_byte;
@@ -58,6 +56,8 @@ typedef struct PPU
     uint8_t palette_data;
 
     uint8_t tile_pixel_value[TILE_SIZE];
+
+    uint32_t frame_buffer[SCREEN_HEIGHT_VIS][SCREEN_WIDTH_VIS];
 
     // Counters 
     int current_scanline_cycle, total_cycles; 

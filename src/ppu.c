@@ -66,7 +66,6 @@ int copy_oam_mem_flag = 0;
 // SDL_Texture *texture;
 
 // Store RGB values in frame_buffer
-uint32_t frame_buffer[SCREEN_WIDTH_VIS * SCREEN_HEIGHT_VIS] = {0};
 
 uint8_t open_bus;
 
@@ -138,6 +137,7 @@ void load_ppu_oam_mem(PPU *ppu, uint8_t *dma_mem) {
 
 
 uint8_t read_mem(PPU *ppu, uint16_t addr) {
+    addr &= 0x3FFF;
     switch (addr & 0xF000) {
         case 0x0:
             // PPUCTRL bit 3 & 4 control sprite & background PT address respectively
@@ -362,9 +362,9 @@ uint8_t ppu_registers_read(PPU *ppu, uint16_t addr) {
     }
 }
 
-uint32_t* get_frame_buffer(PPU *ppu) {
-    return ppu->frame_buffer_render;
-}
+// uint32_t get_frame_buffer(PPU *ppu) {
+//     return ppu->frame_buffer;
+// }
 
 void reset_graphics_flag(PPU *ppu) {
     ppu->update_graphics = 0;
@@ -425,21 +425,6 @@ uint16_t fetch_pattern_table_bytes(PPU *ppu, uint8_t tile_index) {
 void ppu_execute_cycle(PPU *ppu) {
 
     // Pixel generation variables
-    if ((ppu->PPUMASK & 0x18) == 0) {
-        // Rendering disabled: no fetches, no scroll updates
-        ppu->current_scanline_cycle++;
-        if (ppu->current_scanline_cycle >= 341) {
-            ppu->current_scanline_cycle = 0;
-            ppu->scanline++;
-            if (ppu->scanline >= 261) {
-                ppu->scanline = -1;
-                ppu->frame++;
-            }
-        }
-        return;
-    }
-
-
     if (!ppu) {
         LOG("PPU is null!\n");
         exit(1);
@@ -453,7 +438,7 @@ void ppu_execute_cycle(PPU *ppu) {
     LOG("Nametable Byte: %x \n", ppu->name_table_byte);
     LOG("Attribute Table Byte: %x \n", ppu->attribute_byte);
 
-
+    //usleep(5000); // 500,000 microseconds = 0.5 seconds
     if ((ppu->current_scanline_cycle >= 1 && ppu->current_scanline_cycle <= 256) 
      || (ppu->current_scanline_cycle >= 321 && ppu->current_scanline_cycle <= 336) ) {
                 
@@ -586,9 +571,9 @@ void ppu_execute_cycle(PPU *ppu) {
                 // Increment v 
                 ppu->v += (ppu->PPUCTRL & 0x04) == 0x04 ? 32 : 1; 
 
-                if (ppu->scanline + 1 < 239 && 
+                if (ppu->scanline + 1 <= 239 && 
                     ppu->current_scanline_cycle >= 321 && 
-                    ppu->current_scanline_cycle >= 336) {
+                    ppu->current_scanline_cycle <= 336) {
                     /*
                     Populate frame buffer with tile 1 & tile 2 of scanline N + 1
                     frame_buffer[(scanline + 1) * 256 + ppu->current_scanline_cycle]
@@ -611,7 +596,22 @@ void ppu_execute_cycle(PPU *ppu) {
                         uint8_t r = ppu_palette[ppu->palette_data * 3];
                         uint8_t g = ppu_palette[ppu->palette_data * 3 + 1];
                         uint8_t b = ppu_palette[ppu->palette_data * 3 + 2];
-                        frame_buffer[ppu->current_scanline_cycle - 321 + (ppu->scanline + 1) * 256 - (7 - i)]
+
+                        int row = ppu->scanline + 1;
+                        int column = ppu->current_scanline_cycle - 321 - (7 - i);
+                        printf("INDICES! R: %d, C: %d\n", row, column);
+                        fflush(stdout);
+
+                        //sleep (1);
+                        fflush(stdout);
+                        if (!((row >= 0 && row <= 239) && (column >= 0 && column <= 255))) {
+                            printf("NEXT SL: INDICES OUT OF BOUNDS! R: %d, C: %d", row, column);
+                            fflush(stdout);
+                            sleep(10);
+                            return;
+                        }
+
+                        ppu->frame_buffer[row][column]                        
                         = (r << 24) | (g << 16) | (b << 8) | (ppu->tile_pixel_value[i] == 0 ? 0x0: 0xFF);
                     
                     }
@@ -619,7 +619,8 @@ void ppu_execute_cycle(PPU *ppu) {
 
   
 
-                if (ppu->current_scanline_cycle < 256 && ppu->scanline <= 239 && ppu->scanline > -1) {
+                if (ppu->current_scanline_cycle < 256 && 
+                    ppu->scanline > -1 && ppu->scanline <= 239) {
                     for (int i = 0; i < TILE_SIZE; i++) {
                         ppu->palette_ram_addr = drawing_bg_flag ? 0x3F00 : 0x3F10;
 
@@ -639,8 +640,23 @@ void ppu_execute_cycle(PPU *ppu) {
                         uint8_t b = ppu_palette[ppu->palette_data * 3 + 2];
                         
                         LOG("Red: %u, Green: %u, Blue: %u\n", r, g, b);
+
+                        int row = ppu->scanline;
+                        int column = ppu->current_scanline_cycle + 8 - (7 - i) - 1;
+                        printf("INDICES! R: %d, C: %d\n", row, column);
+                        fflush(stdout);
+
+                        //sleep (1);
+                        if (!((row >= 0 && row <= 239) && (column >= 0 && column <= 255))) {
+                            printf("INDICES OUT OF BOUNDS! R: %d, C: %d", row, column);
+                            fflush(stdout);
+                            sleep(10);
+                            return;
+                        }
+
+
                         // RGBA format
-                        frame_buffer[ppu->scanline * 256 + ppu->current_scanline_cycle + 8 - (7 - i)]
+                        ppu->frame_buffer[row][column]
                             = (r << 24) | (g << 16) | (b << 8) | (ppu->tile_pixel_value[i] == 0 ? 0x0: 0xFF);
 
                         LOG("Frame Buffer Val (%d) : %x\n", ppu->scanline * 256 + ppu->current_scanline_cycle - (7 - i) - 1,
@@ -663,7 +679,7 @@ void ppu_execute_cycle(PPU *ppu) {
         }
 
         // Tile data for the sprites on the next scanline are loaded into rendering latches
-        oam_buffer_latches[(ppu->current_scanline_cycle- 257) % 32] = oam_memory_secondary[(ppu->current_scanline_cycle- 257) % 32];
+        oam_buffer_latches[(ppu->current_scanline_cycle - 257) % 32] = oam_memory_secondary[(ppu->current_scanline_cycle- 257) % 32];
 
     }  
 
@@ -684,18 +700,17 @@ void ppu_execute_cycle(PPU *ppu) {
             ppu->nmi_flag = 1;
             LOG("NMI triggered\n");
             fflush(stdout);
-            //sleep(5);
         }
         
     }
     if (ppu->current_scanline_cycle == 340 && ppu->scanline == 239) {
-        // Fill the frame buffer with red (test)
-        // for (int i = 0; i < 256 * 240; i++) {
-        //     frame_buffer[i] = 0xFF0000FF;  // Red
-        // }
-        memcpy(ppu->frame_buffer_render, frame_buffer, sizeof(frame_buffer[0]) * 256 * 240);
-        ppu->update_graphics = 1;
-        //sleep(1);
+
+        if (ppu->PPUMASK & 0x08) {
+            ppu->update_graphics = 1;
+            printf("PPUMASK: %x", ppu->PPUMASK);
+            fflush(stdout);
+            //sleep(1);
+        }
     }
 
 

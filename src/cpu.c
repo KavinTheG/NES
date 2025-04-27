@@ -91,8 +91,12 @@ void cpu_ppu_write(Cpu6502 *cpu, uint16_t addr, uint8_t val) {
         fflush(stdout);
         //sleep(5);
     }
-    // if ((addr == 0x2000 || addr == 0x2001 || addr == 0x2005 || addr == 0x2006) && cpu->cycles <= 29658)
-    //     return;
+    printf("PPU Frame: %d\n", cpu->ppu->frame);
+    printf("PPU Scanline: %d\n", cpu->ppu->scanline);
+    printf("PPU Cycle: %d\n", cpu->ppu->current_scanline_cycle);
+    fflush(stdout);
+    if ((addr == 0x2000 || addr == 0x2001 || addr == 0x2005 || addr == 0x2006) && cpu->cycles <= 29657)
+        return;
     ppu_registers_write(cpu->ppu, addr, val);
 }
 
@@ -1142,7 +1146,7 @@ void cpu_nmi_triggered(Cpu6502 *cpu) {
     cpu->S -=1;
 
     cpu->PC = (memory[0xFFFB] << 8) | memory[0xFFFA];
-
+    cyc = 7;
     LOG("NMI TRIGGERED PC: %x\n", cpu->PC);
     //sleep(1);
 }
@@ -1312,6 +1316,7 @@ void cpu_execute(Cpu6502 *cpu) {
     LOG("X: %x\n", cpu->X );
     LOG("Y: %x\n", cpu->Y );
     printf("Cycle: %d\n\n", cpu->cycles);
+
 
     dump_log_file(cpu);
     // printf("M[0x0] = %x\n\n", memory[0x0]);
