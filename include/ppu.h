@@ -5,6 +5,15 @@
 
 #include <stdint.h>
 
+enum PPUState {
+    VBLANK,
+    HBLANK,
+    VISIBLE_RENDER,
+    POST_RENDER,
+    PRE_RENDER,
+    RENDER_OFF
+};
+
 typedef struct PPU
 {
     // misc settings
@@ -58,6 +67,8 @@ typedef struct PPU
     uint8_t tile_pixel_value[TILE_SIZE];
 
     uint32_t frame_buffer[SCREEN_HEIGHT_VIS][SCREEN_WIDTH_VIS];
+
+    enum PPUState state;
 
     // Counters 
     int current_scanline_cycle, total_cycles; 

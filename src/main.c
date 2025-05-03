@@ -10,7 +10,7 @@
 uint32_t test_buffer[240][256];
 
 void fill_test_buffer_red() {
-    uint32_t red = 0xFF0000FF;  // R = 255, G = 0, B = 0, A = 255
+    uint32_t red = 0xFF000000;  // R = 255, G = 0, B = 0, A = 255
 
     for (int y = 0; y < 240; y++) {
         for (int x = 0; x < 256; x++) {
@@ -136,7 +136,7 @@ int main() {
     SDL_Texture* texture = SDL_CreateTexture(renderer,
         SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING,
         SCREEN_WIDTH_VIS, SCREEN_HEIGHT_VIS);
-
+    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);  // Enable alpha blending
     SDL_RenderSetLogicalSize(renderer, SCREEN_WIDTH_VIS, SCREEN_HEIGHT_VIS);
 
 
@@ -152,14 +152,15 @@ int main() {
     #endif
     
     load_ppu_palette("palette/2C02G_wiki.pal");
-
-    cpu_init(&cpu);
     ppu_init(&ppu);
-
     cpu.ppu = &ppu;
+    cpu_init(&cpu);
+    
+
+    
 
     sleep(1);
-    //fill_test_buffer_red();
+    fill_test_buffer_red();
     // logging
     const char *filename = "log.txt";
 
@@ -175,18 +176,20 @@ int main() {
         cpu_execute(&cpu);
 
         
-        if (ppu.update_graphics) {
-            // Fill the frame buffer with red (test)
-            // for (int i = 0; i < 256 * 240; i++) {
-            //     frame_buffer[i] = 0xFF0000FF;  // Red
-            // }
-            SDL_UpdateTexture(texture, NULL, &cpu.ppu->frame_buffer[0][0], 256 * sizeof(uint32_t));            
-            SDL_RenderClear(renderer);
-            SDL_RenderCopy(renderer, texture, NULL, NULL);
-            SDL_RenderPresent(renderer);
+        // if (ppu.update_graphics) {
+        //     // Fill the frame buffer with red (test)
+        //     // for (int i = 0; i < 256 * 240; i++) {
+        //     //     frame_buffer[i] = 0xFF0000FF;  // Red
+        //     // }
+        //     SDL_UpdateTexture(texture, NULL, &cpu.ppu->frame_buffer[0][0], 256 * sizeof(uint32_t));            
+        //     //SDL_UpdateTexture(texture, NULL, &test_buffer[0][0], 256 * sizeof(uint32_t));            
+            
+        //     SDL_RenderClear(renderer);
+        //     SDL_RenderCopy(renderer, texture, NULL, NULL);
+        //     SDL_RenderPresent(renderer);
 
-            reset_graphics_flag(&ppu);
-        }
+        //     reset_graphics_flag(&ppu);
+        // }
 
     }
 

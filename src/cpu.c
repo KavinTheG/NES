@@ -80,21 +80,19 @@ void emulate_6502_cycle(int cycle) {
     //nanosleep(&ts, NULL);
 }
 
+void check_page_cross(uint16_t base, uint8_t index) {
+    uint16_t result = base + index;
+    if ((base & 0xFF00) != (result & 0xFF00)) {
+        cyc += 1;
+    }
+}
+
 /* PPU Functions */
 
 void cpu_ppu_write(Cpu6502 *cpu, uint16_t addr, uint8_t val) {
     LOG("PPU MMIO WRITE: $%X; val: %x\n", addr, val);
     //sleep(1);
 
-    if (addr == 0x2001) {
-        printf("Writing to PPUMASK %X\n", val);
-        fflush(stdout);
-        //sleep(5);
-    }
-    printf("PPU Frame: %d\n", cpu->ppu->frame);
-    printf("PPU Scanline: %d\n", cpu->ppu->scanline);
-    printf("PPU Cycle: %d\n", cpu->ppu->current_scanline_cycle);
-    fflush(stdout);
     if ((addr == 0x2000 || addr == 0x2001 || addr == 0x2005 || addr == 0x2006) && cpu->cycles <= 29657)
         return;
     ppu_registers_write(cpu->ppu, addr, val);
@@ -116,13 +114,8 @@ void cpu_init(Cpu6502 *cpu) {
 
     cpu->nmi_state = 0;
 
-    #if NES_TEST_ROM
-    //cpu->PC = 0xC000;
-    cpu->PC = (memory[0xFFFD] << 8) | memory[0xFFFC];
-    #else
-    cpu->PC = (memory[0xFFFD] << 8) | memory[0xFFFC];
-    #endif
-
+    // cpu->PC = (memory[0xFFFD] << 8) | memory[0xFFFC];
+    cpu->PC = 0xC000;
     printf("MEMORY[0xFFFD]: %x\n", memory[0xFFFD]);
     printf("MEMORY[0xFFFC]: %x\n", memory[0xFFFC]);
     printf("PC: $%04X | Opcode: %02X\n", cpu->PC, memory[cpu->PC]);
@@ -142,6 +135,11 @@ void cpu_init(Cpu6502 *cpu) {
 
     //memset(memory, 0, sizeof(memory));
 
+    for (int i = 0; i < 21; i++) {
+        ppu_execute_cycle(cpu->ppu);
+    }
+
+
     log_file = fopen("log.txt", "w");
     fclose(log_file);
     log_file = fopen("log.txt", "a");
@@ -154,6 +152,9 @@ void cpu_init(Cpu6502 *cpu) {
         push_stack(0100 | cpu->S, 0x00);
         cpu->S--;
     #endif
+
+    printf("instr: %x\n", cpu->instr);
+    sleep(1);
 }
 
 
@@ -271,14 +272,17 @@ void instr_STA(Cpu6502 *cpu, uint16_t addr) {
         LOG("CPU: WRITING TO PPU REG $%04X: %02X\n", reg_addr, cpu->A);
         cpu_ppu_write(cpu, reg_addr, cpu->A);
     } else if (addr == 0x4014) {
+        //sleep(10);
+
         dma_active_flag = 1;
         dma_cycles = cpu->cycles % 2 == 0 ? 513: 514;
         uint8_t page_mem[0x100];
         memcpy(page_mem, &memory[cpu->A << 8], 0x100);
         load_ppu_oam_mem(cpu->ppu, page_mem);
-    } else {
-        memory[addr] = cpu->A;
     }
+    
+    memory[addr] = cpu->A;
+    
     cpu->PC++;
 }
 
@@ -370,78 +374,48 @@ void instr_ADC(Cpu6502 *cpu, uint8_t oper) {
     uint16_t result = 0;
     uint8_t new_A = cpu->A;
 
-    if (!cpu->P[3]) {
 
-        result = (uint16_t)(cpu->A + oper + cpu->P[0]);
+    result = (uint16_t)(cpu->A + oper + cpu->P[0]);
 
-        // Use lower byte for A
-        new_A = result & 0xFF;
+    // Use lower byte for A
+    new_A = result & 0xFF;
 
 
-        // Set carry bit if upper byte is 1
-        cpu->P[0] = result > 0xFF;
+    // Set carry bit if upper byte is 1
+    cpu->P[0] = result > 0xFF;
 
-        // Set zero flag and negative flag
-        cpu->P[1] = new_A == 0;
-        cpu->P[7] = new_A >> 7;
+    // Set zero flag and negative flag
+    cpu->P[1] = new_A == 0;
+    cpu->P[7] = new_A >> 7;
 
-        cpu->P[6] = ((cpu->A ^ new_A) & (new_A ^ oper) & 0x80) == 0x80;
-        cpu->A = new_A;
-    } else {
-        //sleep(5);
-        result = (cpu->A & 0xF) + (oper & 0xF) + cpu->P[0];
-        result += result > 0x9 ? 0x6 : 0;
-
-        uint16_t HB = (cpu->A & 0xF0) + (oper & 0xF0);
-
-        HB += HB > 0x90 ? 0x60 : 0;
-        result += HB;
-
-        if ( (result & 0xF0) > 0x90 ) {
-            //printf("result is not in BCD: %x");
-            result += 0x60;
-        }
-
-        cpu->P[0] = result > 0x99;
-        cpu->A = result & 0xFF;
-        cpu->P[1] = cpu->A == 0;
-    }
+    cpu->P[6] = ((cpu->A ^ new_A) & (new_A ^ oper) & 0x80) == 0x80;
+    cpu->A = new_A;
+    
     cpu->PC++;
 }
 void instr_SBC(Cpu6502 *cpu, uint8_t oper) {
     uint16_t result = 0;
     uint8_t new_A = cpu->A;
 
-    if (!cpu->P[3]) {
-        result = (uint16_t)(cpu->A - oper - (1 - cpu->P[0]));
+    result = (uint16_t)(cpu->A - oper - (1 - cpu->P[0]));
 
-        new_A = result & 0xFF;
+    new_A = result & 0xFF;
 
-        // If  M < old A value, it underflows.
-        // Carry is cleared if it underflows
-        char new_carry = cpu->A >= (oper + (1 - cpu->P[0]));
-        cpu->P[0] = new_carry;
+    // If  M < old A value, it underflows.
+    // Carry is cleared if it underflows
+    char new_carry = cpu->A >= (oper + (1 - cpu->P[0]));
+    cpu->P[0] = new_carry;
 
-        // Zero flag
-        cpu->P[1] = new_A == 0;
+    // Zero flag
+    cpu->P[1] = new_A == 0;
 
-        // Negative flag
-        cpu->P[7] = new_A >> 7;
+    // Negative flag
+    cpu->P[7] = new_A >> 7;
 
-        // Overflow flag
-        cpu->P[6] = (((cpu->A ^ new_A) & (oper ^ cpu->A)) & 0x80) != 0;
-        cpu->A = new_A;
-    } else {
-
-        result = cpu->A - oper - (1 - cpu->P[0]);
-
-        result -= (result & 0xF0) > 0x90 ? 0x60 : 0;
-        result -= (result & 0x0F) > 0x09 ? 0x06 : 0;
-
-        cpu->P[0] = result <= 0x99;
-        cpu->A = result & 0xFF;
-        cpu->P[1] = cpu->A == 0;
-    }
+    // Overflow flag
+    cpu->P[6] = (((cpu->A ^ new_A) & (oper ^ cpu->A)) & 0x80) != 0;
+    cpu->A = new_A;
+    
     cpu->PC++;
 }
 
@@ -1179,9 +1153,10 @@ uint16_t addr_abs_X(Cpu6502 *cpu) {
     // printf("HB: %x\n", HB);
 
     //addr = (memory[cpu->PC] << 8 | LB) + cpu->X;
-    addr = (HB << 8 | LB) + cpu->X;
-
-    return addr;
+    addr = (HB << 8 | LB);
+    //check_page_cross(addr, cpu->X);
+    
+    return addr + cpu->X;
 }
 
 uint16_t addr_abs_Y(Cpu6502 *cpu) {
@@ -1322,20 +1297,16 @@ void cpu_execute(Cpu6502 *cpu) {
     // printf("M[0x0] = %x\n\n", memory[0x0]);
 
     #if NES_TEST_ROM
-        if (cpu->PC == 0x7000) {
-            // printf("Reached addressed originally pushed to stack!");
+        if (cpu->PC == 0x7001) {
+            printf("Reached addressed originally pushed to stack!");
             exit(0);
         }
     #endif
     
-    // PPU set NMI flag
-    if (cpu->ppu->nmi_flag) {
-        cpu_nmi_triggered(cpu);
-        cpu->ppu->nmi_flag = 0;
-        return;
-    }
+
 
     if (dma_active_flag) {
+        printf("DMA\n");
         if (dma_cycles > 0) {
             dma_cycles--;
             ppu_execute_cycle(cpu->ppu);
@@ -1451,12 +1422,14 @@ void cpu_execute(Cpu6502 *cpu) {
                     cyc = 2;
                     break;
 
-                    // NOP abs
-                    case 0xc:
-                        cpu->PC += 3;
-                        emulate_6502_cycle(cyc);
-                        
-                        break;
+                // NOP abs
+                case 0xc:
+                    cpu->PC += 3;
+
+
+                    emulate_6502_cycle(4);
+                    cyc = 4;
+                    break;
 
                 // 0x0D
                 // ORA abs
@@ -2178,8 +2151,8 @@ void cpu_execute(Cpu6502 *cpu) {
                     address = addr_zpg_X(cpu);
                     instr_SRE(cpu, &memory[address]);
 
-                    emulate_6502_cycle(5);
-                    cyc = 5;
+                    emulate_6502_cycle(6);
+                    cyc = 6;
                     break;
 
                 // 0x58
@@ -3115,11 +3088,12 @@ void cpu_execute(Cpu6502 *cpu) {
                 // LDX abs,Y
                 case 0xE:
                     address = addr_abs_Y(cpu);
-                    if ((address & 0xFF00) != ((address - cpu->X) & 0xFF00)) {
+                    if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
                         cyc = 5;
                     } else {
                         cyc = 4;
                     }
+                    // cyc += 4;
                     instr_LDX(cpu, address);
 
                     emulate_6502_cycle(cyc);
@@ -3773,8 +3747,20 @@ void cpu_execute(Cpu6502 *cpu) {
 
     for (int i = 0; i < cyc; i++) {
         ppu_execute_cycle(cpu->ppu);
+        ppu_execute_cycle(cpu->ppu);
+        ppu_execute_cycle(cpu->ppu);
+
     }
     cpu->cycles += cyc;
+    cyc = 0;
+    // PPU set NMI flag
+    if (cpu->ppu->nmi_flag) {
+        cpu_nmi_triggered(cpu);
+        printf("NMI TRIGGERED!\n");
+        //sleep(1);
+        cpu->ppu->nmi_flag = 0;
+        return;
+    }
 
     // print("}\n");
 }
