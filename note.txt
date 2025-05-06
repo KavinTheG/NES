@@ -1,0 +1,25 @@
+First NMI
+- PPU Frame               ==   2
+- PPU Cycle               ==   6
+- PPU Scanline            ==   241
+- CPU Cycle               ==   86939
+
+- Mesen PPU Cycle         ==   28
+- Mesen PPU Scanline      ==   241
+- Mesen CPU Cyclce        ==   86963
+
+
+Rendering Enable
+- PPU Frame               ==   2
+- PPU Cycle               ==   202
+- PPU Scanline            ==   251
+- CPU Cycle               ==   88141
+
+- Mesen PPU Cycle         ==   227
+- Mesen PPU Scanline      ==   251
+- Mesen CPU Cyclce        ==   88166
+
+
+DONKEY KONG
+@ PC = 0xF1C5
+- write 0x24 to nametable starting at 0x2000 in a loop

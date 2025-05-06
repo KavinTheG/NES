@@ -114,7 +114,7 @@ void ppu_init(PPU *ppu) {
     drawing_bg_flag = 1;
 
     ppu->current_scanline_cycle = 0;
-    ppu->scanline = -1;
+    ppu->scanline = 0;
     ppu->frame = 0;
 }
 
@@ -158,23 +158,27 @@ uint8_t read_mem(PPU *ppu, uint16_t addr) {
             // TODO: Handle 8x16 sprites separately in sprite code
             pt_base_addr = (ppu->PPUCTRL & 0x08) ? 0x1000 : 0x0000;
         }
-
         return ppu_memory[pt_base_addr | (addr & 0x0FFF)];
     }
 
     else if (addr < 0x3F00) {
         // Nametable region with mirroring
-        addr &= 0x2FFF;  // Clamp
-        uint16_t offset = addr - 0x2000;
+        addr &= 0x2FFF;
+        uint16_t offset = addr & 0xFFF;
 
         if (nametable_mirror_flag) { // vertical
             return ppu_memory[offset % 0x800];
         } else { // horizontal
-            uint16_t table = (offset / 0x400) & 0x03;
-            if (table == 0 || table == 1)
-                return ppu_memory[offset % 0x400];
-            else
-                return ppu_memory[(offset % 0x400) + 0x400];
+            if (offset < 0x800) {
+                // NT0 or NT1 (2000 or 2400)
+                return ppu_memory[(0x2000 | (offset % 0x400))];
+            } else {
+                if (offset < 0xC00) {
+                    return ppu_memory[addr];
+                } else {
+                    return ppu_memory[0x2000 | (offset - 0x400)];
+                }
+            }
         }
     }
 
@@ -196,20 +200,40 @@ void write_mem(PPU *ppu, uint16_t addr, uint8_t val) {
 
     if (addr < 0x2000) {
         // Pattern table / CHR RAM
-        ppu_memory[addr] = val;
+        //ppu_memory[addr] = val;
     } else if (addr < 0x3F00) {
         // Nametable range with mirroring
-        uint16_t mirrored_addr = 0x2000 + (addr & 0x0FFF); // mirror $2000–$2FFF every 4KB
-        ppu_memory[mirrored_addr] = val;
+        //uint16_t mirrored_addr = 0x2000 + (addr & 0x0FFF); // mirror $2000–$2FFF every 4KB
+        ppu_memory[addr] = val;
+        //ppu_memory[mirrored_addr] = val;
+
+
+        // addr &= 0x2FFF;
+        // uint16_t offset = addr & 0xFFF;
+
+        // if (nametable_mirror_flag) {
+
+        // } else {
+        //     if (offset < 0x800) {
+        //         // NT0 or NT1 (2000 or 2400)
+        //         ppu_memory[(0x2000 | (offset % 0x400))] = val;
+        //     } else {
+        //         if (offset < 0xC00) {
+        //             ppu_memory[addr] = val;
+        //         } else {
+        //             ppu_memory[0x2000 | (offset - 0x400)] = val;
+        //         }
+        //     }
+        // }
     } else if (addr < 0x4000) {
         // Palette RAM with mirroring
         uint16_t mirrored_addr = 0x3F00 + (addr & 0x1F);
 
         // Handle mirroring of universal background color
-        if (mirrored_addr == 0x3F10) mirrored_addr = 0x3F00;
-        if (mirrored_addr == 0x3F14) mirrored_addr = 0x3F04;
-        if (mirrored_addr == 0x3F18) mirrored_addr = 0x3F08;
-        if (mirrored_addr == 0x3F1C) mirrored_addr = 0x3F0C;
+        // if (mirrored_addr == 0x3F10) mirrored_addr = 0x3F00;
+        // if (mirrored_addr == 0x3F14) mirrored_addr = 0x3F04;
+        // if (mirrored_addr == 0x3F18) mirrored_addr = 0x3F08;
+        // if (mirrored_addr == 0x3F1C) mirrored_addr = 0x3F0C;
 
         ppu_memory[mirrored_addr] = val;
     }
@@ -235,6 +259,8 @@ void ppu_registers_write(PPU *ppu, uint16_t addr, uint8_t val) {
         // PPUCTRL
         case 0x2000:
             ppu->PPUCTRL = val;
+            // Update nametable bits (bits 10 and 11) of temporary VRAM address (ppu->t)
+            ppu->t = (ppu->t & 0xF3FF) | ((val & 0x03) << 10);
             break;
 
         // PPUMASK
@@ -281,8 +307,8 @@ void ppu_registers_write(PPU *ppu, uint16_t addr, uint8_t val) {
                 ppu->w = 1;
             } else {
                 ppu->t = (ppu->t & 0xFF00) | val;
-                ppu->v = ppu->t;
                 ppu->w = 0;
+                ppu->v = ppu->t;
                 printf("WRITTEN TO V: %x\n", ppu->v);
                 fflush(stdout);
                 //sleep(5);
@@ -304,15 +330,15 @@ void ppu_registers_write(PPU *ppu, uint16_t addr, uint8_t val) {
 }
 
 uint8_t ppu_registers_read(PPU *ppu, uint16_t addr) {
-    if (ppu->scanline >= 0 && ppu->scanline <= 239 &&
-        ppu->current_scanline_cycle > 0 && ppu->current_scanline_cycle <= 256) 
-    {
-        LOG("Read to PPU during render!\n");
-        LOG("SCANLINE: %d\n", ppu->scanline);
-        LOG("REG: %x", addr);
-        fflush(stdout);
-        return open_bus;
-    }
+    // if (ppu->scanline >= 0 && ppu->scanline <= 239 &&
+    //     ppu->current_scanline_cycle > 0 && ppu->current_scanline_cycle <= 256) 
+    // {
+    //     LOG("Read to PPU during render!\n");
+    //     LOG("SCANLINE: %d\n", ppu->scanline);
+    //     LOG("REG: %x", addr);
+    //     fflush(stdout);
+    //     return open_bus;
+    // }
     switch (addr)  {
 
         // PPUCTRL
@@ -409,7 +435,7 @@ Note:
 - Mapped to 4KB of PPU memory ($2000 - $2FFF)
 */
 uint8_t fetch_name_table_byte(PPU *ppu) {
-    return read_mem(ppu, ppu->v);
+    return read_mem(ppu, 0x2000 | (ppu->v & 0xFFF));
 }
 
 /*
@@ -421,7 +447,7 @@ Note:
 */
 uint8_t fetch_attr_table_byte(PPU *ppu) {
 
-    uint16_t name_table_base = ppu->v & 0x2C00;
+    uint16_t name_table_base = ppu->name_table_byte & 0x2C00;
     uint16_t attribute_table_base = name_table_base + 0x3C0;  
 
     uint8_t attr_x = (ppu->v & 0x001F) >> 2;
@@ -450,292 +476,326 @@ void ppu_execute_cycle(PPU *ppu) {
     LOG("Nametable Byte: %x \n", ppu->name_table_byte);
     LOG("Attribute Table Byte: %x \n", ppu->attribute_byte);
 
-    if (((ppu->current_scanline_cycle >= 1 && ppu->current_scanline_cycle <= 256) ||
-        (ppu->current_scanline_cycle >= 321 && ppu->current_scanline_cycle <= 336))) {
-        
-        for (int i = 3; i < 32; i += 4) {
-            if (oam_buffer_latches[i] >= ppu->current_scanline_cycle &&
-                oam_buffer_latches[i] < ppu->current_scanline_cycle + 8) {
-                
-                sprite_index = i - 3;
-                drawing_bg_flag = 0;
-                break;
-            }
-            drawing_bg_flag = 1;
-        }
-
-        /* 
-        SPRITE EVALUATION   
-
-        - Cycle 65 to 256 
-            - OAM_SECONDARY is populated with sprites of the next scanline
-        - secondary oam is copied to the shift registers (oam_buffer_latch) to
-          print on the next scanline
-        
-        */
-        if (ppu->current_scanline_cycle < 65) {
-            memset(oam_memory_secondary, 0xFF, 32);
-        }
-
-        if (ppu->current_scanline_cycle <= 256 && ppu->current_scanline_cycle >= 65) {
-            int sprite_cycle = ppu->current_scanline_cycle - 65;
+    if ((ppu->scanline >= -1 && ppu->scanline < 240) && ppu->PPUMASK & 0x18) {
+        if (((ppu->current_scanline_cycle >= 1 && ppu->current_scanline_cycle <= 256) ||
+            (ppu->current_scanline_cycle >= 321 && ppu->current_scanline_cycle <= 336))) {
             
-            if (ppu->current_scanline_cycle % 2 == 1) {
-                // Odd cycle
-                sprite_byte = oam_memory[sprite_eval_index * 4 + sprite_byte_eval_index];
-                int sprite_height = (ppu->PPUCTRL & 0x20) ? 16 : 8;
-
-                if (sprite_byte_eval_index == 0) { 
-                    if ((ppu->scanline + 1 >= sprite_byte) &&
-                        (ppu->scanline + 1 < sprite_byte + sprite_height)) {
-                        copy_oam_mem_flag = 1;
-                    } else {
-                        copy_oam_mem_flag = 0;
-                    }
+            for (int i = 3; i < 32; i += 4) {
+                if (oam_buffer_latches[i] >= ppu->current_scanline_cycle &&
+                    oam_buffer_latches[i] < ppu->current_scanline_cycle + 8) {
+                    
+                    sprite_index = i - 3;
+                    drawing_bg_flag = 0;
+                    break;
                 }
+                drawing_bg_flag = 1;
+            }
 
-            } else {
-                if (oam_secondary_top < 32) {
-                    if (copy_oam_mem_flag) {
-                        oam_memory_secondary[oam_secondary_top++] = sprite_byte;
-                        sprite_byte_eval_index++;
-                        if (sprite_byte_eval_index > 3) {
+            /* 
+            SPRITE EVALUATION   
+
+            - Cycle 65 to 256 
+                - OAM_SECONDARY is populated with sprites of the next scanline
+            - secondary oam is copied to the shift registers (oam_buffer_latch) to
+            print on the next scanline
+            
+            */
+            if (ppu->current_scanline_cycle < 65) {
+                memset(oam_memory_secondary, 0xFF, 32);
+            }
+
+            if (ppu->current_scanline_cycle <= 256 && ppu->current_scanline_cycle >= 65) {
+                int sprite_cycle = ppu->current_scanline_cycle - 65;
+                
+                if (ppu->current_scanline_cycle % 2 == 1) {
+                    // Odd cycle
+                    sprite_byte = oam_memory[sprite_eval_index * 4 + sprite_byte_eval_index];
+                    int sprite_height = (ppu->PPUCTRL & 0x20) ? 16 : 8;
+
+                    if (sprite_byte_eval_index == 0) { 
+                        if ((ppu->scanline + 1 >= sprite_byte) &&
+                            (ppu->scanline + 1 < sprite_byte + sprite_height)) {
+                            copy_oam_mem_flag = 1;
+                        } else {
+                            copy_oam_mem_flag = 0;
+                        }
+                    }
+
+                } else {
+                    if (oam_secondary_top < 32) {
+                        if (copy_oam_mem_flag) {
+                            oam_memory_secondary[oam_secondary_top++] = sprite_byte;
+                            sprite_byte_eval_index++;
+                            if (sprite_byte_eval_index > 3) {
+                                sprite_eval_index++;
+                                sprite_byte_eval_index = 0;
+                            }
+                        } else {
+                            // Sprite was out of range, skip the rest of the sprite
                             sprite_eval_index++;
                             sprite_byte_eval_index = 0;
                         }
                     } else {
-                        // Sprite was out of range, skip the rest of the sprite
-                        sprite_eval_index++;
-                        sprite_byte_eval_index = 0;
+                        //ppu->PPUSTATUS |= 0x20;
                     }
-                } else {
-                    ppu->PPUSTATUS |= 0x20;
                 }
             }
-        }
 
 
-        switch (ppu->current_scanline_cycle % 8) {
+            switch (ppu->current_scanline_cycle % 8) {
 
-            /*
-            Cycle 1 & Cycle 2
-             - Fetch Nametable byte
-            */
-            case 1:
-                ppu->name_table_byte = fetch_name_table_byte(ppu);
-                LOG("Register v: %x\n", ppu->v);
-                LOG("Name Table Byte: %x\n", ppu->name_table_byte);
-                break;
+                /*
+                Cycle 1 & Cycle 2
+                - Fetch Nametable byte
+                */
+                case 1:
+                    ppu->name_table_byte = fetch_name_table_byte(ppu);
+                    LOG("Register v: %x\n", ppu->v);
+                    LOG("Name Table Byte: %x\n", ppu->name_table_byte);
+                    break;
 
-            /*
-            Cycle 3 & Cycle 4
-             - Fetch the correspond Attribute table byte
-               from the Nametable
-            */
-            case 3:
-                ppu->attribute_byte = fetch_attr_table_byte(ppu);
-                LOG("Attribute Table Byte: %x", ppu->attribute_byte);
+                /*
+                Cycle 3 & Cycle 4
+                - Fetch the correspond Attribute table byte
+                from the Nametable
+                */
+                case 3:
+                    ppu->attribute_byte = fetch_attr_table_byte(ppu);
+                    LOG("Attribute Table Byte: %x", ppu->attribute_byte);
 
-                // Determines which of the four areas of the attribute byte to use
-                uint8_t tile_area_horizontal = (ppu->v & 0x00F) % 4;
-                uint8_t tile_area_vertical = ((ppu->v & 0x0F0) / 0x20) % 4;
+                    // Determines which of the four areas of the attribute byte to use
+                    uint8_t tile_area_horizontal = (ppu->v & 0x00F) % 4;
+                    uint8_t tile_area_vertical = ((ppu->v & 0x0F0) / 0x20) % 4;
 
-                if (tile_area_vertical == 0 && tile_area_horizontal == 0) {
-                    // Top left quadrant (bit 1 & 0)
-                    ppu->palette_index = ppu->attribute_byte & 0x03; 
-                } else if (tile_area_vertical == 0 && tile_area_horizontal == 1) {
-                    // Top right quadrant (bit 3 & 2)
-                    ppu->palette_index = (ppu->attribute_byte & 0x0C) >> 2;
-                } else if (tile_area_vertical == 1 && tile_area_horizontal == 0) {
-                    // Bottom left quadrant (bit 5 & 4)
-                    ppu->palette_index = (ppu->attribute_byte & 0x30) >> 4;
-                } else if (tile_area_vertical == 1 && tile_area_horizontal == 1) {
-                    // Bottom right quadrant (bit 7 6 6)
-                    ppu->palette_index = (ppu->attribute_byte & 0xC0) >> 6;
-                }
-
-                LOG("Palette Index: %x\n", ppu->palette_index);
-            break;
-
-            /*
-            Cycle 5, Cycle 6 & Cycle 7
-             - Fetch Nametable low byte + high byte 
-            */  
-            case 5:
-
-                if (drawing_bg_flag) {
-                    ppu->pattern_table_lsb = read_mem(ppu, 
-                        (ppu->name_table_byte * 16) + ppu->scanline);
-                    //ppu->pattern_table_msb = read_mem(ppu, (ppu->name_table_byte * 16) + 8 + ppu->scanline);
-                    if (ppu->pattern_table_lsb >= 0x1000 || ppu->pattern_table_msb >= 0x1000) {
-                        LOG("INCORRECT P.T INDEX\n");
-                        fflush(stdout);
-                        sleep(5);
+                    if (tile_area_vertical == 0 && tile_area_horizontal == 0) {
+                        // Top left quadrant (bit 1 & 0)
+                        ppu->palette_index = ppu->attribute_byte & 0x03; 
+                    } else if (tile_area_vertical == 0 && tile_area_horizontal == 1) {
+                        // Top right quadrant (bit 3 & 2)
+                        ppu->palette_index = (ppu->attribute_byte & 0x0C) >> 2;
+                    } else if (tile_area_vertical == 1 && tile_area_horizontal == 0) {
+                        // Bottom left quadrant (bit 5 & 4)
+                        ppu->palette_index = (ppu->attribute_byte & 0x30) >> 4;
+                    } else if (tile_area_vertical == 1 && tile_area_horizontal == 1) {
+                        // Bottom right quadrant (bit 7 6 6)
+                        ppu->palette_index = (ppu->attribute_byte & 0xC0) >> 6;
                     }
 
-                } else {
-                    // byte 1 is tile number
-                    ppu->pattern_table_lsb = read_mem(ppu, 
-                        (oam_buffer_latches[sprite_index + 1] * 16) + ppu->scanline);
-                    // ppu->pattern_table_msb = read_mem(ppu, (oam_buffer_latches[sprite_index + 1] * 16) + ppu->scanline + 8);
-                }
-
-                /* Tile fetch from cycle i is rendered on pixel i + 8 */
+                    LOG("Palette Index: %x\n", ppu->palette_index);
                 break;
-            
-            case 7:
 
-                if (drawing_bg_flag) {
-                    ppu->pattern_table_msb = read_mem(ppu, 
-                        (ppu->name_table_byte * 16) + 8 + ppu->scanline);
-                } else {
-                    ppu->pattern_table_msb = read_mem(ppu, 
-                        (oam_buffer_latches[sprite_index + 1] * 16) + ppu->scanline + 8);
-                }
+                /*
+                Cycle 5, Cycle 6 & Cycle 7
+                - Fetch Nametable low byte + high byte 
+                */  
+                case 5:
+                    // if (ppu->current_scanline_cycle == 325 && ppu->scanline == -1
+                    //     && ppu->frame >= 3) {
+                    //     printf("SCANLINE -1, CYCLE 325\n");
+                    //     printf("TILE ID: %x", ppu->name_table_byte);
+                    //     fflush(stdout);
+                    //     sleep(5);
+                    // }
+                    int row_padding = ppu->current_scanline_cycle >= 321 && 
+                                      ppu->current_scanline_cycle <= 336 ? 1 : 0;
+
+                    if (drawing_bg_flag) {
+                        ppu->pattern_table_lsb = read_mem(ppu, 
+                            (ppu->name_table_byte * 16) + (ppu->scanline % 8) + row_padding);
+                        //ppu->pattern_table_msb = read_mem(ppu, (ppu->name_table_byte * 16) + 8 + ppu->scanline);
+
+                    } else {
+                        // byte 1 is tile number
+                        ppu->pattern_table_lsb = read_mem(ppu, 
+                            (oam_buffer_latches[sprite_index + 1] * 16) + ppu->scanline);
+                        // ppu->pattern_table_msb = read_mem(ppu, (oam_buffer_latches[sprite_index + 1] * 16) + ppu->scanline + 8);
+                    }
+
+                    /* Tile fetch from cycle i is rendered on pixel i + 8 */
+                    break;
                 
-                for (int i = 0; i < 8; i++) {
-                    uint8_t bit = 7 - i; 
-                    uint8_t lo = (ppu->pattern_table_lsb >> bit) & 1;
-                    uint8_t hi = (ppu->pattern_table_msb >> bit) & 1;
+                case 7:
 
-                    ppu->tile_pixel_value[i] = (hi << 1) | lo; 
-                    LOG("Tile Pixel[i] Value: %x\n", ppu->tile_pixel_value[i]);
-                }
-
-                break;
-
-            case 0:
-
-                // Increment v 
-                ppu->v += (ppu->PPUCTRL & 0x04) == 0x04 ? 32 : 1; 
-
-                if (ppu->scanline + 1 <= 239 && 
-                    ppu->current_scanline_cycle >= 321 && 
-                    ppu->current_scanline_cycle <= 336) {
-                    /*
-                    Populate frame buffer with tile 1 & tile 2 of scanline N + 1
-                    frame_buffer[(scanline + 1) * 256 + ppu->current_scanline_cycle]
-                        = tile 1
-                    frame_buffer[(scanline + 1) * 256 + ppu->current_scanline_cycle + 1]
-                        = tile 2
-                    */
-                    for (int i = 0; i < TILE_SIZE; i++) {
-                        ppu->palette_ram_addr = drawing_bg_flag ? 0x3F00 : 0x3F10;
-
-                        // Bit 0 & Bit 1 determine Pixel Value
-                        ppu->palette_ram_addr |= ppu->tile_pixel_value[i];
-
-                        // Bit 3 & Bit 2 determine Palette # from attribute table
-                        ppu->palette_ram_addr |= (ppu->palette_index) << 2;
-
-                        ppu->palette_data = read_mem(ppu, ppu->palette_ram_addr);
-
-                        // RGBA format
-                        uint8_t r = ppu_palette[ppu->palette_data * 3];
-                        uint8_t g = ppu_palette[ppu->palette_data * 3 + 1];
-                        uint8_t b = ppu_palette[ppu->palette_data * 3 + 2];
-
-                        int row = ppu->scanline + 1;
-                        int column = ppu->current_scanline_cycle - 321 - (7 - i);
-                        LOG("INDICES! R: %d, C: %d\n", row, column);
-                        fflush(stdout);
-
-                        //sleep (1);
-                        fflush(stdout);
-                        if (!((row >= 0 && row <= 239) && (column >= 0 && column <= 255))) {
-                            LOG("NEXT SL: INDICES OUT OF BOUNDS! R: %d, C: %d", row, column);
-                            fflush(stdout);
-                            sleep(10);
-                            return;
-                        }
-
-                        ppu->frame_buffer[row][column]                        
-                        = (r << 24) | (g << 16) | (b << 8) | (ppu->tile_pixel_value[i] == 0 ? 0x0: 0xFF);
+                    row_padding = ppu->current_scanline_cycle >= 321 && 
+                                      ppu->current_scanline_cycle <= 336 ? 1 : 0;
                     
+                    if (drawing_bg_flag) {
+                        ppu->pattern_table_msb = read_mem(ppu, 
+                            (ppu->name_table_byte * 16) + 8 + (ppu->scanline % 8) + row_padding);
+                    } else {
+                        ppu->pattern_table_msb = read_mem(ppu, 
+                            (oam_buffer_latches[sprite_index + 1] * 16) + ppu->scanline + 8);
                     }
-                }
+                    
+                    for (int i = 0; i < 8; i++) {
+                        uint8_t bit = 7 - i; 
+                        uint8_t lo = (ppu->pattern_table_lsb >> bit) & 1;
+                        uint8_t hi = (ppu->pattern_table_msb >> bit) & 1;
 
-  
+                        ppu->tile_pixel_value[i] = (hi << 1) | lo; 
+                        LOG("Tile Pixel[i] Value: %x\n", ppu->tile_pixel_value[i]);
+                    }
 
-                if (ppu->current_scanline_cycle < 256 && 
-                    ppu->scanline > -1 && ppu->scanline <= 239) {
-                    for (int i = 0; i < TILE_SIZE; i++) {
-                        ppu->palette_ram_addr = drawing_bg_flag ? 0x3F00 : 0x3F10;
+                    break;
 
-                        // Bit 0 & Bit 1 determine Pixel Value
-                        ppu->palette_ram_addr |= ppu->tile_pixel_value[i];
+                case 0:
+                    //if (ppu->PPUMASK & 0x18) {
+                    if ((ppu->v & 0x001f) == 0x1f) {
+                        ppu->v &= ~0x001F; // Wrap around
+                        ppu->v ^= 0x0400; // Switch horizontal N.T
+                    } else {
+                        ppu->v += 1;
+                    }
 
-                        // Bit 3 & Bit 2 determine Palette # from attribute table
-                        if (drawing_bg_flag) {
-                            ppu->palette_ram_addr |= (ppu->palette_index) << 2;
-                        } 
-                        // else {
-                        //     ppu->palette_ram_addr |= oam_buffer_latches[sprite_index + 2] << 2;
-                        // }
-                        LOG("Palette Address: %x\n", ppu->palette_ram_addr);
-
-                        ppu->palette_data = read_mem(ppu, ppu->palette_ram_addr);
-                        LOG("Palette Data: %x\n", ppu->palette_data);
-
-
-                        uint8_t r = ppu_palette[ppu->palette_data * 3];
-                        uint8_t g = ppu_palette[ppu->palette_data * 3 + 1];
-                        uint8_t b = ppu_palette[ppu->palette_data * 3 + 2];
-                        
-                        LOG("Red: %u, Green: %u, Blue: %u\n", r, g, b);
-
-                        int row = ppu->scanline;
-                        int column = ppu->current_scanline_cycle + 8 - (7 - i) - 1;
-                        LOG("INDICES! R: %d, C: %d\n", row, column);
-                        fflush(stdout);
-
-                        //sleep (1);
-                        if (!((row >= 0 && row <= 239) && (column >= 0 && column <= 255))) {
-                            LOG("INDICES OUT OF BOUNDS! R: %d, C: %d", row, column);
-                            fflush(stdout);
-                            sleep(10);
-                            return;
+                    if (ppu->current_scanline_cycle == 256) {
+                        if ((ppu->v & 0x7000) != 0x7000) {
+                            ppu->v += 0x1000;
+                        } else {
+                            ppu->v &= ~0x7000;
+                            int coarse_y = (ppu->v & 0x03E0) >> 5; 
+                            if (coarse_y == 29) {
+                                coarse_y = 0;
+                                ppu->v ^= 0x0800;
+                            } else if (coarse_y == 31) {
+                                coarse_y = 0;
+                            } else {
+                                coarse_y += 1;
+                            }
+                            ppu->v = (ppu->v & ~0x03E0) | (coarse_y << 5);
                         }
-
-
-                        // RGBA format
-                        ppu->frame_buffer[row][column]
-                            = (r << 24) | (g << 16) | (b << 8) | (ppu->tile_pixel_value[i] == 0 ? 0x0: 0xFF);
-
-                        LOG("Frame Buffer Val (%d) : %x\n", ppu->scanline * 256 + ppu->current_scanline_cycle - (7 - i) - 1,
-                                                (r << 24) | (g << 16) | (b << 8) | (ppu->tile_pixel_value[i] == 0 ? 0x0: 0xFF) );
-
-                        LOG("Current scanline: %d\n", ppu->scanline);
-                        LOG("Current cycle: %d\n", ppu->current_scanline_cycle );
-                        //sleep(1);
                     }
-                }
-                break;
+
+                    if (ppu->scanline + 1 <= 239 && 
+                        ppu->current_scanline_cycle >= 321 && 
+                        ppu->current_scanline_cycle <= 336) {
+                        /*
+                        Populate frame buffer with tile 1 & tile 2 of scanline N + 1
+                        frame_buffer[(scanline + 1) * 256 + ppu->current_scanline_cycle]
+                            = tile 1
+                        frame_buffer[(scanline + 1) * 256 + ppu->current_scanline_cycle + 1]
+                            = tile 2
+                        */
+                        for (int i = 0; i < TILE_SIZE; i++) {
+                            ppu->palette_ram_addr = drawing_bg_flag ? 0x3F00 : 0x3F10;
+
+                            // Bit 0 & Bit 1 determine Pixel Value
+                            ppu->palette_ram_addr |= ppu->tile_pixel_value[i];
+
+                            // Bit 3 & Bit 2 determine Palette # from attribute table
+                            ppu->palette_ram_addr |= (ppu->palette_index) << 2;
+
+                            ppu->palette_data = read_mem(ppu, ppu->palette_ram_addr);
+
+                            // RGBA format
+                            uint8_t r = ppu_palette[ppu->palette_data * 3];
+                            uint8_t g = ppu_palette[ppu->palette_data * 3 + 1];
+                            uint8_t b = ppu_palette[ppu->palette_data * 3 + 2];
+
+                            int row = ppu->scanline + 1;
+                            int column = ppu->current_scanline_cycle - 321 - (7 - i);
+                            LOG("INDICES! R: %d, C: %d\n", row, column);
+                            fflush(stdout);
+
+                            //sleep (1);
+                            fflush(stdout);
+                            if (!((row >= 0 && row <= 239) && (column >= 0 && column <= 255))) {
+                                LOG("NEXT SL: INDICES OUT OF BOUNDS! R: %d, C: %d", row, column);
+                                fflush(stdout);
+                                sleep(10);
+                                //return;
+                            }
+
+                            ppu->frame_buffer[row][column]                        
+                            = (r << 24) | (g << 16) | (b << 8) | (ppu->tile_pixel_value[i] == 0 ? 0x0: 0xFF);
+                        
+                        }
+                    }
+
+    
+
+                    if (ppu->current_scanline_cycle < 248 && 
+                        ppu->scanline > -1 && ppu->scanline <= 239) {
+                        for (int i = 0; i < TILE_SIZE; i++) {
+                            ppu->palette_ram_addr = drawing_bg_flag ? 0x3F00 : 0x3F10;
+
+                            // Bit 0 & Bit 1 determine Pixel Value
+                            ppu->palette_ram_addr |= ppu->tile_pixel_value[i];
+
+                            // Bit 3 & Bit 2 determine Palette # from attribute table
+                            if (drawing_bg_flag) {
+                                ppu->palette_ram_addr |= (ppu->palette_index) << 2;
+                            } 
+                            // else {
+                            //     ppu->palette_ram_addr |= oam_buffer_latches[sprite_index + 2] << 2;
+                            // }
+                            LOG("Palette Address: %x\n", ppu->palette_ram_addr);
+
+                            ppu->palette_data = read_mem(ppu, ppu->palette_ram_addr);
+                            LOG("Palette Data: %x\n", ppu->palette_data);
+
+
+                            uint8_t r = ppu_palette[ppu->palette_data * 3];
+                            uint8_t g = ppu_palette[ppu->palette_data * 3 + 1];
+                            uint8_t b = ppu_palette[ppu->palette_data * 3 + 2];
+                            
+                            LOG("Red: %u, Green: %u, Blue: %u\n", r, g, b);
+
+                            int row = ppu->scanline;
+                            int column = ppu->current_scanline_cycle + 16 - (7 - i) - 1;
+                            LOG("INDICES! R: %d, C: %d\n", row, column);
+                            fflush(stdout);
+
+                            //sleep (1);
+                            if (!((row >= 0 && row <= 239) && (column >= 0 && column <= 255))) {
+                                LOG("INDICES OUT OF BOUNDS! R: %d, C: %d", row, column);
+                                fflush(stdout);
+                                sleep(10);
+                                //return;
+                            }
+
+
+                            // RGBA format
+                            ppu->frame_buffer[row][column]
+                                = (r << 24) | (g << 16) | (b << 8) | (ppu->tile_pixel_value[i] == 0 ? 0x0: 0xFF);
+
+                            LOG("Frame Buffer Val (%d) : %x\n", ppu->scanline * 256 + ppu->current_scanline_cycle - (7 - i) - 1,
+                                                    (r << 24) | (g << 16) | (b << 8) | (ppu->tile_pixel_value[i] == 0 ? 0x0: 0xFF) );
+
+                            LOG("Current scanline: %d\n", ppu->scanline);
+                            LOG("Current cycle: %d\n", ppu->current_scanline_cycle );
+                            //sleep(1);
+                        }
+                    }
+                    //}
+                    break;
+                
+            }
+
+        } else if (ppu->current_scanline_cycle >= 257 && ppu->current_scanline_cycle <= 320) {
+            /* HBLANK */
             
+            if (ppu->current_scanline_cycle == 257) {
+                // Reset register v's horizontal position (first 5 bits - 0x1F - 0b11111)
+                ppu->v = (ppu->v & 0xFBE0) | (ppu->t & 0x001F);
+            }
+
+
+            // Tile data for the sprites on the next scanline are loaded into rendering latches
+            oam_buffer_latches[(ppu->current_scanline_cycle - 257) % 32] = oam_memory_secondary[(ppu->current_scanline_cycle- 257) % 32];
+
+        }  
+
+        else if (ppu->current_scanline_cycle>= 337 && ppu->current_scanline_cycle<= 340) {
+            // Two bytes are fetched for unknown reasons
         }
-
-    } else if (ppu->current_scanline_cycle >= 257 && ppu->current_scanline_cycle <= 320) {
-        /* HBLANK */
-        
-        if (ppu->current_scanline_cycle == 257) {
-            // Reset register v's horizontal position (first 5 bits - 0x1F - 0b11111)
-            ppu->v = (ppu->v & 0xFFE0) | (ppu->t & 0x001F);
-        }
-
-
-        // Tile data for the sprites on the next scanline are loaded into rendering latches
-        oam_buffer_latches[(ppu->current_scanline_cycle - 257) % 32] = oam_memory_secondary[(ppu->current_scanline_cycle- 257) % 32];
-
-    }  
-
-    else if (ppu->current_scanline_cycle>= 337 && ppu->current_scanline_cycle<= 340) {
-        // Two bytes are fetched for unknown reasons
-    }
-
+    } 
+    
     if (ppu->scanline == 241 && ppu->current_scanline_cycle == 1) {
         /* VBLANK */
 
-        LOG("Scanline 241: VBLANK. Cycle: %x\n", ppu->current_scanline_cycle);
+        printf("Scanline 241: VBLANK. Cycle: %x\n", ppu->current_scanline_cycle);
+        
+        //sleep(5);
         fflush(stdout);
 
         ppu->vblank_flag = 1;
@@ -749,7 +809,7 @@ void ppu_execute_cycle(PPU *ppu) {
             fflush(stdout);
         }
         
-    }
+    } 
     if (ppu->current_scanline_cycle == 340 && ppu->scanline == 239) {
 
         //if (ppu->PPUMASK & 0x08) {
@@ -760,37 +820,39 @@ void ppu_execute_cycle(PPU *ppu) {
         //}
     }
 
-    if (ppu->current_scanline_cycle >= 280 && ppu->current_scanline_cycle <= 304 &&
-        ppu->scanline == -1) {
-        ppu->v = (ppu->v & 0x03FF) | (ppu->t & 0x7C00);
+
+
+    if (ppu->scanline == -1 &&
+        ppu->current_scanline_cycle >= 280 &&
+        ppu->current_scanline_cycle <= 304 &&
+        (ppu->PPUMASK & 0x18))  // background or sprite rendering enabled
+    {
+        ppu->v = (ppu->v & 0x041F) | (ppu->t & 0x7BE0);
     }
-
-
 
     ppu->current_scanline_cycle++;
     
-    if (ppu->current_scanline_cycle > 340) {
+    if (ppu->current_scanline_cycle >= 341) {
+
         ppu->scanline++;
 
+        ppu->total_cycles += ppu->current_scanline_cycle;
         ppu->current_scanline_cycle = 0;
 
         sprite_eval_index = 0;
         sprite_byte_eval_index = 0;
         oam_secondary_top = 0;
 
-
+        
         if (ppu->scanline > 260) {
             // Frame is completed
-            // Set scanline back to pre-render
-    
-            LOG("Update frame\n");
-            LOG("Frame: %d\n\n", ppu->frame);
-    
+            // Set scanline back to pre-render    
             ppu->scanline = -1;
-            ppu->frame++;
         }
-
     } 
+
+    if (ppu->current_scanline_cycle == 0 && ppu->scanline == 0) 
+        ppu->frame++;
 
 
 }

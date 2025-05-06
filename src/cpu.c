@@ -93,8 +93,8 @@ void cpu_ppu_write(Cpu6502 *cpu, uint16_t addr, uint8_t val) {
     LOG("PPU MMIO WRITE: $%X; val: %x\n", addr, val);
     //sleep(1);
 
-    if ((addr == 0x2000 || addr == 0x2001 || addr == 0x2005 || addr == 0x2006) && cpu->cycles <= 29657)
-        return;
+    // if ((addr == 0x2000 || addr == 0x2001 || addr == 0x2005 || addr == 0x2006) && cpu->cycles <= 29657)
+        // return;
     ppu_registers_write(cpu->ppu, addr, val);
 }
 
@@ -114,8 +114,8 @@ void cpu_init(Cpu6502 *cpu) {
 
     cpu->nmi_state = 0;
 
-    // cpu->PC = (memory[0xFFFD] << 8) | memory[0xFFFC];
-    cpu->PC = 0xC000;
+    cpu->PC = (memory[0xFFFD] << 8) | memory[0xFFFC];
+    //cpu->PC = 0xC000;
     printf("MEMORY[0xFFFD]: %x\n", memory[0xFFFD]);
     printf("MEMORY[0xFFFC]: %x\n", memory[0xFFFC]);
     printf("PC: $%04X | Opcode: %02X\n", cpu->PC, memory[cpu->PC]);
@@ -135,10 +135,17 @@ void cpu_init(Cpu6502 *cpu) {
 
     //memset(memory, 0, sizeof(memory));
 
-    for (int i = 0; i < 21; i++) {
+    for (int i = 0; i < 25; i++) {
+        ppu_execute_cycle(cpu->ppu);
+        ppu_execute_cycle(cpu->ppu);
         ppu_execute_cycle(cpu->ppu);
     }
 
+    printf("PPU Cycle: %d\n", cpu->ppu->current_scanline_cycle);
+    printf("PPU Scanline: %d\n", cpu->ppu->scanline);
+    printf("PPU total cyc: %d\n", cpu->ppu->total_cycles);
+
+    //sleep(10);
 
     log_file = fopen("log.txt", "w");
     fclose(log_file);
@@ -209,11 +216,20 @@ void dump_log_file(Cpu6502 *cpu) {
     fprintf(log_file, "P: %x (%b) ", status, status);
     fprintf(log_file, "Cycle: %d ", cpu->cycles);
     fprintf(log_file, "I #: %d\n", instr_num);
-    fprintf(log_file, "{");
-    for (int i = 0xf0; i <= 0xff; i++) {
-        fprintf(log_file, "M[0x%x]: %x, ", 0x100 | i, memory[0x100 | i]);
-    }
-    fprintf(log_file, "}\n");
+    fprintf(log_file, "PPU MMIO REGISTERS\n");
+    fprintf(log_file, "-------------------\n");
+    fprintf(log_file, "PPUCTRL (0x2000): 0x%02X\n", cpu->ppu->PPUCTRL);
+    fprintf(log_file, "PPUMASK (0x2001): 0x%02X\n", cpu->ppu->PPUMASK);
+    fprintf(log_file, "PPUSTATUS (0x2002): 0x%02X\n", cpu->ppu->PPUSTATUS);
+    fprintf(log_file, "OAMADDR (0x2003): 0x%02X\n", cpu->ppu->OAMADDR);
+    fprintf(log_file, "OAMDATA (0x2004): 0x%02X\n", cpu->ppu->OAMDATA);
+    fprintf(log_file, "PPUSCROLL (0x2005): 0x%02X\n", cpu->ppu->PPUSCROLL);
+    fprintf(log_file, "PPUADDR (0x2006): 0x%02X\n", cpu->ppu->PPUADDR);
+    fprintf(log_file, "PPUDATA (0x2007): 0x%02X\n", cpu->ppu->PPUDATA);
+    fprintf(log_file, "OAMDMA (0x4014): 0x%02X\n", cpu->ppu->OAMDMA);  // OAMDMA is not directly part of the PPU registers but is often used in relation to it
+
+
+    fprintf(log_file, "\n");
 
 
     // fprintf(log_file, "M @ 0x00 = %x\n", memory[0x0]);
@@ -1309,6 +1325,7 @@ void cpu_execute(Cpu6502 *cpu) {
         printf("DMA\n");
         if (dma_cycles > 0) {
             dma_cycles--;
+            cpu->cycles += 1;
             ppu_execute_cycle(cpu->ppu);
             ppu_execute_cycle(cpu->ppu);
             ppu_execute_cycle(cpu->ppu);
@@ -3753,6 +3770,23 @@ void cpu_execute(Cpu6502 *cpu) {
     }
     cpu->cycles += cyc;
     cyc = 0;
+
+
+    printf("CPU CYC == %d\n", cpu->cycles);
+    printf("PPU Cycle: %d\n", cpu->ppu->current_scanline_cycle);
+    printf("PPU Scanline: %d\n", cpu->ppu->scanline);
+    printf("PPU total cyc: %d\n", cpu->ppu->total_cycles);
+
+    if (cpu->cycles == 27396) {
+        printf("CYC == 27396\n");
+        printf("PPU Cycle: %d\n", cpu->ppu->current_scanline_cycle);
+        printf("PPU Scanline: %d\n", cpu->ppu->scanline);
+        printf("PPU total cyc: %d\n", cpu->ppu->total_cycles);
+    
+        //sleep(10);
+    }
+
+
     // PPU set NMI flag
     if (cpu->ppu->nmi_flag) {
         cpu_nmi_triggered(cpu);

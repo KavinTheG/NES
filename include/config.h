@@ -8,7 +8,7 @@
 #endif
 
 #ifndef NES_TEST_ROM
-#define NES_TEST_ROM 1
+#define NES_TEST_ROM 0
 #endif
 
 #define TILE_SIZE 8
@@ -19,6 +19,6 @@
 #define SCREEN_WIDTH_VIS 256
 #define SCREEN_HEIGHT_VIS 240
 
-#define SCALE 4
+#define SCALE 3
 
 #endif
