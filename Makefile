@@ -1,5 +1,5 @@
 CC = gcc
-OBJ = ./build/main.o ./build/cpu.o ./build/ppu.o ./build/queue.o 
+OBJ = ./build/main.o ./build/cpu.o ./build/ppu.o 
 CFLAGS = -Wall -Iinclude -lSDL2 -g
 TARGET = ./bin/emulator
 VPATH = src
@@ -21,9 +21,6 @@ $(TARGET): $(OBJ)
 
 # Rule to compile ppu.c into ppu.o
 ./build/ppu.o: ppu.c | ./build
-	$(CC) $(CFLAGS) -c $< -o $@
-
-./build/queue.o: queue.c | ./build
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Rule to clean up compiled files
