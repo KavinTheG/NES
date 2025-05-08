@@ -5,15 +5,6 @@
 
 #include <stdint.h>
 
-enum PPUState {
-    VBLANK,
-    HBLANK,
-    VISIBLE_RENDER,
-    POST_RENDER,
-    PRE_RENDER,
-    RENDER_OFF
-};
-
 typedef struct PPU
 {
     // misc settings
@@ -68,8 +59,6 @@ typedef struct PPU
 
     uint32_t frame_buffer[SCREEN_HEIGHT_VIS][SCREEN_WIDTH_VIS];
 
-    enum PPUState state;
-
     // Counters 
     int current_scanline_cycle, total_cycles; 
     int scanline;
@@ -90,9 +79,11 @@ void load_palette(uint8_t *palette);
 void ppu_execute_cycle(PPU *ppu);
 
 /* Different stages of PPU execution */
-void ppu_exec_pre_render();
-void ppu_exec_visible_scanline();
-void ppu_exec_vblank();
+void ppu_exec_pre_render(PPU *ppu);
+void ppu_exec_visible_scanline(PPU *ppu);
+void ppu_exec_vblank(PPU *ppu);
+
+void ppu_render(PPU *ppu);
 
 
 /* R/W to PPU MMIO registers */
