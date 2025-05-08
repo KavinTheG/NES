@@ -431,13 +431,6 @@ Note:
 */
 uint8_t fetch_attr_table_byte(PPU *ppu) {
 
-    // uint16_t name_table_base = ppu->name_table_byte & 0x2C00;
-    // uint16_t attribute_table_base = name_table_base + 0x3C0;  
-
-    // uint8_t attr_x = (ppu->v & 0x001F) >> 2;
-    // uint8_t attr_y = ((ppu->v >> 5) & 0x001F) >> 2; 
-
-    // uint16_t attr_address = attribute_table_base + (attr_y * 8) + attr_x;
     uint16_t attr_address = 0x23C0 | (ppu->v & 0x0C00) | ((ppu->v >> 4) & 0x38) | ((ppu->v >> 2) & 0x07);
     return read_mem(ppu, attr_address);
 }
