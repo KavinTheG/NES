@@ -411,22 +411,6 @@ uint8_t ppu_registers_read(PPU *ppu, uint16_t addr) {
 //     return ppu->frame_buffer;
 // }
 
-void reset_graphics_flag(PPU *ppu) {
-    ppu->update_graphics = 0;
-}
-
-void print_ppu_registers(PPU *ppu) {
-    LOG("PPU Registers:\n");
-    LOG("  $2000 (CTRL):     0x%02X\n", ppu->PPUCTRL);
-    LOG("  $2001 (MASK):     0x%02X\n", ppu->PPUMASK);
-    LOG("  $2002 (STATUS):   0x%02X\n", ppu->PPUSTATUS);
-    LOG("  $2003 (OAMADDR):  0x%02X\n", ppu->OAMADDR);
-    LOG("  $2004 (OAMDATA):  0x%02X\n", ppu->OAMDATA);
-    LOG("  $2005 (SCROLL):   0x%02X\n", ppu->PPUSCROLL);
-    LOG("  $2006 (ADDR):     0x%02X\n", ppu->PPUADDR);
-    LOG("  $2007 (DATA):     0x%02X\n", ppu->PPUDATA);
-}
-
 
 /* 
 Fetch tile from name table

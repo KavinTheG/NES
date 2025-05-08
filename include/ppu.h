@@ -87,13 +87,18 @@ void load_ppu_ines_header(unsigned char *header);
 
 void load_palette(uint8_t *palette);
 
-
 void ppu_execute_cycle(PPU *ppu);
 
+/* Different stages of PPU execution */
+void ppu_exec_pre_render();
+void ppu_exec_visible_scanline();
+void ppu_exec_vblank();
+
+
+/* R/W to PPU MMIO registers */
 void ppu_registers_write(PPU *ppu, uint16_t addr, uint8_t val);
 uint8_t ppu_registers_read(PPU *ppu, uint16_t addr);
-uint32_t* get_frame_buffer(PPU *ppu);
 
-void reset_graphics_flag(PPU *ppu);
+
 
 #endif

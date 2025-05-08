@@ -156,11 +156,6 @@ int main() {
     cpu.ppu = &ppu;
     cpu_init(&cpu);
     
-
-    
-
-    sleep(1);
-    fill_test_buffer_red();
     // logging
     const char *filename = "log.txt";
 
@@ -175,21 +170,12 @@ int main() {
         // Execute cpu cycle
         cpu_execute(&cpu);
 
+        // Update texture with PPU frame buffer
+        SDL_UpdateTexture(texture, NULL, &cpu.ppu->frame_buffer[0][0], 256 * sizeof(uint32_t));            
         
-        //if (ppu.update_graphics) {
-            // Fill the frame buffer with red (test)
-            // for (int i = 0; i < 256 * 240; i++) {
-            //     frame_buffer[i] = 0xFF0000FF;  // Red
-            // }
-            SDL_UpdateTexture(texture, NULL, &cpu.ppu->frame_buffer[0][0], 256 * sizeof(uint32_t));            
-            //SDL_UpdateTexture(texture, NULL, &test_buffer[0][0], 256 * sizeof(uint32_t));            
-            
-            SDL_RenderClear(renderer);
-            SDL_RenderCopy(renderer, texture, NULL, NULL);
-            SDL_RenderPresent(renderer);
-
-            reset_graphics_flag(&ppu);
-        //}
+        SDL_RenderClear(renderer);
+        SDL_RenderCopy(renderer, texture, NULL, NULL);
+        SDL_RenderPresent(renderer);
 
     }
 
