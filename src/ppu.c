@@ -521,21 +521,14 @@ void ppu_render(PPU *ppu) {
 
     switch (ppu->current_scanline_cycle % 8) {
 
-        /*
-        Cycle 1 & Cycle 2
-        - Fetch Nametable byte
-        */
+        // Fetch Nametable byte
         case 1:
             ppu->name_table_byte = fetch_name_table_byte(ppu);
             LOG("Register v: %x\n", ppu->v);
             LOG("Name Table Byte: %x\n", ppu->name_table_byte);
             break;
 
-        /*
-        Cycle 3 & Cycle 4
-        - Fetch the correspond Attribute table byte
-        from the Nametable
-        */
+        // Fetch the corresponding attribute byte
         case 3:
             ppu->attribute_byte = fetch_attr_table_byte(ppu);
             LOG("Attribute Table Byte: %x", ppu->attribute_byte);
@@ -561,10 +554,7 @@ void ppu_render(PPU *ppu) {
             LOG("Palette Index: %x\n", ppu->palette_index);
         break;
 
-        /*
-        Cycle 5, Cycle 6 & Cycle 7
-        - Fetch Nametable low byte + high byte 
-        */  
+        // Fetch nametable low byte
         case 5:
             int row_padding = ppu->current_scanline_cycle >= 321 && 
                                 ppu->current_scanline_cycle <= 336 ? 1 : 0;
@@ -579,6 +569,7 @@ void ppu_render(PPU *ppu) {
             }
             break;
    
+        // Fetch high byte 
         case 7:
 
             row_padding = ppu->current_scanline_cycle >= 321 && 
@@ -602,6 +593,7 @@ void ppu_render(PPU *ppu) {
 
             break;
 
+        // Store value in buffer
         case 0:
             //if (ppu->PPUMASK & 0x18) {
             if ((ppu->v & 0x001f) == 0x1f) {

@@ -115,11 +115,6 @@ void cpu_init(Cpu6502 *cpu) {
     cpu->nmi_state = 0;
 
     cpu->PC = (memory[0xFFFD] << 8) | memory[0xFFFC];
-    //cpu->PC = 0xC000;
-    printf("MEMORY[0xFFFD]: %x\n", memory[0xFFFD]);
-    printf("MEMORY[0xFFFC]: %x\n", memory[0xFFFC]);
-    printf("PC: $%04X | Opcode: %02X\n", cpu->PC, memory[cpu->PC]);
-    // sleep(5);
 
     cpu->instr = memory[cpu->PC];
     cpu->cycles = 7;
@@ -141,12 +136,6 @@ void cpu_init(Cpu6502 *cpu) {
         ppu_execute_cycle(cpu->ppu);
     }
 
-    printf("PPU Cycle: %d\n", cpu->ppu->current_scanline_cycle);
-    printf("PPU Scanline: %d\n", cpu->ppu->scanline);
-    printf("PPU total cyc: %d\n", cpu->ppu->total_cycles);
-
-    //sleep(10);
-
     log_file = fopen("log.txt", "w");
     fclose(log_file);
     log_file = fopen("log.txt", "a");
@@ -159,9 +148,6 @@ void cpu_init(Cpu6502 *cpu) {
         push_stack(0100 | cpu->S, 0x00);
         cpu->S--;
     #endif
-
-    printf("instr: %x\n", cpu->instr);
-    sleep(1);
 }
 
 
@@ -613,8 +599,6 @@ void instr_BIT(Cpu6502 *cpu, uint8_t M) {
 // Compare
 void instr_CMP(Cpu6502 *cpu, uint8_t M) {
 
-    // printf("CMPing A (%x) and M(%x)\n", cpu->A, M);
-
     // Carry Flag
     cpu->P[0] = cpu->A >= M;
 
@@ -1064,8 +1048,6 @@ void instr_RRA(Cpu6502 *cpu, uint8_t *M) {
     uint16_t result = 0;
     uint8_t new_A = cpu->A;
 
-    // printf("A + M + ~C\n");
-    // printf("%x + %x + %b\n", cpu->A, *M, (1 - cpu->P[0]));
     // Reuse zpg variable (in case it overflows)
     result = (uint16_t)(cpu->A + *M + cpu->P[0]);
 
@@ -1088,12 +1070,11 @@ void instr_RRA(Cpu6502 *cpu, uint8_t *M) {
 void instr_SLO(Cpu6502 *cpu, uint8_t *M) {
     // Set the carry flag to the 7th bit of Accumulator.
     cpu->P[0] = (*M & 0x80) >> 7;
-    // printf("Before ASL: %x\n", *M);
+ 
     *M = *M << 1;
-    // printf("After ASL: %x\n", *M);
-    // printf("Before A: %x\n", cpu->A);
+
     cpu->A |= *M;
-    // printf("After A: %x\n", cpu->A);
+    
     // Set zero flag and negative flag
     cpu->P[1] = cpu->A == 0;
     cpu->P[7] = cpu->A >> 7;
@@ -1165,9 +1146,6 @@ uint16_t addr_abs_X(Cpu6502 *cpu) {
     cpu->PC++;
     uint8_t HB = memory[cpu->PC];
 
-    // printf("LB: %x\n", LB);
-    // printf("HB: %x\n", HB);
-
     //addr = (memory[cpu->PC] << 8 | LB) + cpu->X;
     addr = (HB << 8 | LB);
     //check_page_cross(addr, cpu->X);
@@ -1214,10 +1192,6 @@ uint16_t addr_ind(Cpu6502 *cpu) {
     // instead, 6502 wraps the address around to 0x200
 
     if (LB == 0xFF) {
-        // printf("JMP ind with page crossing wrapping!\n");
-        // printf("Retrieving higher byte from: %x\n",  (addr & 0xF00));
-        // printf("PC: %x\n", cpu->PC);
-        // sleep(5);
         return memory[addr & 0xF00] << 8 | memory[addr];
     } else {
         return memory[addr + 1] << 8 | memory[addr];
@@ -1228,17 +1202,12 @@ uint16_t addr_X_ind(Cpu6502 *cpu) {
     // Increment to get the lower byte
     cpu->PC++;
     uint16_t addr;
+
     // Ignore carry if it exists
     uint8_t BB = (memory[cpu->PC] + cpu->X) & 0xFF;
 
-    // printf("BB: %x \n", BB);
-
     uint8_t LB = memory[BB];
     uint8_t HB = memory[page_crossing(BB, 1)];
-
-
-    // printf("LB: %x\n", LB);
-    // printf("HB: %x\n", HB);
 
     addr = HB << 8 | LB;
     return addr;
@@ -1253,9 +1222,6 @@ uint16_t addr_ind_Y(Cpu6502 *cpu) {
 
     uint8_t LB = memory[BB];
     uint8_t HB = memory[page_crossing(BB, 1)];
-
-    // printf("LB: %x\n", LB);
-    // printf("HB: %x\n", HB);
 
     //addr = page_crossing(HB << 8 | LB, cpu->Y);
     addr = (HB << 8 | LB) + cpu->Y;
@@ -1308,9 +1274,7 @@ void cpu_execute(Cpu6502 *cpu) {
     LOG("Y: %x\n", cpu->Y );
     printf("Cycle: %d\n\n", cpu->cycles);
 
-
     dump_log_file(cpu);
-    // printf("M[0x0] = %x\n\n", memory[0x0]);
 
     #if NES_TEST_ROM
         if (cpu->PC == 0x7001) {
@@ -1322,7 +1286,6 @@ void cpu_execute(Cpu6502 *cpu) {
 
 
     if (dma_active_flag) {
-        printf("DMA\n");
         if (dma_cycles > 0) {
             dma_cycles--;
             cpu->cycles += 1;
@@ -2370,10 +2333,6 @@ void cpu_execute(Cpu6502 *cpu) {
 
                     if (LB == 0xFF) {
                         cpu->PC = memory[address & 0xF00] << 8 | memory[address];
-                        // printf("JMP ind with page crossing wrapping!\n");
-                        // printf("Retrieving higher byte from: %x\n",  (address & 0xF00));
-                        // printf("PC: %x\n", cpu->PC);
-                        // sleep(5);
                     } else {
                         cpu->PC = memory[address + 1] << 8 | memory[address];
                     }
@@ -3760,8 +3719,6 @@ void cpu_execute(Cpu6502 *cpu) {
         break;
     }
 
-    printf("ADDR: %X\n", address);
-
     for (int i = 0; i < cyc; i++) {
         ppu_execute_cycle(cpu->ppu);
         ppu_execute_cycle(cpu->ppu);
@@ -3771,27 +3728,13 @@ void cpu_execute(Cpu6502 *cpu) {
     cpu->cycles += cyc;
     cyc = 0;
 
-
-    printf("CPU CYC == %d\n", cpu->cycles);
-    printf("PPU Cycle: %d\n", cpu->ppu->current_scanline_cycle);
-    printf("PPU Scanline: %d\n", cpu->ppu->scanline);
-    printf("PPU total cyc: %d\n", cpu->ppu->total_cycles);
-
-    if (cpu->cycles == 27396) {
-        printf("CYC == 27396\n");
-        printf("PPU Cycle: %d\n", cpu->ppu->current_scanline_cycle);
-        printf("PPU Scanline: %d\n", cpu->ppu->scanline);
-        printf("PPU total cyc: %d\n", cpu->ppu->total_cycles);
-    
-        //sleep(10);
-    }
-
-
     // PPU set NMI flag
     if (cpu->ppu->nmi_flag) {
+
+        // Execute NMI subroutine
         cpu_nmi_triggered(cpu);
-        printf("NMI TRIGGERED!\n");
-        //sleep(1);
+
+        // Reset nmi flag
         cpu->ppu->nmi_flag = 0;
         return;
     }
