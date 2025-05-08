@@ -1,32 +1,36 @@
+# Compiler and flags
 CC = gcc
-OBJ = ./build/main.o ./build/cpu.o ./build/ppu.o 
-CFLAGS = -Wall -Iinclude -lSDL2 -g
-TARGET = ./bin/emulator
-VPATH = src
+CFLAGS = -Wall -Wextra -g -Iinclude -Iinclude/ppu
+LDFLAGS = -lSDL2
 
-# Default rule to build the binary
-all: $(TARGET)
+# Directories
+SRC_DIR = src
+BUILD_DIR = build
+BIN_DIR = bin
+BIN = $(BIN_DIR)/emulator
 
-# Link the object files to create the final binary
-$(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) -o  $(TARGET) $(OBJ)
+# Source files (including PPU sources)
+SRCS := $(shell find $(SRC_DIR) -name '*.c')
 
-# Rule to compile main.c into main.o
-./build/main.o: main.c | ./build
+
+# Map .c files to .o files in the build/ folder
+OBJS = $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+
+# Default target
+all: $(BIN)
+
+# Linking
+$(BIN): $(OBJS)
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+# Compiling .c to .o
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Rule to compile cpu.c into cpu.o
-./build/cpu.o: cpu.c | ./build
-	$(CC) $(CFLAGS) -c $< -o $@
-
-# Rule to compile ppu.c into ppu.o
-./build/ppu.o: ppu.c | ./build
-	$(CC) $(CFLAGS) -c $< -o $@
-
-# Rule to clean up compiled files
+# Clean
 clean:
-	rm -f $(OBJ) $(TARGET)
+	rm -rf $(BUILD_DIR)/* $(BIN)/*
 
-# Rule to execute the binary (optional, but you can run `make run`)
-run: $(TARGET)
-	./$(TARGET)
+.PHONY: all clean

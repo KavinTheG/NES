@@ -12,7 +12,7 @@
 
 #include "ppu.h"
 
-#define MEMORY_SIZE 0x10000 // 64 KB
+#define CPU_MEMORY_SIZE 0x10000 // 64 KB
 #define NES_HEADER_SIZE 16
 #define NES_TEST 0xC000
 
@@ -20,7 +20,7 @@
     do { if (CPU_LOGGING) fprintf(stderr, fmt, ##__VA_ARGS__); } while (0)
 
 
-uint8_t memory[MEMORY_SIZE] = {0};
+uint8_t memory[CPU_MEMORY_SIZE] = {0};
 FILE* log_file;
 
 // int to hold status flags
@@ -177,7 +177,7 @@ void load_test_rom(Cpu6502 *cpu) {
 
 void load_cpu_memory(Cpu6502 *cpu, unsigned char *prg_rom, int prg_size){
     //Clear memory
-    memset(memory, 0, MEMORY_SIZE);
+    memset(memory, 0, CPU_MEMORY_SIZE);
 
     //Load PRG ROM into 0x8000 - 0xBFFF
     memcpy(&memory[0x8000], prg_rom, prg_size);
