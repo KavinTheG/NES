@@ -19,7 +19,7 @@
 #define SCREEN_WIDTH_VIS 256
 #define SCREEN_HEIGHT_VIS 240
 
-#define SCALE 3
+#define SCALE 1
 
 
 #endif

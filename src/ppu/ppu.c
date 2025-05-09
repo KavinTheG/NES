@@ -5,22 +5,12 @@ Author: Kavin Gnanapandithan
 
 #include "ppu.h"
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h> 
-
 
 // Nametable mirror arrangment flag
 // 1 = h, v = 0
 unsigned char nametable_mirror_flag;
 
-// 256 seperate memoery dedicated to OAM
-uint8_t oam_memory[OAM_SIZE] = {0};
-
-// Buffer, holds up to 8 spirtes to be rendered on the next scanline
-uint8_t oam_memory_secondary[32] = {0};
-
-// Internal latches, holds actual rendering data
-uint8_t oam_buffer_latches[32] = {0};
 
 // Returns bus value
 uint8_t open_bus;
@@ -30,6 +20,15 @@ uint8_t open_bus;
 uint8_t ppu_memory[PPU_MEMORY_SIZE] = {0};
 uint8_t nes_header[NES_HEADER_SIZE] = {0};
 uint8_t ppu_palette[PALETTE_SIZE * 3];
+
+// 256 seperate memoery dedicated to OAM
+uint8_t oam_memory[OAM_SIZE] = {0};
+
+// Buffer, holds up to 8 spirtes to be rendered on the next scanline
+uint8_t oam_memory_secondary[OAM_SECONDARY_SIZE] = {0};
+
+// Internal latches, holds actual rendering data
+uint8_t oam_buffer_latches[OAM_SECONDARY_SIZE] = {0};
 
 void ppu_init(PPU *ppu) {
     // Initial PPU MMIO Register values
@@ -236,24 +235,8 @@ void ppu_execute_cycle(PPU *ppu) {
         }
     } 
 
-    if (ppu->current_scanline_cycle == 0 && ppu->scanline == 0) 
+    if (ppu->current_scanline_cycle == 0 && ppu->scanline == 0)  {
         ppu->frame++;
+    }
 
-}
-
-
-void ppu_exec_vblank(PPU *ppu) {
-    if (ppu->scanline == 241 && ppu->current_scanline_cycle == 1) {
-        /* VBLANK */
-        ppu->vblank_flag = 1;
-        ppu->PPUSTATUS |= 0b10000000;
-    
-        // PPUCTRL bit 7 determines if CPU accepts NMI
-        if (ppu->PPUCTRL & 0x80) { 
-            // Set NMI
-            ppu->nmi_flag = 1;
-            LOG("NMI triggered\n");
-            fflush(stdout);
-        }
-    } 
 }

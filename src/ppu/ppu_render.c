@@ -1,13 +1,31 @@
 #include "ppu_render.h"
+#include <unistd.h>
 
 uint8_t fetch_name_table_byte(PPU *ppu) {
-    return read_mem(ppu, 0x2000 | (ppu->v & 0xFFF));
+    if (ppu->drawing_bg_flag) {
+        return read_mem(ppu, 0x2000 | (ppu->v & 0xFFF));
+    }else {
+        return oam_buffer_latches[ppu->sprite_render_index + 1];
+    }
 }
 
 uint8_t fetch_attr_table_byte(PPU *ppu) {
 
     uint16_t attr_address = 0x23C0 | (ppu->v & 0x0C00) | ((ppu->v >> 4) & 0x38) | ((ppu->v >> 2) & 0x07);
-    return read_mem(ppu, attr_address);
+    
+    if (ppu->drawing_bg_flag) {
+        return read_mem(ppu, attr_address);
+    } else {
+        return oam_buffer_latches[ppu->sprite_render_index + 2] & 0x3;
+    }
+}
+
+uint8_t fetch_pattern_table_byte(PPU* ppu, uint8_t row_padding, uint8_t bit_plane) {
+    uint16_t base_address = ppu->name_table_byte * 16;
+    uint8_t row = ppu->scanline % 8;
+
+    // Offset by 8 if MSB (bit_plane == 1)
+    return read_mem(ppu, base_address + (bit_plane ? 8 : 0) + row + row_padding);
 }
 
 /**
@@ -17,12 +35,32 @@ uint8_t fetch_attr_table_byte(PPU *ppu) {
  * @return              void 
  */
 void ppu_render(PPU *ppu) {
+    int sprite_height = ppu->PPUCTRL & 0x20 ? 16 : 8;
 
     switch (ppu->current_scanline_cycle % 8) {
-
         // Fetch Nametable byte
         case 1:
-            ppu->name_table_byte = fetch_name_table_byte(ppu);
+            // Set background tile flag to 1 by default
+            ppu->drawing_bg_flag = 1;
+
+            for (int i = 0; i <= OAM_SECONDARY_SIZE - 4; i += 4) {
+                int sprite_y = oam_buffer_latches[i];
+                int sprite_x = oam_buffer_latches[i + 3];
+            
+                // if (ppu->scanline >= sprite_y &&
+                //     ppu->scanline < sprite_y + sprite_height) {
+            
+                //     if (sprite_x <= ppu->current_scanline_cycle &&
+                //         sprite_x + 8 > ppu->current_scanline_cycle) {
+            
+                //         ppu->drawing_bg_flag = 0;
+                //         ppu->sprite_render_index = i;
+                //         break;
+                //     }
+                // }
+            }
+
+            ppu->name_table_byte = fetch_name_table_byte(ppu);            
             LOG("Register v: %x\n", ppu->v);
             LOG("Name Table Byte: %x\n", ppu->name_table_byte);
             break;
@@ -58,14 +96,12 @@ void ppu_render(PPU *ppu) {
             int row_padding = ppu->current_scanline_cycle >= 321 && 
                                 ppu->current_scanline_cycle <= 336 ? 1 : 0;
 
-            if (ppu->drawing_bg_flag) {
-                ppu->pattern_table_lsb = read_mem(ppu, 
-                    (ppu->name_table_byte * 16) + (ppu->scanline % 8) + row_padding);
+            ppu->pattern_table_lsb = read_mem(ppu, 
+                (ppu->name_table_byte * 16) + (ppu->scanline % 8) + row_padding);
+
+            // ppu->pattern_table_lsb = fetch_pattern_table_byte(ppu, row_padding, 0);
                 //ppu->pattern_table_msb = read_mem(ppu, (ppu->name_table_byte * 16) + 8 + ppu->scanline);
 
-            } else {
-                // byte 1 is tile number
-            }
             break;
    
         // Fetch high byte 
@@ -74,13 +110,9 @@ void ppu_render(PPU *ppu) {
             row_padding = ppu->current_scanline_cycle >= 321 && 
                           ppu->current_scanline_cycle <= 336 ? 1 : 0;
 
-            if (ppu->drawing_bg_flag) {
-                ppu->pattern_table_msb = read_mem(ppu, 
-                    (ppu->name_table_byte * 16) + 8 + (ppu->scanline % 8) + row_padding);
-            } else {
+            ppu->pattern_table_msb = read_mem(ppu, 
+                (ppu->name_table_byte * 16) + 8 + (ppu->scanline % 8) + row_padding);
 
-            }
-            
             for (int i = 0; i < 8; i++) {
                 uint8_t bit = 7 - i; 
                 uint8_t lo = (ppu->pattern_table_lsb >> bit) & 1;
@@ -156,7 +188,6 @@ void ppu_render(PPU *ppu) {
 }
 
 
-
 /**
  * @brief  Executes PPU pre-render scanline
  * 
@@ -182,6 +213,52 @@ void ppu_exec_pre_render(PPU *ppu) {
     
 }
 
+void sprite_detect(PPU *ppu) {
+    // Reset secondary OAM memory at cycle 1
+    if (ppu->current_scanline_cycle == 1) {
+        memset(oam_memory_secondary, 0xFF, OAM_SECONDARY_SIZE);
+    }
+
+    if (ppu->current_scanline_cycle == 336) {
+        ppu->copy_sprite_flag = 0;
+        ppu->index_of_sprite = 0;
+        ppu->sprite_evaluation_index = 0;
+        ppu->oam_memory_top = 0;
+    }
+
+    // Bit 5 of PPUCTRL determines sprite size
+    int sprite_height = ppu->PPUCTRL & 0x20 ? 16 : 8;
+    
+    if (ppu->current_scanline_cycle >= 65 && ppu->current_scanline_cycle <= 256) {
+        int index = ppu->sprite_evaluation_index * 4 + ppu->index_of_sprite;
+
+        // Odd cycle; read OAM
+        if (ppu->current_scanline_cycle % 2 == 1) {
+            if (ppu->index_of_sprite == 0) {
+                if (ppu->scanline + 1 <=  oam_memory[index] &&
+                    oam_memory[index] <= ppu->scanline + 1 + sprite_height)
+                    ppu->copy_sprite_flag = 1;
+            }
+        } else {
+            if (ppu->copy_sprite_flag && ppu->oam_memory_top <= 31) {
+                oam_memory_secondary[ppu->oam_memory_top++] = 
+                    oam_memory[index];
+
+                ppu->index_of_sprite++;
+
+                if (ppu->index_of_sprite > 3) {
+                    ppu->sprite_evaluation_index++;
+                    ppu->index_of_sprite = 0;
+                    ppu->copy_sprite_flag = 0;
+                }
+            } else {
+                ppu->sprite_evaluation_index++;
+                ppu->copy_sprite_flag = 0;
+            }
+        }
+    }
+}
+
 /**
  * @brief  Executes PPU visible scanlines
  * 
@@ -189,6 +266,7 @@ void ppu_exec_pre_render(PPU *ppu) {
  * @return              void 
  */
 void ppu_exec_visible_scanline(PPU *ppu) {
+    //sprite_detect(ppu);
 
     if (ppu->current_scanline_cycle >= 1 && ppu->current_scanline_cycle <= 256) {
         ppu_render(ppu);
@@ -200,8 +278,31 @@ void ppu_exec_visible_scanline(PPU *ppu) {
         }
 
         // Tile data for the sprites on the next scanline are loaded into rendering latches
-        // oam_buffer_latches[(ppu->current_scanline_cycle - 257) % 32] = oam_memory_secondary[(ppu->current_scanline_cycle- 257) % 32];
+        oam_buffer_latches[(ppu->current_scanline_cycle - 257) % 32] = oam_memory_secondary[(ppu->current_scanline_cycle- 257) % 32];
+        if (oam_memory_secondary[(ppu->current_scanline_cycle - 257) % 32] == 0xA2) {
+            LOG("Index: %d\n", oam_memory_secondary[(ppu->current_scanline_cycle - 257) % 32]);
+            fflush(stdout);
+            sleep(5);
+        }
     } else if (ppu->current_scanline_cycle >= 321 && ppu->current_scanline_cycle <= 336) {
         ppu_render(ppu);
     }
+}
+
+
+void ppu_exec_vblank(PPU *ppu) {
+    if (ppu->scanline == 241 && ppu->current_scanline_cycle == 1) {
+        /* VBLANK */
+        ppu->vblank_flag = 1;
+        ppu->PPUSTATUS |= 0b10000000;
+        ppu->update_graphics = 1;
+
+        // PPUCTRL bit 7 determines if CPU accepts NMI
+        if (ppu->PPUCTRL & 0x80) { 
+            // Set NMI
+            ppu->nmi_flag = 1;
+            LOG("NMI triggered\n");
+            fflush(stdout);
+        }
+    } 
 }

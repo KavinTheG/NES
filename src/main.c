@@ -171,11 +171,18 @@ int main() {
         cpu_execute(&cpu);
 
         // Update texture with PPU frame buffer
-        SDL_UpdateTexture(texture, NULL, &cpu.ppu->frame_buffer[0][0], 256 * sizeof(uint32_t));            
-        
-        SDL_RenderClear(renderer);
-        SDL_RenderCopy(renderer, texture, NULL, NULL);
-        SDL_RenderPresent(renderer);
+        //SDL_UpdateTexture(texture, NULL, &cpu.ppu->frame_buffer[0][0], 256 * sizeof(uint32_t));            
+        if (ppu.update_graphics) {
+            void* pixels;
+            int pitch;
+            SDL_LockTexture(texture, NULL, &pixels, &pitch);
+            memcpy(pixels, &cpu.ppu->frame_buffer[0][0], 240 * pitch); // 240 rows
+            SDL_UnlockTexture(texture);
+            SDL_RenderClear(renderer);
+            SDL_RenderCopy(renderer, texture, NULL, NULL);
+            SDL_RenderPresent(renderer);
+    
+        }
 
     }
 

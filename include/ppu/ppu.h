@@ -3,6 +3,7 @@
 
 // === Standard and Project Includes ===
 #include <stdio.h>
+#include <string.h>
 #include <stdint.h>
 #include "config.h"
 #include "ppu_render.h"
@@ -11,7 +12,10 @@
 #define PPU_MEMORY_SIZE 0x4000 // 16 KB
 #define PALETTE_SIZE 64
 #define NES_HEADER_SIZE 16
+
 #define OAM_SIZE 0xFF
+#define OAM_SECONDARY_SIZE 32
+
 #define NUM_DOTS 341
 #define NUM_SCANLINES 262
 
@@ -43,6 +47,8 @@ typedef struct PPU
     unsigned char vblank_flag;
     unsigned char nmi_flag;
     unsigned char drawing_bg_flag;
+    unsigned char copy_sprite_flag;
+    unsigned char update_graphics;
 
     // Tile fetch registers
     uint8_t name_table_byte;
@@ -57,6 +63,12 @@ typedef struct PPU
     // Output buffer
     uint32_t frame_buffer[SCREEN_HEIGHT_VIS][SCREEN_WIDTH_VIS];
 
+    // === Sprite Variables
+    uint8_t sprite_evaluation_index;
+    uint8_t index_of_sprite;
+    uint8_t oam_memory_top;
+    int sprite_render_index;
+
     // Timing
     int current_scanline_cycle;
     int total_cycles;
@@ -70,6 +82,11 @@ extern uint8_t ppu_memory[PPU_MEMORY_SIZE];
 extern uint8_t nes_header[NES_HEADER_SIZE];
 extern uint8_t ppu_palette[PALETTE_SIZE * 3];
 extern uint8_t open_bus;
+
+// === OAM PPU Memory ===
+extern uint8_t oam_memory[OAM_SIZE];
+extern uint8_t oam_memory_secondary[OAM_SECONDARY_SIZE];
+extern uint8_t oam_buffer_latches[OAM_SECONDARY_SIZE];
 
 // === Initialization and Loading ===
 void ppu_init(PPU *ppu);
