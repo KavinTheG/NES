@@ -2,6 +2,18 @@
 
 This is my implementation of an NES emulator written in C.
 
+## TODO
+- [ ] Rendering
+  - [x] 8x8 sprite rendering
+  - [ ] 8x16 sprite rendering
+  - [ ] Horizontal sprite flipping
+  - [ ] Vertical sprite flipping
+  - [x] Background rendering
+  - [ ] Sprite-background priority handling
+  - [ ] Sprite overflow / sprite zero hit detection
+- [ ] Audio support
+- [ ] Mapper support (only NROM / mapper 0)
+
 ## Project Structure
 #### src/main.c
 - Performs ROM parsing
@@ -49,10 +61,6 @@ This will create a binary file located in the bin/ folder. Currently, I am only 
 Currently able to load menu of games utilising mapper 0. 
 ![image](https://github.com/user-attachments/assets/76d6df8b-2864-4093-95c5-c1831ef01364)
 
-
-## TODO
-- No audio support yet
-- No mapper support (only NROM / mapper 0)
 
 ## References
 - https://www.nesdev.org/wiki/Nesdev_Wiki
