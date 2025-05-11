@@ -136,7 +136,7 @@ int main() {
     SDL_Texture* texture = SDL_CreateTexture(renderer,
         SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING,
         SCREEN_WIDTH_VIS, SCREEN_HEIGHT_VIS);
-    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);  // Enable alpha blending
+    //SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);  // Enable alpha blending
     SDL_RenderSetLogicalSize(renderer, SCREEN_WIDTH_VIS, SCREEN_HEIGHT_VIS);
 
 
@@ -148,7 +148,6 @@ int main() {
     #else
     //load_test_rom(&cpu);
     load_sys_mem(&cpu, &ppu, "rom/Donkey Kong (USA) (GameCube Edition).nes");
-
     #endif
     
     load_ppu_palette("palette/2C02G_wiki.pal");
@@ -165,25 +164,21 @@ int main() {
 
 
     while (1) {
-        
-
-        // Execute cpu cycle
+                // Execute cpu cycle
         cpu_execute(&cpu);
 
-        // Update texture with PPU frame buffer
-        //SDL_UpdateTexture(texture, NULL, &cpu.ppu->frame_buffer[0][0], 256 * sizeof(uint32_t));            
         if (ppu.update_graphics) {
+            ppu.update_graphics = 0;
             void* pixels;
             int pitch;
             SDL_LockTexture(texture, NULL, &pixels, &pitch);
-            memcpy(pixels, &cpu.ppu->frame_buffer[0][0], 240 * pitch); // 240 rows
+            memcpy(pixels, cpu.ppu->frame_buffer, 240 * pitch); // 240 rows
             SDL_UnlockTexture(texture);
+
             SDL_RenderClear(renderer);
             SDL_RenderCopy(renderer, texture, NULL, NULL);
             SDL_RenderPresent(renderer);
-    
         }
-
     }
 
     SDL_DestroyTexture(texture);

@@ -196,8 +196,8 @@ void ppu_render(PPU *ppu) {
                         ppu->current_scanline_cycle - 321 - (7 - i) : 
                         ppu->current_scanline_cycle + 16 - (7 - i) - 1;
 
-                if (!is_pre_fetch && ppu->current_scanline_cycle > 248) return;
-                
+                if (column >= 256 || row >= 240) break;
+
                 ppu->frame_buffer[row][column]                        
                 = (r << 24) | (g << 16) | (b << 8) | (ppu->tile_pixel_value[i] == 0 ? 0x0: 0xFF);
             }

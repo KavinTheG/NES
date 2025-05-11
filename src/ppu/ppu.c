@@ -190,22 +190,19 @@ void write_mem(PPU *ppu, uint16_t addr, uint8_t val) {
     }
 }
 
+void reset_update_graphics(PPU *ppu) {
+    ppu->update_graphics = 0;
+}
+unsigned char get_update_graphics(PPU *ppu) {
+    return ppu->update_graphics;
+}
+
+uint32_t (*get_frame_buffer(PPU* ppu))[256] {
+    return ppu->frame_buffer;
+}
+
 
 void ppu_execute_cycle(PPU *ppu) {
-
-    // Pixel generation variables
-    if (!ppu) {
-        LOG("PPU is null!\n");
-        exit(1);
-    }
-
-    LOG("\n******* PPU *******\n");
-    LOG("PPU Cycle: %d \n", ppu->current_scanline_cycle);
-    LOG("PPU Scanline: %d \n", ppu->scanline);
-    LOG("PPU Frame: %d \n", ppu->frame);
-    LOG("V: %x \n", ppu->v);
-    LOG("Nametable Byte: %x \n", ppu->name_table_byte);
-    LOG("Attribute Table Byte: %x \n", ppu->attribute_byte);
 
     if (ppu->scanline == -1) {
         if (ppu->PPUMASK & 0x18) {
@@ -232,6 +229,7 @@ void ppu_execute_cycle(PPU *ppu) {
             // Frame is completed
             // Set scanline back to pre-render    
             ppu->scanline = -1;
+            ppu->update_graphics = 1;
         }
     } 
 
