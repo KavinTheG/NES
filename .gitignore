@@ -4,7 +4,9 @@ rom/
 test/
 emulator
 
+build/*
+bin/*
+
 log.txt
 
 *.o
-
