@@ -1,0 +1,87 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-Iinclude",
+      "-Iinclude/ppu",
+      "-c",
+      "-o",
+      "build/cpu.o",
+      "src/cpu.c"
+    ],
+    "directory": "/home/kavin/Github/NES",
+    "file": "/home/kavin/Github/NES/src/cpu.c",
+    "output": "/home/kavin/Github/NES/build/cpu.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-Iinclude",
+      "-Iinclude/ppu",
+      "-c",
+      "-o",
+      "build/main.o",
+      "src/main.c"
+    ],
+    "directory": "/home/kavin/Github/NES",
+    "file": "/home/kavin/Github/NES/src/main.c",
+    "output": "/home/kavin/Github/NES/build/main.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-Iinclude",
+      "-Iinclude/ppu",
+      "-c",
+      "-o",
+      "build/ppu/ppu_mmio.o",
+      "src/ppu/ppu_mmio.c"
+    ],
+    "directory": "/home/kavin/Github/NES",
+    "file": "/home/kavin/Github/NES/src/ppu/ppu_mmio.c",
+    "output": "/home/kavin/Github/NES/build/ppu/ppu_mmio.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-Iinclude",
+      "-Iinclude/ppu",
+      "-c",
+      "-o",
+      "build/ppu/ppu.o",
+      "src/ppu/ppu.c"
+    ],
+    "directory": "/home/kavin/Github/NES",
+    "file": "/home/kavin/Github/NES/src/ppu/ppu.c",
+    "output": "/home/kavin/Github/NES/build/ppu/ppu.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-Iinclude",
+      "-Iinclude/ppu",
+      "-c",
+      "-o",
+      "build/ppu/ppu_render.o",
+      "src/ppu/ppu_render.c"
+    ],
+    "directory": "/home/kavin/Github/NES",
+    "file": "/home/kavin/Github/NES/src/ppu/ppu_render.c",
+    "output": "/home/kavin/Github/NES/build/ppu/ppu_render.o"
+  }
+]

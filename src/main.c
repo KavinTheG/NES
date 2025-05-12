@@ -1,196 +1,71 @@
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
 #include <SDL2/SDL.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
-#include "cpu.h"
 #include "config.h"
+#include "cpu.h"
 #include "ppu.h"
-
-uint32_t test_buffer[240][256];
-
-void fill_test_buffer_red() {
-    uint32_t red = 0xFF000000;  // R = 255, G = 0, B = 0, A = 255
-
-    for (int y = 0; y < 240; y++) {
-        for (int x = 0; x < 256; x++) {
-            test_buffer[y][x] = red;
-        }
-    }
-}
-
-void load_sys_mem(Cpu6502 *cpu, PPU *ppu, char *filename) {
-
-    FILE *rom = fopen(filename, "rb");
-    if (!rom) {
-        perror("Error opening ROM file");
-        return;
-    }
-
-    // Read INES header
-    unsigned char header[NES_HEADER_SIZE];
-    if (fread(header, 1, NES_HEADER_SIZE, rom) != NES_HEADER_SIZE) {
-        perror("Error: header does not match 16 bytes!");
-        fclose(rom);
-        return;
-    }
-
-    int prg_size = header[4] * 16 * 1024;  // PRG ROM size in bytes
-    int chr_size = header[5] * 8 * 1024;   // CHR ROM size in bytes
-
-    printf("PRG ROM size: %d bytes\n", prg_size);
-    printf("CHR ROM size: %d bytes\n", chr_size);
-
-    if (prg_size != 16384 && prg_size != 32768) {
-        printf("Unsupported PRG ROM size!\n");
-        fclose(rom);
-        return;
-    }
-
-    // Allocate memory for PRG ROM
-    unsigned char *prg_rom = malloc(prg_size);
-    if (!prg_rom) {
-        printf("Memory allocation failed for PRG ROM!\n");
-        fclose(rom);
-        return;
-    }
-
-    // Read PRG ROM into memory
-    if (fread(prg_rom, 1, prg_size, rom) != prg_size) {
-        perror("Error reading PRG ROM");
-        free(prg_rom);
-        fclose(rom);
-        return;
-    }
-
-    // Allocate memory for CHR ROM
-    unsigned char *chr_rom = malloc(chr_size);
-    if (!chr_rom) {
-        printf("Memory allocation failed for CHR ROM!\n");
-        free(prg_rom);
-        fclose(rom);
-        return;
-    }
-
-    // After reading the PRG ROM, the file pointer is at the end of the PRG ROM.
-    // Now we need to move the file pointer to the start of CHR ROM.
-    if (fseek(rom, NES_HEADER_SIZE + prg_size, SEEK_SET) != 0) {
-        perror("Error seeking to CHR ROM in file");
-        free(prg_rom);
-        free(chr_rom);
-        fclose(rom);
-        return;
-    }
-
-    // Read CHR ROM into memory
-    if (fread(chr_rom, 1, chr_size, rom) != chr_size) {
-        perror("Error reading CHR ROM");
-        free(prg_rom);
-        free(chr_rom);
-        fclose(rom);
-        return;
-    }
-
-    fclose(rom);
-
-    // Load the PPU header if necessary
-    load_ppu_ines_header(header);
-
-    // Load CPU and PPU memory
-    load_cpu_memory(cpu, prg_rom, prg_size);
-    load_ppu_memory(ppu, chr_rom, chr_size);
-
-    // Free the allocated memory after loading
-    free(prg_rom);
-    free(chr_rom);
-}
-
+#include "renderer.h"
+#include "rom.h"
 
 void load_ppu_palette(char *filename) {
-    FILE *pal = fopen("palette/2C02G_wiki.pal", "rb");
+  FILE *pal = fopen(filename, "rb");
 
-    if (!pal) {
-        perror("Failed to open .pal file");
-        return;
-    }
+  if (!pal) {
+    perror("Failed to open .pal file");
+    return;
+  }
 
-    uint8_t palette[192];
+  uint8_t palette[192];
 
-    fread(palette, 1, 192, pal);
-    fclose(pal);
+  fread(palette, 1, 192, pal);
+  fclose(pal);
 
-    load_palette(palette);
+  load_palette(palette);
 }
 
 int main() {
 
-    Cpu6502 cpu;
-    PPU ppu;
+  Cpu6502 cpu;
+  PPU ppu;
+  Rom rom;
 
-    SDL_Init(SDL_INIT_VIDEO);
-    SDL_Window* window = SDL_CreateWindow("NES",
-        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        SCREEN_WIDTH_VIS * SCALE, SCREEN_HEIGHT_VIS * SCALE, SDL_WINDOW_SHOWN);
+  Renderer renderer;
 
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    SDL_Texture* texture = SDL_CreateTexture(renderer,
-        SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING,
-        SCREEN_WIDTH_VIS, SCREEN_HEIGHT_VIS);
-    //SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);  // Enable alpha blending
-    SDL_RenderSetLogicalSize(renderer, SCREEN_WIDTH_VIS, SCREEN_HEIGHT_VIS);
+  Renderer_Init(&renderer, SCREEN_WIDTH_VIS, SCREEN_HEIGHT_VIS, SCALE);
 
+  // rom_init(&rom);
+  rom_load_cartridge(&rom, "rom/Donkey Kong (USA) (GameCube Edition).nes");
 
-    //uint32_t frame_buffer[256 * 240]; 
+  load_cpu_memory(&cpu, rom.prg_data, rom.prg_size);
 
+  load_ppu_ines_header(rom.header);
+  load_ppu_memory(&ppu, rom.chr_data, rom.chr_size);
+  load_ppu_palette("palette/2C02G_wiki.pal");
 
-    #if NES_TEST_ROM
-    load_sys_mem(&cpu, &ppu, "test/nestest.nes");
-    #else
-    //load_test_rom(&cpu);
-    load_sys_mem(&cpu, &ppu, "rom/Donkey Kong (USA) (GameCube Edition).nes");
-    #endif
-    
-    load_ppu_palette("palette/2C02G_wiki.pal");
-    ppu_init(&ppu);
-    cpu.ppu = &ppu;
-    cpu_init(&cpu);
-    
-    // logging
-    const char *filename = "log.txt";
+  ppu_init(&ppu);
+  cpu.ppu = &ppu;
+  cpu_init(&cpu);
 
-    FILE *log = fopen(filename, "a");
+  const char *filename = "log.txt";
 
-    fprintf(log, "Program started\n");
+  FILE *log = fopen(filename, "a");
 
+  fprintf(log, "Program started\n");
 
-    while (1) {
-                // Execute cpu cycle
-        cpu_execute(&cpu);
+  while (1) {
+    // Execute cpu cycle
+    cpu_execute(&cpu);
 
-        if (ppu.update_graphics) {
-            ppu.update_graphics = 0;
-            void* pixels;
-            int pitch;
-            SDL_LockTexture(texture, NULL, &pixels, &pitch);
-            memcpy(pixels, cpu.ppu->frame_buffer, 240 * pitch); // 240 rows
-            SDL_UnlockTexture(texture);
+    if (ppu.update_graphics) {
+      ppu.update_graphics = 0;
 
-            SDL_RenderClear(renderer);
-            SDL_RenderCopy(renderer, texture, NULL, NULL);
-            SDL_RenderPresent(renderer);
-        }
+      Renderer_DrawFrame(&renderer, ppu.frame_buffer);
     }
+  }
 
-    SDL_DestroyTexture(texture);
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
-    return 0;
-
+  Renderer_Destroy(&renderer);
+  return 0;
 }
-
-
-
-
-
-
