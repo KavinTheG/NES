@@ -3,7 +3,6 @@
 #include "ppu.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 int rom_load_cartridge(Rom *rom, char *filename) {
   printf("%s\n", filename);
