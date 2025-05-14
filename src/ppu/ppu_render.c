@@ -65,12 +65,6 @@ void ppu_render(PPU *ppu) {
     }
 
     ppu->name_table_byte = fetch_name_table_byte(ppu);
-    if (!ppu->drawing_bg_flag) {
-      printf("Sprite Index: %d\n", ppu->sprite_render_index);
-      printf("Nametable byte: %x\n", ppu->name_table_byte);
-      fflush(stdout);
-      // sleep(5);
-    }
     break;
 
   // Fetch the corresponding attribute byte
@@ -204,11 +198,17 @@ void ppu_render(PPU *ppu) {
       uint8_t g = ppu_palette[palette_data * 3 + 1];
       uint8_t b = ppu_palette[palette_data * 3 + 2];
 
-      int column = is_pre_fetch
-                       ? ppu->current_scanline_cycle - 321 - (7 - i)
-                       : ppu->current_scanline_cycle + 16 - (7 - i) - 1;
+      int column = is_pre_fetch ? ppu->current_scanline_cycle - 321 - (7 - i)
+                                : ppu->current_scanline_cycle + 8 + i;
 
-      // Bit 2 of PPUMASK determine background rendering for leftmost 8 pixels
+      // Horizontal sprite flip logic
+      if (!is_pre_fetch &&
+          oam_buffer_latches[ppu->sprite_render_index + 2] & 0x40 &&
+          !ppu->drawing_bg_flag) {
+        column = ppu->current_scanline_cycle + 16 - i;
+      }
+
+      //  Bit 2 of PPUMASK determine background rendering for leftmost 8 pixels
       if (row == 8 && (ppu->PPUMASK & 0x02) && ppu->drawing_bg_flag)
         break;
       // Bit 3 of PPUMASK determines sprite rendering for leftmost 8 pixels
