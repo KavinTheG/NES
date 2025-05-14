@@ -1,7 +1,7 @@
 #ifndef PPU_RENDER_H
 #define PPU_RENDER_H
 
-#include "ppu.h"
+#include <string.h>
 
 typedef struct PPU PPU;
 

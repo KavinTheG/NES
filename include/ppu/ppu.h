@@ -2,11 +2,9 @@
 #define PPU_H
 
 // === Standard and Project Includes ===
-#include <stdio.h>
-#include <string.h>
-#include <stdint.h>
 #include "config.h"
-#include "ppu_render.h"
+#include "pipeline.h"
+#include <stdio.h>
 
 // === Constants ===
 #define PPU_MEMORY_SIZE 0x4000 // 16 KB
@@ -20,60 +18,63 @@
 #define NUM_SCANLINES 262
 
 // === Logging Macro ===
-#define LOG(fmt, ...) \
-    do { if (PPU_LOGGING) fprintf(stderr, fmt, ##__VA_ARGS__); } while (0)
+#define LOG(fmt, ...)                                                          \
+  do {                                                                         \
+    if (PPU_LOGGING)                                                           \
+      fprintf(stderr, fmt, ##__VA_ARGS__);                                     \
+  } while (0)
 
-// === PPU Structure === 
-typedef struct PPU
-{
-    // Control and status registers
-    uint8_t PPUCTRL;
-    uint8_t PPUMASK;
-    uint8_t PPUSTATUS;
-    uint8_t OAMADDR;
-    uint8_t OAMDATA;
-    uint8_t PPUSCROLL;
-    uint16_t PPUADDR;
-    uint8_t PPUDATA;
-    uint8_t PPUDATA_READ_BUFFER;
-    uint8_t OAMDMA;
+// === PPU Structure ===
+typedef struct PPU {
+  // Control and status registers
+  uint8_t PPUCTRL;
+  uint8_t PPUMASK;
+  uint8_t PPUSTATUS;
+  uint8_t OAMADDR;
+  uint8_t OAMDATA;
+  uint8_t PPUSCROLL;
+  uint16_t PPUADDR;
+  uint8_t PPUDATA;
+  uint8_t PPUDATA_READ_BUFFER;
+  uint8_t OAMDMA;
 
-    // Loopy registers and scroll
-    uint16_t v, t; // Current and temporary VRAM address
-    uint8_t w;     // Write toggle
-    uint8_t x;     // Fine X scroll
+  // Loopy registers and scroll
+  uint16_t v, t; // Current and temporary VRAM address
+  uint8_t w;     // Write toggle
+  uint8_t x;     // Fine X scroll
 
-    // Internal flags
-    unsigned char vblank_flag;
-    unsigned char nmi_flag;
-    unsigned char drawing_bg_flag;
-    unsigned char copy_sprite_flag;
-    unsigned char update_graphics;
+  // Internal flags
+  unsigned char vblank_flag;
+  unsigned char nmi_flag;
+  unsigned char drawing_bg_flag;
+  unsigned char copy_sprite_flag;
+  unsigned char update_graphics;
 
-    // Tile fetch registers
-    uint8_t name_table_byte;
-    uint8_t attribute_byte;
-    uint8_t pattern_table_lsb;
-    uint8_t pattern_table_msb;
-    uint16_t palette_ram_addr;
-    uint8_t palette_index;
-    uint8_t palette_data;
-    uint8_t tile_pixel_value[TILE_SIZE];
+  // Tile fetch registers
+  Pipeline bg_pipeline;
+  Pipeline sprite_pipeline;
+  //  uint8_t name_table_byte;
+  //  uint8_t attribute_byte;
+  //  uint8_t pattern_table_lsb;
+  //  uint8_t pattern_table_msb;
+  //  uint8_t palette_index;
+  //  uint16_t palette_ram_addr;
+  //  uint8_t tile_pixel_value[TILE_SIZE];
 
-    // Output buffer
-    uint32_t frame_buffer[SCREEN_HEIGHT_VIS][SCREEN_WIDTH_VIS];
+  // Output buffer
+  uint32_t frame_buffer[SCREEN_HEIGHT_VIS][SCREEN_WIDTH_VIS];
 
-    // === Sprite Variables
-    uint8_t sprite_evaluation_index;
-    uint8_t index_of_sprite;
-    uint8_t oam_memory_top;
-    int sprite_render_index;
+  // === Sprite Variables
+  uint8_t sprite_evaluation_index;
+  uint8_t index_of_sprite;
+  uint8_t oam_memory_top;
+  int sprite_render_index;
 
-    // Timing
-    int current_scanline_cycle;
-    int total_cycles;
-    int scanline;
-    int frame;
+  // Timing
+  int current_scanline_cycle;
+  int total_cycles;
+  int scanline;
+  int frame;
 
 } PPU;
 
