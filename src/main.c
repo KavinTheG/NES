@@ -1,11 +1,10 @@
 #include <SDL2/SDL.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 
 #include "config.h"
-#include "cpu.h"
+#include "cpu/cpu.h"
 #include "frontend.h"
 #include "ppu.h"
 #include "rom.h"
@@ -36,8 +35,6 @@ int main() {
 
   Frontend_Init(&frontend, SCREEN_WIDTH_VIS, SCREEN_HEIGHT_VIS, SCALE);
 
-  // rom_init(&rom);
-  // rom_load_cartridge(&rom, "rom/Donkey Kong (USA) (GameCube Edition).nes");
   rom_load_cartridge(&rom, "rom/nestest.nes");
 
   load_cpu_memory(&cpu, rom.prg_data, rom.prg_size);
@@ -64,6 +61,14 @@ int main() {
       ppu.update_graphics = 0;
 
       Frontend_DrawFrame(&frontend, ppu.frame_buffer);
+    }
+    if (Frontend_HandleInput(&frontend) != 0) {
+      break;
+    } else {
+      if (cpu.strobe) {
+        cpu.ctrl_latch_state = frontend.controller;
+        printf("Controller State: %x\n", frontend.controller);
+      }
     }
   }
 

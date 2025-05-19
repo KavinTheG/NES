@@ -1,4 +1,4 @@
-#include "cpu.h"
+#include "cpu/cpu.h"
 #include "config.h"
 
 #include <stdint.h>
@@ -95,6 +95,26 @@ void cpu_ppu_write(Cpu6502 *cpu, uint16_t addr, uint8_t val) {
 
 uint8_t cpu_ppu_read(Cpu6502 *cpu, uint16_t addr) {
   return ppu_registers_read(cpu->ppu, addr);
+}
+
+/* CTRL Functions */
+void ctrl1_write(Cpu6502 *cpu, uint8_t val) {
+  if ((val & 1) == 1) {
+    cpu->strobe = 1;
+  } else {
+    if (cpu->strobe) {
+      cpu->ctrl_bit_index = 0;
+    }
+    cpu->strobe = 0;
+  }
+}
+
+uint8_t ctrl1_read(Cpu6502 *cpu) {
+  uint8_t bit = (cpu->ctrl_latch_state >> cpu->ctrl_bit_index) & 1;
+  if (!cpu->strobe && cpu->ctrl_bit_index < 8)
+    cpu->ctrl_bit_index++;
+
+  return bit | 0x40;
 }
 
 // Core functions
@@ -199,6 +219,8 @@ void instr_LDA(Cpu6502 *cpu, uint16_t addr) {
     uint16_t reg_addr = 0x2000 + (addr % 8);
     cpu->A = cpu_ppu_read(cpu, reg_addr);
     LOG("CPU: READING PPU REG $%04X: $%02X\n", reg_addr, cpu->A);
+  } else if (addr == 0x4016) {
+    cpu->A = ctrl1_read(cpu);
   } else {
     cpu->A = memory[addr];
   }
@@ -240,13 +262,13 @@ void instr_STA(Cpu6502 *cpu, uint16_t addr) {
     LOG("CPU: WRITING TO PPU REG $%04X: %02X\n", reg_addr, cpu->A);
     cpu_ppu_write(cpu, reg_addr, cpu->A);
   } else if (addr == 0x4014) {
-    // sleep(10);
-
     dma_active_flag = 1;
     dma_cycles = cpu->cycles % 2 == 0 ? 513 : 514;
     uint8_t page_mem[0x100];
     memcpy(page_mem, &memory[cpu->A << 8], 0x100);
     load_ppu_oam_mem(cpu->ppu, page_mem);
+  } else if (addr == 0x4016) {
+    ctrl1_write(cpu, cpu->A);
   }
 
   memory[addr] = cpu->A;
@@ -268,6 +290,8 @@ void instr_STX(Cpu6502 *cpu, uint16_t addr) {
     uint8_t page_mem[0x100];
     memcpy(page_mem, &memory[cpu->X << 8], 0x100);
     load_ppu_oam_mem(cpu->ppu, page_mem);
+  } else if (addr == 0x4016) {
+    ctrl1_write(cpu, cpu->X);
   }
   memory[addr] = cpu->X;
   cpu->PC++;
@@ -287,6 +311,8 @@ void instr_STY(Cpu6502 *cpu, uint16_t addr) {
     uint8_t page_mem[0x100];
     memcpy(page_mem, &memory[cpu->Y << 8], 0x100);
     load_ppu_oam_mem(cpu->ppu, page_mem);
+  } else if (addr == 0x4016) {
+    ctrl1_write(cpu, cpu->Y);
   }
 
   memory[addr] = cpu->Y;

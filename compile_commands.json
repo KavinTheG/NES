@@ -13,7 +13,7 @@
       "src/cpu.c"
     ],
     "directory": "/home/kavin/Github/NES",
-    "file": "/home/kavin/Github/NES/src/cpu.c",
+    "file": "/home/kavin/Github/NES/src/cpu/cpu.c",
     "output": "/home/kavin/Github/NES/build/cpu.o"
   },
   {

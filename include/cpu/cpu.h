@@ -1,51 +1,57 @@
+#ifndef CPU_H
+#define CPU_H
+
+#include "ppu.h"
 #include <stdint.h>
 #include <stdio.h>
-#include "ppu.h"
+#include <sys/types.h>
 
 typedef struct Cpu6502 {
 
-    int cycles;
+  int cycles;
 
-    uint8_t instr;
+  uint8_t instr;
 
-    // Accumulator
-    uint8_t A;
+  // Accumulator
+  uint8_t A;
 
-    // X and Y register
-    uint8_t X;
-    uint8_t Y;
+  // X and Y register
+  uint8_t X;
+  uint8_t Y;
 
-    // Program Counter
-    uint16_t PC;
+  // Program Counter
+  uint16_t PC;
 
-    // Stack pointer
-    // Initialize it to the top
-    uint8_t S;
+  // Stack pointer
+  // Initialize it to the top
+  uint8_t S;
 
-    /** Status register
-    Bit 7 - N: Negative
-    Bit 6 - V: Overflow
-    Bit 5 - n/a
-    Bit 4 - B: Break
-    Bit 3 - D: Decimal
-    Bit 2 - I: Interrupt
-    Bit 1 - Z: Zero
-    Bit 0 - C: Carry
-    **/
-    unsigned char P[8];
+  /** Status register
+  Bit 7 - N: Negative
+  Bit 6 - V: Overflow
+  Bit 5 - n/a
+  Bit 4 - B: Break
+  Bit 3 - D: Decimal
+  Bit 2 - I: Interrupt
+  Bit 1 - Z: Zero
+  Bit 0 - C: Carry
+  **/
+  unsigned char P[8];
 
-    PPU* ppu;
+  PPU *ppu;
 
-    unsigned char nmi_state;
+  uint8_t ctrl_latch_state;
+  int ctrl_bit_index;
 
+  unsigned char nmi_state;
+  unsigned char strobe;
 } Cpu6502;
-
 
 void cpu_init(Cpu6502 *cpu);
 
 void load_cpu_memory(Cpu6502 *cpu, unsigned char *prg_rom, int prg_size);
 
-//void load_cpu_mem(Cpu6502 *cpu, char *filename);
+// void load_cpu_mem(Cpu6502 *cpu, char *filename);
 void load_test_rom(Cpu6502 *cpu);
 void cpu_execute(Cpu6502 *cpu);
 
@@ -63,7 +69,6 @@ uint16_t addr_ind_Y(Cpu6502 *cpu);
 uint16_t addr_zpg(Cpu6502 *cpu);
 uint16_t addr_zpg_X(Cpu6502 *cpu);
 uint16_t addr_zpg_Y(Cpu6502 *cpu);
-
 
 // Access
 void instr_LDA(Cpu6502 *cpu, uint16_t addr);
@@ -143,7 +148,6 @@ void instr_CLV(Cpu6502 *cpu);
 // Other
 void instr_NOP(Cpu6502 *cpu);
 
-
 // illegal opcodes
 void instr_LAX(Cpu6502 *cpu, uint8_t val);
 void instr_SAX(Cpu6502 *cpu, uint16_t addr);
@@ -165,6 +169,8 @@ unsigned char get_ppu_PPUDATA_write();
 unsigned char get_ppu_OAM_write();
 unsigned char get_ppu_OAMDMA_write();
 
-void get_ppu_dma_page(Cpu6502 *cpu, uint8_t* page_mem);
+void get_ppu_dma_page(Cpu6502 *cpu, uint8_t *page_mem);
 
 void get_cpu_NMI_flag(Cpu6502 *cpu);
+
+#endif

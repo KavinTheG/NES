@@ -170,11 +170,6 @@ void write_mem(PPU *ppu, uint16_t addr, uint8_t val) {
   }
 }
 
-void reset_update_graphics(PPU *ppu) { ppu->update_graphics = 0; }
-unsigned char get_update_graphics(PPU *ppu) { return ppu->update_graphics; }
-
-uint32_t (*get_frame_buffer(PPU *ppu))[256] { return ppu->frame_buffer; }
-
 void ppu_execute_cycle(PPU *ppu) {
 
   if (ppu->scanline == -1) {
