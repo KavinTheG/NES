@@ -31,6 +31,11 @@ uint8_t fetch_pattern_table_byte(PPU *ppu, uint8_t row_padding,
  * @return              void
  */
 void ppu_render(PPU *ppu) {
+  if (ppu->current_scanline_cycle == ppu->sprite_zero_index) {
+    // sprite zero hit!
+    ppu->PPUSTATUS |= 0x40;
+    ppu->sprite_zero_index = 0;
+  }
   int sprite_height = ppu->PPUCTRL & 0x20 ? 16 : 8;
   switch (ppu->current_scanline_cycle % 8) {
   // Fetch Nametable byte
@@ -132,7 +137,6 @@ void ppu_render(PPU *ppu) {
                      (ppu->scanline -
                       (oam_buffer_latches[ppu->sprite_render_index] + 1))) &
                     0xFFF)];
-
     for (int i = 0; i < 8; i++) {
       uint8_t bit = 7 - i;
       uint8_t sprite_lo = (ppu->sprite_pipeline.pattern_table_lsb >> bit) & 1;
@@ -288,8 +292,11 @@ void sprite_detect(PPU *ppu) {
     if (ppu->current_scanline_cycle % 2 == 1) {
       if (ppu->index_of_sprite == 0) {
         if (ppu->scanline >= oam_memory[index] &&
-            oam_memory[index] < ppu->scanline + sprite_height)
+            oam_memory[index] < ppu->scanline + sprite_height) {
           ppu->copy_sprite_flag = 1;
+          if (index == 0)
+            ppu->sprite_zero_index = oam_memory[3];
+        }
       }
     } else {
       if (ppu->copy_sprite_flag && ppu->oam_memory_top <= 31) {

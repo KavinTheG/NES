@@ -53,13 +53,6 @@ typedef struct PPU {
   // Tile fetch registers
   Pipeline bg_pipeline;
   Pipeline sprite_pipeline;
-  //  uint8_t name_table_byte;
-  //  uint8_t attribute_byte;
-  //  uint8_t pattern_table_lsb;
-  //  uint8_t pattern_table_msb;
-  //  uint8_t palette_index;
-  //  uint16_t palette_ram_addr;
-  //  uint8_t tile_pixel_value[TILE_SIZE];
 
   // Output buffer
   uint32_t frame_buffer[SCREEN_HEIGHT_VIS][SCREEN_WIDTH_VIS];
@@ -69,6 +62,7 @@ typedef struct PPU {
   uint8_t index_of_sprite;
   uint8_t oam_memory_top;
   int sprite_render_index;
+  int sprite_zero_index;
 
   // Timing
   int current_scanline_cycle;

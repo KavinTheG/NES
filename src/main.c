@@ -6,8 +6,8 @@
 
 #include "config.h"
 #include "cpu.h"
+#include "frontend.h"
 #include "ppu.h"
-#include "renderer.h"
 #include "rom.h"
 
 void load_ppu_palette(char *filename) {
@@ -32,12 +32,13 @@ int main() {
   PPU ppu;
   Rom rom;
 
-  Renderer renderer;
+  Frontend frontend;
 
-  Renderer_Init(&renderer, SCREEN_WIDTH_VIS, SCREEN_HEIGHT_VIS, SCALE);
+  Frontend_Init(&frontend, SCREEN_WIDTH_VIS, SCREEN_HEIGHT_VIS, SCALE);
 
   // rom_init(&rom);
-  rom_load_cartridge(&rom, "rom/Donkey Kong (USA) (GameCube Edition).nes");
+  // rom_load_cartridge(&rom, "rom/Donkey Kong (USA) (GameCube Edition).nes");
+  rom_load_cartridge(&rom, "rom/nestest.nes");
 
   load_cpu_memory(&cpu, rom.prg_data, rom.prg_size);
 
@@ -62,10 +63,10 @@ int main() {
     if (ppu.update_graphics) {
       ppu.update_graphics = 0;
 
-      Renderer_DrawFrame(&renderer, ppu.frame_buffer);
+      Frontend_DrawFrame(&frontend, ppu.frame_buffer);
     }
   }
 
-  Renderer_Destroy(&renderer);
+  Frontend_Destroy(&frontend);
   return 0;
 }
