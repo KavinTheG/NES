@@ -67,7 +67,6 @@ int main() {
     } else {
       if (cpu.strobe) {
         cpu.ctrl_latch_state = frontend.controller;
-        printf("Controller State: %x\n", frontend.controller);
       }
     }
   }
