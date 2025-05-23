@@ -2,7 +2,6 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-
 #ifndef NES_HEADER_SIZE
 #define NES_HEADER_SIZE 16
 #endif
@@ -20,6 +19,5 @@
 #define SCREEN_HEIGHT_VIS 240
 
 #define SCALE 4
-
 
 #endif

@@ -1,0 +1,672 @@
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  us/call  us/call  name    
+ 43.36      1.27     1.27 47871791     0.03     0.03  ppu_render
+  9.90      1.56     0.29 69169618     0.00     0.00  read_mem
+  9.22      1.83     0.27  7717424     0.03     0.34  cpu_execute
+  7.17      2.04     0.21 66036030     0.00     0.03  ppu_execute_cycle
+  6.83      2.24     0.20 60001012     0.00     0.00  sprite_detect
+  4.78      2.38     0.14  7718239     0.02     0.02  join_char_array
+  4.61      2.52     0.14 60001012     0.00     0.03  ppu_exec_visible_scanline
+  3.76      2.63     0.11                             main
+  3.41      2.73     0.10  7717424     0.01     0.01  Frontend_HandleInput
+  2.05      2.79     0.06                             _init
+  1.37      2.83     0.04  5983974     0.01     0.01  fetch_attr_table_byte
+  1.02      2.86     0.03  5983974     0.01     0.01  fetch_name_table_byte
+  0.34      2.87     0.01  1771645     0.01     0.01  addr_zpg
+  0.34      2.88     0.01   478177     0.02     0.02  addr_abs
+  0.34      2.89     0.01   271675     0.04     0.04  instr_AND
+  0.34      2.90     0.01    31922     0.31     0.31  page_crossing
+  0.34      2.91     0.01    26447     0.38     0.38  instr_PLA
+  0.34      2.92     0.01     3207     3.12     3.12  write_mem
+  0.34      2.93     0.01                             instr_CLV
+  0.17      2.93     0.01   250294     0.02     0.02  ppu_exec_pre_render
+  0.00      2.93     0.00  5039980     0.00     0.00  ppu_exec_vblank
+  0.00      2.93     0.00  3616508     0.00     0.00  instr_NOP
+  0.00      2.93     0.00  1033340     0.00     0.00  instr_ROR
+  0.00      2.93     0.00   633417     0.00     0.00  push_stack
+  0.00      2.93     0.00   431374     0.00     0.00  instr_LDA
+  0.00      2.93     0.00   352482     0.00     0.00  addr_imm
+  0.00      2.93     0.00   302339     0.00     0.00  instr_JSR
+  0.00      2.93     0.00   302333     0.00     0.00  instr_RTS
+  0.00      2.93     0.00   264762     0.00     0.00  emulate_6502_cycle
+  0.00      2.93     0.00   264762     0.00     0.00  instr_branch
+  0.00      2.93     0.00   241782     0.00     0.04  instr_STA
+  0.00      2.93     0.00   171597     0.00     0.00  instr_BEQ
+  0.00      2.93     0.00   157273     0.00     0.00  instr_CLC
+  0.00      2.93     0.00   145756     0.00     0.00  instr_JMP
+  0.00      2.93     0.00   130639     0.00     0.00  instr_EOR
+  0.00      2.93     0.00    72400     0.00     0.00  instr_SEC
+  0.00      2.93     0.00    66197     0.00     0.00  instr_BNE
+  0.00      2.93     0.00    38883     0.00     0.00  instr_INY
+  0.00      2.93     0.00    38241     0.00     0.00  instr_CMP
+  0.00      2.93     0.00    34284     0.00     0.00  instr_LSR
+  0.00      2.93     0.00    34234     0.00     0.00  addr_abs_X
+  0.00      2.93     0.00    31922     0.00     0.31  addr_ind_Y
+  0.00      2.93     0.00    29153     0.00     0.00  instr_ADC
+  0.00      2.93     0.00    26450     0.00     0.00  instr_PHA
+  0.00      2.93     0.00    24185     0.00     0.00  instr_ASL
+  0.00      2.93     0.00    18666     0.00     0.00  addr_zpg_X
+  0.00      2.93     0.00    17705     0.00     0.00  instr_DEY
+  0.00      2.93     0.00    16814     0.00     0.00  instr_TAX
+  0.00      2.93     0.00    16274     0.00     0.00  instr_DEX
+  0.00      2.93     0.00    14185     0.00     0.00  instr_LDY
+  0.00      2.93     0.00    12313     0.00     0.00  instr_ORA
+  0.00      2.93     0.00    12036     0.00     0.00  instr_BPL
+  0.00      2.93     0.00    11957     0.00     0.00  instr_ROL
+  0.00      2.93     0.00    11638     0.00     0.00  instr_LDX
+  0.00      2.93     0.00     9148     0.00     0.00  instr_BCC
+  0.00      2.93     0.00     8275     0.00     1.21  cpu_ppu_write
+  0.00      2.93     0.00     8275     0.00     1.21  ppu_registers_write
+  0.00      2.93     0.00     7851     0.00     0.00  instr_SBC
+  0.00      2.93     0.00     6791     0.00     0.00  instr_TYA
+  0.00      2.93     0.00     6084     0.00     0.00  addr_abs_Y
+  0.00      2.93     0.00     5896     0.00     0.00  ctrl1_read
+  0.00      2.93     0.00     5586     0.00     0.00  instr_DEC
+  0.00      2.93     0.00     5287     0.00     0.00  instr_TAY
+  0.00      2.93     0.00     4937     0.00     0.00  cpu_ppu_read
+  0.00      2.93     0.00     4937     0.00     0.00  ppu_registers_read
+  0.00      2.93     0.00     4896     0.00     0.00  instr_BCS
+  0.00      2.93     0.00     4746     0.00     0.00  instr_TXA
+  0.00      2.93     0.00     4307     0.00     0.00  instr_STX
+  0.00      2.93     0.00     4154     0.00     0.00  instr_INC
+  0.00      2.93     0.00     4034     0.00     0.00  instr_INX
+  0.00      2.93     0.00     3073     0.00     0.00  instr_CPY
+  0.00      2.93     0.00     1896     0.00     0.00  instr_STY
+  0.00      2.93     0.00     1667     0.00     0.00  instr_CPX
+  0.00      2.93     0.00     1478     0.00     0.00  Frontend_DrawFrame
+  0.00      2.93     0.00     1474     0.00     0.00  ctrl1_write
+  0.00      2.93     0.00      888     0.00     0.00  instr_BMI
+  0.00      2.93     0.00      814     0.00     0.00  uint8_to_char_array
+  0.00      2.93     0.00      737     0.00     0.02  cpu_nmi_triggered
+  0.00      2.93     0.00      737     0.00     0.00  load_ppu_oam_mem
+  0.00      2.93     0.00      736     0.00     0.00  instr_RTI
+  0.00      2.93     0.00       78     0.00     0.02  instr_PHP
+  0.00      2.93     0.00       78     0.00     0.00  instr_PLP
+  0.00      2.93     0.00       16     0.00     0.00  instr_CLD
+  0.00      2.93     0.00        1     0.00     0.00  Frontend_Destroy
+  0.00      2.93     0.00        1     0.00     0.00  Frontend_Init
+  0.00      2.93     0.00        1     0.00     2.48  cpu_init
+  0.00      2.93     0.00        1     0.00     0.00  instr_SEI
+  0.00      2.93     0.00        1     0.00     0.00  instr_TXS
+  0.00      2.93     0.00        1     0.00     0.00  load_cpu_memory
+  0.00      2.93     0.00        1     0.00     0.00  load_palette
+  0.00      2.93     0.00        1     0.00     0.00  load_ppu_ines_header
+  0.00      2.93     0.00        1     0.00     0.00  load_ppu_memory
+  0.00      2.93     0.00        1     0.00     0.00  load_ppu_palette
+  0.00      2.93     0.00        1     0.00     0.00  ppu_init
+  0.00      2.93     0.00        1     0.00     0.00  rom_load_cartridge
+
+ %         the percentage of the total running time of the
+time       program used by this function.
+
+cumulative a running sum of the number of seconds accounted
+ seconds   for by this function and those listed above it.
+
+ self      the number of seconds accounted for by this
+seconds    function alone.  This is the major sort for this
+           listing.
+
+calls      the number of times this function was invoked, if
+           this function is profiled, else blank.
+
+ self      the average number of milliseconds spent in this
+ms/call    function per call, if this function is profiled,
+	   else blank.
+
+ total     the average number of milliseconds spent in this
+ms/call    function and its descendents per call, if this
+	   function is profiled, else blank.
+
+name       the name of the function.  This is the minor sort
+           for this listing. The index shows the location of
+	   the function in the gprof listing. If the index is
+	   in parenthesis it shows where it would appear in
+	   the gprof listing if it were to be printed.
+
+Copyright (C) 2012-2025 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 2 byte(s) for 0.34% of 2.93 seconds
+
+index % time    self  children    called     name
+                                                 <spontaneous>
+[1]     97.6    0.11    2.75                 main [1]
+                0.27    2.38 7717424/7717424     cpu_execute [2]
+                0.10    0.00 7717424/7717424     Frontend_HandleInput [9]
+                0.00    0.00       1/1           cpu_init [26]
+                0.00    0.00    1478/1478        Frontend_DrawFrame [77]
+                0.00    0.00       1/1           Frontend_Init [86]
+                0.00    0.00       1/1           rom_load_cartridge [95]
+                0.00    0.00       1/1           load_cpu_memory [89]
+                0.00    0.00       1/1           load_ppu_ines_header [91]
+                0.00    0.00       1/1           load_ppu_memory [92]
+                0.00    0.00       1/1           load_ppu_palette [93]
+                0.00    0.00       1/1           ppu_init [94]
+                0.00    0.00       1/1           Frontend_Destroy [85]
+-----------------------------------------------
+                0.27    2.38 7717424/7717424     main [1]
+[2]     90.4    0.27    2.38 7717424         cpu_execute [2]
+                0.21    1.97 66035955/66036030     ppu_execute_cycle [3]
+                0.14    0.00 7717424/7718239     join_char_array [8]
+                0.01    0.00 1771645/1771645     addr_zpg [13]
+                0.01    0.00  478177/478177      addr_abs [14]
+                0.01    0.00  271675/271675      instr_AND [15]
+                0.00    0.01  241782/241782      instr_STA [16]
+                0.00    0.01   31922/31922       addr_ind_Y [17]
+                0.01    0.00   26447/26447       instr_PLA [19]
+                0.00    0.00     737/737         cpu_nmi_triggered [25]
+                0.00    0.00      78/78          instr_PHP [27]
+                0.00    0.00 3616508/3616508     instr_NOP [29]
+                0.00    0.00 1033340/1033340     instr_ROR [30]
+                0.00    0.00  431374/431374      instr_LDA [32]
+                0.00    0.00  352482/352482      addr_imm [33]
+                0.00    0.00  302339/302339      instr_JSR [34]
+                0.00    0.00  302333/302333      instr_RTS [35]
+                0.00    0.00  171597/171597      instr_BEQ [38]
+                0.00    0.00  157273/157273      instr_CLC [39]
+                0.00    0.00  145756/145756      instr_JMP [40]
+                0.00    0.00  130639/130639      instr_EOR [41]
+                0.00    0.00   72400/72400       instr_SEC [42]
+                0.00    0.00   66197/66197       instr_BNE [43]
+                0.00    0.00   38883/38883       instr_INY [44]
+                0.00    0.00   38241/38241       instr_CMP [45]
+                0.00    0.00   34284/34284       instr_LSR [46]
+                0.00    0.00   34234/34234       addr_abs_X [47]
+                0.00    0.00   29153/29153       instr_ADC [48]
+                0.00    0.00   26450/26450       instr_PHA [49]
+                0.00    0.00   24185/24185       instr_ASL [50]
+                0.00    0.00   18666/18666       addr_zpg_X [51]
+                0.00    0.00   17705/17705       instr_DEY [52]
+                0.00    0.00   16814/16814       instr_TAX [53]
+                0.00    0.00   16274/16274       instr_DEX [54]
+                0.00    0.00   14185/14185       instr_LDY [55]
+                0.00    0.00   12313/12313       instr_ORA [56]
+                0.00    0.00   12036/12036       instr_BPL [57]
+                0.00    0.00   11957/11957       instr_ROL [58]
+                0.00    0.00   11638/11638       instr_LDX [59]
+                0.00    0.00    9148/9148        instr_BCC [60]
+                0.00    0.00    7851/7851        instr_SBC [61]
+                0.00    0.00    6791/6791        instr_TYA [62]
+                0.00    0.00    6084/6084        addr_abs_Y [63]
+                0.00    0.00    5586/5586        instr_DEC [65]
+                0.00    0.00    5287/5287        instr_TAY [66]
+                0.00    0.00    4896/4896        instr_BCS [69]
+                0.00    0.00    4746/4746        instr_TXA [70]
+                0.00    0.00    4307/4307        instr_STX [71]
+                0.00    0.00    4154/4154        instr_INC [72]
+                0.00    0.00    4034/4034        instr_INX [73]
+                0.00    0.00    3073/3073        instr_CPY [74]
+                0.00    0.00    1896/1896        instr_STY [75]
+                0.00    0.00    1667/1667        instr_CPX [76]
+                0.00    0.00     888/888         instr_BMI [79]
+                0.00    0.00     736/736         instr_RTI [82]
+                0.00    0.00      78/78          instr_PLP [83]
+                0.00    0.00      16/16          instr_CLD [84]
+                0.00    0.00       1/1           instr_TXS [88]
+                0.00    0.00       1/1           instr_SEI [87]
+-----------------------------------------------
+                0.00    0.00      75/66036030     cpu_init [26]
+                0.21    1.97 66035955/66036030     cpu_execute [2]
+[3]     74.4    0.21    1.97 66036030         ppu_execute_cycle [3]
+                0.14    1.83 60001012/60001012     ppu_exec_visible_scanline [4]
+                0.01    0.00  250294/250294      ppu_exec_pre_render [24]
+                0.00    0.00 5039980/5039980     ppu_exec_vblank [28]
+-----------------------------------------------
+                0.14    1.83 60001012/60001012     ppu_execute_cycle [3]
+[4]     67.1    0.14    1.83 60001012         ppu_exec_visible_scanline [4]
+                1.27    0.36 47860047/47871791     ppu_render [5]
+                0.20    0.00 60001012/60001012     sprite_detect [7]
+-----------------------------------------------
+                0.00    0.00   11744/47871791     ppu_exec_pre_render [24]
+                1.27    0.36 47860047/47871791     ppu_exec_visible_scanline [4]
+[5]     55.6    1.27    0.36 47871791         ppu_render [5]
+                0.24    0.00 57201670/69169618     read_mem [6]
+                0.04    0.03 5983974/5983974     fetch_attr_table_byte [10]
+                0.03    0.03 5983974/5983974     fetch_name_table_byte [12]
+-----------------------------------------------
+                0.03    0.00 5983974/69169618     fetch_name_table_byte [12]
+                0.03    0.00 5983974/69169618     fetch_attr_table_byte [10]
+                0.24    0.00 57201670/69169618     ppu_render [5]
+[6]      9.9    0.29    0.00 69169618         read_mem [6]
+-----------------------------------------------
+                0.20    0.00 60001012/60001012     ppu_exec_visible_scanline [4]
+[7]      6.8    0.20    0.00 60001012         sprite_detect [7]
+-----------------------------------------------
+                0.00    0.00      78/7718239     instr_PHP [27]
+                0.00    0.00     737/7718239     cpu_nmi_triggered [25]
+                0.14    0.00 7717424/7718239     cpu_execute [2]
+[8]      4.8    0.14    0.00 7718239         join_char_array [8]
+-----------------------------------------------
+                0.10    0.00 7717424/7717424     main [1]
+[9]      3.4    0.10    0.00 7717424         Frontend_HandleInput [9]
+-----------------------------------------------
+                0.04    0.03 5983974/5983974     ppu_render [5]
+[10]     2.2    0.04    0.03 5983974         fetch_attr_table_byte [10]
+                0.03    0.00 5983974/69169618     read_mem [6]
+-----------------------------------------------
+                                                 <spontaneous>
+[11]     2.0    0.06    0.00                 _init [11]
+-----------------------------------------------
+                0.03    0.03 5983974/5983974     ppu_render [5]
+[12]     1.9    0.03    0.03 5983974         fetch_name_table_byte [12]
+                0.03    0.00 5983974/69169618     read_mem [6]
+-----------------------------------------------
+                0.01    0.00 1771645/1771645     cpu_execute [2]
+[13]     0.3    0.01    0.00 1771645         addr_zpg [13]
+-----------------------------------------------
+                0.01    0.00  478177/478177      cpu_execute [2]
+[14]     0.3    0.01    0.00  478177         addr_abs [14]
+-----------------------------------------------
+                0.01    0.00  271675/271675      cpu_execute [2]
+[15]     0.3    0.01    0.00  271675         instr_AND [15]
+-----------------------------------------------
+                0.00    0.01  241782/241782      cpu_execute [2]
+[16]     0.3    0.00    0.01  241782         instr_STA [16]
+                0.00    0.01    8275/8275        cpu_ppu_write [20]
+                0.00    0.00    1474/1474        ctrl1_write [78]
+                0.00    0.00     737/737         load_ppu_oam_mem [81]
+-----------------------------------------------
+                0.00    0.01   31922/31922       cpu_execute [2]
+[17]     0.3    0.00    0.01   31922         addr_ind_Y [17]
+                0.01    0.00   31922/31922       page_crossing [18]
+-----------------------------------------------
+                0.01    0.00   31922/31922       addr_ind_Y [17]
+[18]     0.3    0.01    0.00   31922         page_crossing [18]
+-----------------------------------------------
+                0.01    0.00   26447/26447       cpu_execute [2]
+[19]     0.3    0.01    0.00   26447         instr_PLA [19]
+-----------------------------------------------
+                0.00    0.01    8275/8275        instr_STA [16]
+[20]     0.3    0.00    0.01    8275         cpu_ppu_write [20]
+                0.00    0.01    8275/8275        ppu_registers_write [21]
+-----------------------------------------------
+                0.00    0.01    8275/8275        cpu_ppu_write [20]
+[21]     0.3    0.00    0.01    8275         ppu_registers_write [21]
+                0.01    0.00    3207/3207        write_mem [22]
+-----------------------------------------------
+                0.01    0.00    3207/3207        ppu_registers_write [21]
+[22]     0.3    0.01    0.00    3207         write_mem [22]
+-----------------------------------------------
+                                                 <spontaneous>
+[23]     0.3    0.01    0.00                 instr_CLV [23]
+-----------------------------------------------
+                0.01    0.00  250294/250294      ppu_execute_cycle [3]
+[24]     0.2    0.01    0.00  250294         ppu_exec_pre_render [24]
+                0.00    0.00   11744/47871791     ppu_render [5]
+-----------------------------------------------
+                0.00    0.00     737/737         cpu_execute [2]
+[25]     0.0    0.00    0.00     737         cpu_nmi_triggered [25]
+                0.00    0.00     737/7718239     join_char_array [8]
+                0.00    0.00    2211/633417      push_stack [31]
+-----------------------------------------------
+                0.00    0.00       1/1           main [1]
+[26]     0.0    0.00    0.00       1         cpu_init [26]
+                0.00    0.00      75/66036030     ppu_execute_cycle [3]
+-----------------------------------------------
+                0.00    0.00      78/78          cpu_execute [2]
+[27]     0.0    0.00    0.00      78         instr_PHP [27]
+                0.00    0.00      78/7718239     join_char_array [8]
+                0.00    0.00      78/633417      push_stack [31]
+-----------------------------------------------
+                0.00    0.00 5039980/5039980     ppu_execute_cycle [3]
+[28]     0.0    0.00    0.00 5039980         ppu_exec_vblank [28]
+-----------------------------------------------
+                0.00    0.00 3616508/3616508     cpu_execute [2]
+[29]     0.0    0.00    0.00 3616508         instr_NOP [29]
+-----------------------------------------------
+                0.00    0.00 1033340/1033340     cpu_execute [2]
+[30]     0.0    0.00    0.00 1033340         instr_ROR [30]
+-----------------------------------------------
+                0.00    0.00      78/633417      instr_PHP [27]
+                0.00    0.00    2211/633417      cpu_nmi_triggered [25]
+                0.00    0.00   26450/633417      instr_PHA [49]
+                0.00    0.00  604678/633417      instr_JSR [34]
+[31]     0.0    0.00    0.00  633417         push_stack [31]
+-----------------------------------------------
+                0.00    0.00  431374/431374      cpu_execute [2]
+[32]     0.0    0.00    0.00  431374         instr_LDA [32]
+                0.00    0.00    5896/5896        ctrl1_read [64]
+                0.00    0.00    3043/4937        cpu_ppu_read [67]
+-----------------------------------------------
+                0.00    0.00  352482/352482      cpu_execute [2]
+[33]     0.0    0.00    0.00  352482         addr_imm [33]
+-----------------------------------------------
+                0.00    0.00  302339/302339      cpu_execute [2]
+[34]     0.0    0.00    0.00  302339         instr_JSR [34]
+                0.00    0.00  604678/633417      push_stack [31]
+-----------------------------------------------
+                0.00    0.00  302333/302333      cpu_execute [2]
+[35]     0.0    0.00    0.00  302333         instr_RTS [35]
+-----------------------------------------------
+                0.00    0.00  264762/264762      instr_branch [37]
+[36]     0.0    0.00    0.00  264762         emulate_6502_cycle [36]
+-----------------------------------------------
+                0.00    0.00     888/264762      instr_BMI [79]
+                0.00    0.00    4896/264762      instr_BCS [69]
+                0.00    0.00    9148/264762      instr_BCC [60]
+                0.00    0.00   12036/264762      instr_BPL [57]
+                0.00    0.00   66197/264762      instr_BNE [43]
+                0.00    0.00  171597/264762      instr_BEQ [38]
+[37]     0.0    0.00    0.00  264762         instr_branch [37]
+                0.00    0.00  264762/264762      emulate_6502_cycle [36]
+-----------------------------------------------
+                0.00    0.00  171597/171597      cpu_execute [2]
+[38]     0.0    0.00    0.00  171597         instr_BEQ [38]
+                0.00    0.00  171597/264762      instr_branch [37]
+-----------------------------------------------
+                0.00    0.00  157273/157273      cpu_execute [2]
+[39]     0.0    0.00    0.00  157273         instr_CLC [39]
+-----------------------------------------------
+                0.00    0.00  145756/145756      cpu_execute [2]
+[40]     0.0    0.00    0.00  145756         instr_JMP [40]
+-----------------------------------------------
+                0.00    0.00  130639/130639      cpu_execute [2]
+[41]     0.0    0.00    0.00  130639         instr_EOR [41]
+-----------------------------------------------
+                0.00    0.00   72400/72400       cpu_execute [2]
+[42]     0.0    0.00    0.00   72400         instr_SEC [42]
+-----------------------------------------------
+                0.00    0.00   66197/66197       cpu_execute [2]
+[43]     0.0    0.00    0.00   66197         instr_BNE [43]
+                0.00    0.00   66197/264762      instr_branch [37]
+-----------------------------------------------
+                0.00    0.00   38883/38883       cpu_execute [2]
+[44]     0.0    0.00    0.00   38883         instr_INY [44]
+-----------------------------------------------
+                0.00    0.00   38241/38241       cpu_execute [2]
+[45]     0.0    0.00    0.00   38241         instr_CMP [45]
+-----------------------------------------------
+                0.00    0.00   34284/34284       cpu_execute [2]
+[46]     0.0    0.00    0.00   34284         instr_LSR [46]
+-----------------------------------------------
+                0.00    0.00   34234/34234       cpu_execute [2]
+[47]     0.0    0.00    0.00   34234         addr_abs_X [47]
+-----------------------------------------------
+                0.00    0.00   29153/29153       cpu_execute [2]
+[48]     0.0    0.00    0.00   29153         instr_ADC [48]
+-----------------------------------------------
+                0.00    0.00   26450/26450       cpu_execute [2]
+[49]     0.0    0.00    0.00   26450         instr_PHA [49]
+                0.00    0.00   26450/633417      push_stack [31]
+-----------------------------------------------
+                0.00    0.00   24185/24185       cpu_execute [2]
+[50]     0.0    0.00    0.00   24185         instr_ASL [50]
+-----------------------------------------------
+                0.00    0.00   18666/18666       cpu_execute [2]
+[51]     0.0    0.00    0.00   18666         addr_zpg_X [51]
+-----------------------------------------------
+                0.00    0.00   17705/17705       cpu_execute [2]
+[52]     0.0    0.00    0.00   17705         instr_DEY [52]
+-----------------------------------------------
+                0.00    0.00   16814/16814       cpu_execute [2]
+[53]     0.0    0.00    0.00   16814         instr_TAX [53]
+-----------------------------------------------
+                0.00    0.00   16274/16274       cpu_execute [2]
+[54]     0.0    0.00    0.00   16274         instr_DEX [54]
+-----------------------------------------------
+                0.00    0.00   14185/14185       cpu_execute [2]
+[55]     0.0    0.00    0.00   14185         instr_LDY [55]
+-----------------------------------------------
+                0.00    0.00   12313/12313       cpu_execute [2]
+[56]     0.0    0.00    0.00   12313         instr_ORA [56]
+-----------------------------------------------
+                0.00    0.00   12036/12036       cpu_execute [2]
+[57]     0.0    0.00    0.00   12036         instr_BPL [57]
+                0.00    0.00   12036/264762      instr_branch [37]
+-----------------------------------------------
+                0.00    0.00   11957/11957       cpu_execute [2]
+[58]     0.0    0.00    0.00   11957         instr_ROL [58]
+-----------------------------------------------
+                0.00    0.00   11638/11638       cpu_execute [2]
+[59]     0.0    0.00    0.00   11638         instr_LDX [59]
+                0.00    0.00    1894/4937        cpu_ppu_read [67]
+-----------------------------------------------
+                0.00    0.00    9148/9148        cpu_execute [2]
+[60]     0.0    0.00    0.00    9148         instr_BCC [60]
+                0.00    0.00    9148/264762      instr_branch [37]
+-----------------------------------------------
+                0.00    0.00    7851/7851        cpu_execute [2]
+[61]     0.0    0.00    0.00    7851         instr_SBC [61]
+-----------------------------------------------
+                0.00    0.00    6791/6791        cpu_execute [2]
+[62]     0.0    0.00    0.00    6791         instr_TYA [62]
+-----------------------------------------------
+                0.00    0.00    6084/6084        cpu_execute [2]
+[63]     0.0    0.00    0.00    6084         addr_abs_Y [63]
+-----------------------------------------------
+                0.00    0.00    5896/5896        instr_LDA [32]
+[64]     0.0    0.00    0.00    5896         ctrl1_read [64]
+-----------------------------------------------
+                0.00    0.00    5586/5586        cpu_execute [2]
+[65]     0.0    0.00    0.00    5586         instr_DEC [65]
+-----------------------------------------------
+                0.00    0.00    5287/5287        cpu_execute [2]
+[66]     0.0    0.00    0.00    5287         instr_TAY [66]
+-----------------------------------------------
+                0.00    0.00    1894/4937        instr_LDX [59]
+                0.00    0.00    3043/4937        instr_LDA [32]
+[67]     0.0    0.00    0.00    4937         cpu_ppu_read [67]
+                0.00    0.00    4937/4937        ppu_registers_read [68]
+-----------------------------------------------
+                0.00    0.00    4937/4937        cpu_ppu_read [67]
+[68]     0.0    0.00    0.00    4937         ppu_registers_read [68]
+-----------------------------------------------
+                0.00    0.00    4896/4896        cpu_execute [2]
+[69]     0.0    0.00    0.00    4896         instr_BCS [69]
+                0.00    0.00    4896/264762      instr_branch [37]
+-----------------------------------------------
+                0.00    0.00    4746/4746        cpu_execute [2]
+[70]     0.0    0.00    0.00    4746         instr_TXA [70]
+-----------------------------------------------
+                0.00    0.00    4307/4307        cpu_execute [2]
+[71]     0.0    0.00    0.00    4307         instr_STX [71]
+-----------------------------------------------
+                0.00    0.00    4154/4154        cpu_execute [2]
+[72]     0.0    0.00    0.00    4154         instr_INC [72]
+-----------------------------------------------
+                0.00    0.00    4034/4034        cpu_execute [2]
+[73]     0.0    0.00    0.00    4034         instr_INX [73]
+-----------------------------------------------
+                0.00    0.00    3073/3073        cpu_execute [2]
+[74]     0.0    0.00    0.00    3073         instr_CPY [74]
+-----------------------------------------------
+                0.00    0.00    1896/1896        cpu_execute [2]
+[75]     0.0    0.00    0.00    1896         instr_STY [75]
+-----------------------------------------------
+                0.00    0.00    1667/1667        cpu_execute [2]
+[76]     0.0    0.00    0.00    1667         instr_CPX [76]
+-----------------------------------------------
+                0.00    0.00    1478/1478        main [1]
+[77]     0.0    0.00    0.00    1478         Frontend_DrawFrame [77]
+-----------------------------------------------
+                0.00    0.00    1474/1474        instr_STA [16]
+[78]     0.0    0.00    0.00    1474         ctrl1_write [78]
+-----------------------------------------------
+                0.00    0.00     888/888         cpu_execute [2]
+[79]     0.0    0.00    0.00     888         instr_BMI [79]
+                0.00    0.00     888/264762      instr_branch [37]
+-----------------------------------------------
+                0.00    0.00      78/814         instr_PLP [83]
+                0.00    0.00     736/814         instr_RTI [82]
+[80]     0.0    0.00    0.00     814         uint8_to_char_array [80]
+-----------------------------------------------
+                0.00    0.00     737/737         instr_STA [16]
+[81]     0.0    0.00    0.00     737         load_ppu_oam_mem [81]
+-----------------------------------------------
+                0.00    0.00     736/736         cpu_execute [2]
+[82]     0.0    0.00    0.00     736         instr_RTI [82]
+                0.00    0.00     736/814         uint8_to_char_array [80]
+-----------------------------------------------
+                0.00    0.00      78/78          cpu_execute [2]
+[83]     0.0    0.00    0.00      78         instr_PLP [83]
+                0.00    0.00      78/814         uint8_to_char_array [80]
+-----------------------------------------------
+                0.00    0.00      16/16          cpu_execute [2]
+[84]     0.0    0.00    0.00      16         instr_CLD [84]
+-----------------------------------------------
+                0.00    0.00       1/1           main [1]
+[85]     0.0    0.00    0.00       1         Frontend_Destroy [85]
+-----------------------------------------------
+                0.00    0.00       1/1           main [1]
+[86]     0.0    0.00    0.00       1         Frontend_Init [86]
+-----------------------------------------------
+                0.00    0.00       1/1           cpu_execute [2]
+[87]     0.0    0.00    0.00       1         instr_SEI [87]
+-----------------------------------------------
+                0.00    0.00       1/1           cpu_execute [2]
+[88]     0.0    0.00    0.00       1         instr_TXS [88]
+-----------------------------------------------
+                0.00    0.00       1/1           main [1]
+[89]     0.0    0.00    0.00       1         load_cpu_memory [89]
+-----------------------------------------------
+                0.00    0.00       1/1           load_ppu_palette [93]
+[90]     0.0    0.00    0.00       1         load_palette [90]
+-----------------------------------------------
+                0.00    0.00       1/1           main [1]
+[91]     0.0    0.00    0.00       1         load_ppu_ines_header [91]
+-----------------------------------------------
+                0.00    0.00       1/1           main [1]
+[92]     0.0    0.00    0.00       1         load_ppu_memory [92]
+-----------------------------------------------
+                0.00    0.00       1/1           main [1]
+[93]     0.0    0.00    0.00       1         load_ppu_palette [93]
+                0.00    0.00       1/1           load_palette [90]
+-----------------------------------------------
+                0.00    0.00       1/1           main [1]
+[94]     0.0    0.00    0.00       1         ppu_init [94]
+-----------------------------------------------
+                0.00    0.00       1/1           main [1]
+[95]     0.0    0.00    0.00       1         rom_load_cartridge [95]
+-----------------------------------------------
+
+ This table describes the call tree of the program, and was sorted by
+ the total amount of time spent in each function and its children.
+
+ Each entry in this table consists of several lines.  The line with the
+ index number at the left hand margin lists the current function.
+ The lines above it list the functions that called this function,
+ and the lines below it list the functions this one called.
+ This line lists:
+     index	A unique number given to each element of the table.
+		Index numbers are sorted numerically.
+		The index number is printed next to every function name so
+		it is easier to look up where the function is in the table.
+
+     % time	This is the percentage of the `total' time that was spent
+		in this function and its children.  Note that due to
+		different viewpoints, functions excluded by options, etc,
+		these numbers will NOT add up to 100%.
+
+     self	This is the total amount of time spent in this function.
+
+     children	This is the total amount of time propagated into this
+		function by its children.
+
+     called	This is the number of times the function was called.
+		If the function called itself recursively, the number
+		only includes non-recursive calls, and is followed by
+		a `+' and the number of recursive calls.
+
+     name	The name of the current function.  The index number is
+		printed after it.  If the function is a member of a
+		cycle, the cycle number is printed between the
+		function's name and the index number.
+
+
+ For the function's parents, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the function into this parent.
+
+     children	This is the amount of time that was propagated from
+		the function's children into this parent.
+
+     called	This is the number of times this parent called the
+		function `/' the total number of times the function
+		was called.  Recursive calls to the function are not
+		included in the number after the `/'.
+
+     name	This is the name of the parent.  The parent's index
+		number is printed after it.  If the parent is a
+		member of a cycle, the cycle number is printed between
+		the name and the index number.
+
+ If the parents of the function cannot be determined, the word
+ `<spontaneous>' is printed in the `name' field, and all the other
+ fields are blank.
+
+ For the function's children, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the child into the function.
+
+     children	This is the amount of time that was propagated from the
+		child's children to the function.
+
+     called	This is the number of times the function called
+		this child `/' the total number of times the child
+		was called.  Recursive calls by the child are not
+		listed in the number after the `/'.
+
+     name	This is the name of the child.  The child's index
+		number is printed after it.  If the child is a
+		member of a cycle, the cycle number is printed
+		between the name and the index number.
+
+ If there are any cycles (circles) in the call graph, there is an
+ entry for the cycle-as-a-whole.  This entry shows who called the
+ cycle (as parents) and the members of the cycle (as children.)
+ The `+' recursive calls entry shows the number of function calls that
+ were internal to the cycle, and the calls entry for each member shows,
+ for that member, how many times it was called from other members of
+ the cycle.
+
+Copyright (C) 2012-2025 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+Index by function name
+
+  [85] Frontend_Destroy       [84] instr_CLD              [71] instr_STX
+  [77] Frontend_DrawFrame     [23] instr_CLV              [75] instr_STY
+   [9] Frontend_HandleInput   [45] instr_CMP              [53] instr_TAX
+  [86] Frontend_Init          [76] instr_CPX              [66] instr_TAY
+  [11] _init                  [74] instr_CPY              [70] instr_TXA
+  [14] addr_abs               [65] instr_DEC              [88] instr_TXS
+  [47] addr_abs_X             [54] instr_DEX              [62] instr_TYA
+  [63] addr_abs_Y             [52] instr_DEY              [37] instr_branch
+  [33] addr_imm               [41] instr_EOR               [8] join_char_array
+  [17] addr_ind_Y             [72] instr_INC              [89] load_cpu_memory
+  [13] addr_zpg               [73] instr_INX              [90] load_palette
+  [51] addr_zpg_X             [44] instr_INY              [91] load_ppu_ines_header
+   [2] cpu_execute            [40] instr_JMP              [92] load_ppu_memory
+  [26] cpu_init               [34] instr_JSR              [81] load_ppu_oam_mem
+  [25] cpu_nmi_triggered      [32] instr_LDA              [93] load_ppu_palette
+  [67] cpu_ppu_read           [59] instr_LDX               [1] main
+  [20] cpu_ppu_write          [55] instr_LDY              [18] page_crossing
+  [64] ctrl1_read             [46] instr_LSR              [24] ppu_exec_pre_render
+  [78] ctrl1_write            [29] instr_NOP              [28] ppu_exec_vblank
+  [36] emulate_6502_cycle     [56] instr_ORA               [4] ppu_exec_visible_scanline
+  [10] fetch_attr_table_byte  [49] instr_PHA               [3] ppu_execute_cycle
+  [12] fetch_name_table_byte  [27] instr_PHP              [94] ppu_init
+  [48] instr_ADC              [19] instr_PLA              [68] ppu_registers_read
+  [15] instr_AND              [83] instr_PLP              [21] ppu_registers_write
+  [50] instr_ASL              [58] instr_ROL               [5] ppu_render
+  [60] instr_BCC              [30] instr_ROR              [31] push_stack
+  [69] instr_BCS              [82] instr_RTI               [6] read_mem
+  [38] instr_BEQ              [35] instr_RTS              [95] rom_load_cartridge
+  [79] instr_BMI              [61] instr_SBC               [7] sprite_detect
+  [43] instr_BNE              [42] instr_SEC              [80] uint8_to_char_array
+  [57] instr_BPL              [87] instr_SEI              [22] write_mem
+  [39] instr_CLC              [16] instr_STA
