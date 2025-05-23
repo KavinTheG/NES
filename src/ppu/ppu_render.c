@@ -60,13 +60,9 @@ void ppu_render(PPU *ppu) {
         }
       }
     }
-    printf("%d\n", ppu->sprite_render_index);
-    fflush(stdout);
     ppu->bg_pipeline.name_table_byte = fetch_name_table_byte(ppu);
     ppu->sprite_pipeline.name_table_byte =
         oam_buffer_latches[ppu->sprite_render_index + 1];
-    printf("%d\n", ppu->current_scanline_cycle);
-    fflush(stdout);
     break;
 
   // Fetch the corresponding attribute byte
@@ -340,12 +336,6 @@ void ppu_exec_visible_scanline(PPU *ppu) {
     // latches
     oam_buffer_latches[(ppu->current_scanline_cycle - 257) % 32] =
         oam_memory_secondary[(ppu->current_scanline_cycle - 257) % 32];
-    // if (oam_memory_secondary[(ppu->current_scanline_cycle - 257) % 32] ==
-    // 0xA2) {
-    //     printf("Index: %d\n", (ppu->current_scanline_cycle - 257) % 32);
-    //     fflush(stdout);
-    //     sleep(5);
-    // }
   } else if (ppu->current_scanline_cycle >= 321 &&
              ppu->current_scanline_cycle <= 336) {
     ppu_render(ppu);
