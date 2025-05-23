@@ -3313,7 +3313,7 @@ void cpu_execute(Cpu6502 *cpu) {
   LOG("A: %x\n", cpu->A);
   LOG("X: %x\n", cpu->X);
   LOG("Y: %x\n", cpu->Y);
-  printf("Cycle: %d\n\n", cpu->cycles);
+  LOG("Cycle: %d\n\n", cpu->cycles);
 
   // dump_log_file(cpu);
 

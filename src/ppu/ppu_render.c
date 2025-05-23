@@ -180,64 +180,40 @@ void ppu_render(PPU *ppu) {
             : 0;
 
     int row = is_pre_fetch ? ppu->scanline + 1 : ppu->scanline;
+    int column_base = is_pre_fetch ? ppu->current_scanline_cycle - 328
+                                   : ppu->current_scanline_cycle + 8;
+    int sprite_flipped =
+        !is_pre_fetch &&
+        (oam_buffer_latches[ppu->sprite_render_index + 2] & 0x40) &&
+        !ppu->drawing_bg_flag;
 
     for (int i = 0; i < TILE_SIZE; i++) {
-      uint8_t palette_data;
-      uint8_t r, g, b, a;
+      int draw_sprite = !ppu->drawing_bg_flag &&
+                        ppu->sprite_pipeline.tile_pixel_value[i] != 0;
 
-      ppu->bg_pipeline.palette_ram_addr = 0x3F00;
-      // Bit 0 & Bit 1 determine Pixel Value
-      ppu->bg_pipeline.palette_ram_addr |= ppu->bg_pipeline.tile_pixel_value[i];
-      // Bit 3 & Bit 2 determine Palette # from attribute table
-      ppu->bg_pipeline.palette_ram_addr |= (ppu->bg_pipeline.palette_index)
-                                           << 2;
+      uint8_t tile_val = draw_sprite ? ppu->sprite_pipeline.tile_pixel_value[i]
+                                     : ppu->bg_pipeline.tile_pixel_value[i];
 
-      ppu->sprite_pipeline.palette_ram_addr = 0x3F10;
-      // Bit 0 & Bit 1 determine Pixel Value
-      ppu->sprite_pipeline.palette_ram_addr |=
-          ppu->sprite_pipeline.tile_pixel_value[i];
-      // Bit 3 & Bit 2 determine Palette # from attribute table
-      ppu->sprite_pipeline.palette_ram_addr |=
-          (ppu->sprite_pipeline.palette_index) << 2;
+      uint8_t palette_index = draw_sprite ? ppu->sprite_pipeline.palette_index
+                                          : ppu->bg_pipeline.palette_index;
 
-      if (ppu->drawing_bg_flag) {
-        palette_data = read_mem(ppu, ppu->bg_pipeline.palette_ram_addr);
-        a = ppu->bg_pipeline.tile_pixel_value[i] == 0 ? 0x0 : 0xFF;
-      } else {
-        if (ppu->sprite_pipeline.tile_pixel_value[i] == 0) {
-          palette_data = read_mem(ppu, ppu->bg_pipeline.palette_ram_addr);
-          a = ppu->bg_pipeline.tile_pixel_value[i] == 0 ? 0x0 : 0xFF;
-        } else {
-          palette_data = read_mem(ppu, ppu->sprite_pipeline.palette_ram_addr);
-          a = ppu->sprite_pipeline.tile_pixel_value[i] == 0 ? 0x0 : 0xFF;
-        }
-      }
-      // RGBA format
-      r = ppu_palette[palette_data * 3];
-      g = ppu_palette[palette_data * 3 + 1];
-      b = ppu_palette[palette_data * 3 + 2];
+      uint16_t pal_addr = 0x3F00 | (palette_index << 2) | tile_val;
+      if (draw_sprite)
+        pal_addr |= 0x10;
 
-      int column = is_pre_fetch ? ppu->current_scanline_cycle - 321 - (7 - i)
-                                : ppu->current_scanline_cycle + 8 + i;
+      uint8_t palette_data = read_mem(ppu, pal_addr);
+      uint8_t alpha = (tile_val == 0) ? 0x00 : 0xFF;
 
-      // Horizontal sprite flip logic
-      if (!is_pre_fetch &&
-          oam_buffer_latches[ppu->sprite_render_index + 2] & 0x40 &&
-          !ppu->drawing_bg_flag) {
-        column = ppu->current_scanline_cycle + 16 - i;
-      }
+      uint8_t *color = &ppu_palette[palette_data * 3];
+      uint8_t r = color[0], g = color[1], b = color[2];
 
-      //  Bit 2 of PPUMASK determine background rendering for leftmost 8 pixels
-      if (row == 8 && (ppu->PPUMASK & 0x02) && ppu->drawing_bg_flag)
-        break;
-      // Bit 3 of PPUMASK determines sprite rendering for leftmost 8 pixels
-      if (row == 8 && (ppu->PPUMASK & 0x04) && !ppu->drawing_bg_flag)
-        break;
+      int column = sprite_flipped ? (ppu->current_scanline_cycle + 16 - i)
+                                  : (column_base + i);
 
       if (column >= 256 || row >= 240)
         break;
 
-      ppu->frame_buffer[row][column] = (r << 24) | (g << 16) | (b << 8) | a;
+      ppu->frame_buffer[row][column] = (r << 24) | (g << 16) | (b << 8) | alpha;
     }
     break;
   }
