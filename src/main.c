@@ -35,7 +35,7 @@ int main() {
 
   Frontend_Init(&frontend, SCREEN_WIDTH_VIS, SCREEN_HEIGHT_VIS, SCALE);
 
-  rom_load_cartridge(&rom, "rom/nestest.nes");
+  rom_load_cartridge(&rom, "rom/Donkey Kong.nes");
 
   load_cpu_memory(&cpu, rom.prg_data, rom.prg_size);
 

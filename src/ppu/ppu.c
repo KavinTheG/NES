@@ -78,7 +78,7 @@ void load_ppu_oam_mem(PPU *ppu, uint8_t *dma_mem) {
   memcpy(&oam_memory, dma_mem, OAM_SIZE);
 }
 
-uint8_t read_mem(PPU *ppu, uint16_t addr) {
+inline uint8_t read_mem(PPU *ppu, uint16_t addr) {
   addr &= 0x3FFF;
 
   if (addr < 0x2000) {

@@ -1,6 +1,6 @@
 # Compiler and flags
 CC = gcc
-CFLAGS = -Wall -Wextra -g -Iinclude -Iinclude/ppu
+CFLAGS = -Wall -Wextra -pg -Iinclude -Iinclude/ppu
 LDFLAGS = -lSDL2
 
 # Directories
