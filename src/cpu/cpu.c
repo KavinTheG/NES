@@ -7,7 +7,6 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "ppu.h"
@@ -194,20 +193,6 @@ void dump_log_file(Cpu6502 *cpu) {
   fprintf(log_file, "P: %x (%b) ", status, status);
   fprintf(log_file, "Cycle: %d ", cpu->cycles);
   fprintf(log_file, "I #: %d\n", instr_num);
-  // fprintf(log_file, "PPU MMIO REGISTERS\n");
-  // fprintf(log_file, "-------------------\n");
-  // fprintf(log_file, "PPUCTRL (0x2000): 0x%02X\n", cpu->ppu->PPUCTRL);
-  // fprintf(log_file, "PPUMASK (0x2001): 0x%02X\n", cpu->ppu->PPUMASK);
-  // fprintf(log_file, "PPUSTATUS (0x2002): 0x%02X\n", cpu->ppu->PPUSTATUS);
-  // fprintf(log_file, "OAMADDR (0x2003): 0x%02X\n", cpu->ppu->OAMADDR);
-  // fprintf(log_file, "OAMDATA (0x2004): 0x%02X\n", cpu->ppu->OAMDATA);
-  // fprintf(log_file, "PPUSCROLL (0x2005): 0x%02X\n", cpu->ppu->PPUSCROLL);
-  // fprintf(log_file, "PPUADDR (0x2006): 0x%02X\n", cpu->ppu->PPUADDR);
-  // fprintf(log_file, "PPUDATA (0x2007): 0x%02X\n", cpu->ppu->PPUDATA);
-  // fprintf(log_file, "OAMDMA (0x4014): 0x%02X\n",
-  //         cpu->ppu->OAMDMA); // OAMDMA is not directly part of the PPU
-  //         registers
-  //  but is often used in relation to it
 
   fprintf(log_file, "\n");
 
@@ -3327,7 +3312,7 @@ void cpu_execute(Cpu6502 *cpu) {
   if (dma_active_flag) {
     if (dma_cycles > 0) {
       dma_cycles--;
-      cpu->cycles += 1;
+      cpu->cycles++;
       ppu_execute_cycle(cpu->ppu);
       ppu_execute_cycle(cpu->ppu);
       ppu_execute_cycle(cpu->ppu);
