@@ -171,6 +171,32 @@ unsigned char get_ppu_OAMDMA_write();
 
 void get_ppu_dma_page(Cpu6502 *cpu, uint8_t *page_mem);
 
-void get_cpu_NMI_flag(Cpu6502 *cpu);
+typedef uint16_t (*AddrMode)(Cpu6502 *cpu);
+typedef void (*InstrAddr)(Cpu6502 *cpu, uint16_t addr);
+typedef void (*InstrVal)(Cpu6502 *cpu, uint8_t val);
+typedef void (*InstrMem)(Cpu6502 *cpu, uint8_t *M);
+typedef void (*InstrNone)(Cpu6502 *cpu);
+
+typedef enum {
+  INSTR_NONE,
+  INSTR_ADDR,
+  INSTR_VAL,
+  INSTR_MEM,
+  INSTR_ACC
+} InstrType;
+
+typedef struct Opcode {
+  AddrMode addr_mode;
+  union {
+    InstrAddr instr_addr;
+    InstrVal instr_val;
+    InstrMem instr_mem;
+    InstrNone instr_none;
+  };
+  uint8_t cycles;
+  uint8_t page_cycles;
+  const char *mnemonic;
+  InstrType instr_type;
+} Opcode;
 
 #endif

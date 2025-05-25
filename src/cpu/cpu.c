@@ -7,7 +7,6 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "ppu.h"
@@ -32,6 +31,7 @@ int cyc = 0;
 int instr_num = 0;
 
 unsigned char dma_active_flag;
+int page_crossed = 0;
 int dma_cycles = 0;
 
 /**  Helper functions **/
@@ -48,6 +48,7 @@ uint16_t page_crossing(uint16_t addr, uint16_t oper) {
   if (((addr + oper) & 0xFF00) != (addr & 0xFF00)) {
     // Keep the page from the addr to emulate bug
     address = (addr & 0xFF00) | (address & 0xFF);
+    page_crossed = 1;
   }
   return address;
 }
@@ -128,8 +129,11 @@ void cpu_init(Cpu6502 *cpu) {
   cpu->Y = 0x0;
 
   cpu->nmi_state = 0;
-
   cpu->PC = (memory[0xFFFD] << 8) | memory[0xFFFC];
+
+#if NES_TEST_ROM
+  cpu->PC = 0xC000;
+#endif /* ifdef NES_TEST_ROM */
 
   cpu->instr = memory[cpu->PC];
   cpu->cycles = 7;
@@ -155,7 +159,7 @@ void cpu_init(Cpu6502 *cpu) {
   fclose(log_file);
   log_file = fopen("log.txt", "a");
 
-#ifdef NES_TEST_ROM
+#if NES_TEST_ROM
   push_stack(0100 | cpu->S, 0x70);
   cpu->S--;
 
@@ -189,19 +193,6 @@ void dump_log_file(Cpu6502 *cpu) {
   fprintf(log_file, "P: %x (%b) ", status, status);
   fprintf(log_file, "Cycle: %d ", cpu->cycles);
   fprintf(log_file, "I #: %d\n", instr_num);
-  fprintf(log_file, "PPU MMIO REGISTERS\n");
-  fprintf(log_file, "-------------------\n");
-  fprintf(log_file, "PPUCTRL (0x2000): 0x%02X\n", cpu->ppu->PPUCTRL);
-  fprintf(log_file, "PPUMASK (0x2001): 0x%02X\n", cpu->ppu->PPUMASK);
-  fprintf(log_file, "PPUSTATUS (0x2002): 0x%02X\n", cpu->ppu->PPUSTATUS);
-  fprintf(log_file, "OAMADDR (0x2003): 0x%02X\n", cpu->ppu->OAMADDR);
-  fprintf(log_file, "OAMDATA (0x2004): 0x%02X\n", cpu->ppu->OAMDATA);
-  fprintf(log_file, "PPUSCROLL (0x2005): 0x%02X\n", cpu->ppu->PPUSCROLL);
-  fprintf(log_file, "PPUADDR (0x2006): 0x%02X\n", cpu->ppu->PPUADDR);
-  fprintf(log_file, "PPUDATA (0x2007): 0x%02X\n", cpu->ppu->PPUDATA);
-  fprintf(log_file, "OAMDMA (0x4014): 0x%02X\n",
-          cpu->ppu->OAMDMA); // OAMDMA is not directly part of the PPU registers
-                             // but is often used in relation to it
 
   fprintf(log_file, "\n");
 
@@ -326,9 +317,6 @@ void instr_TAX(Cpu6502 *cpu) {
   cpu->P[1] = cpu->X == 0;
   cpu->P[7] = (cpu->X & 0x80) == 0x80;
   cpu->PC++;
-
-  emulate_6502_cycle(2);
-  cyc = 2;
 }
 
 void instr_TXA(Cpu6502 *cpu) {
@@ -337,9 +325,6 @@ void instr_TXA(Cpu6502 *cpu) {
   cpu->P[1] = cpu->A == 0;
   cpu->P[7] = (cpu->A & 0x80) == 0x80;
   cpu->PC++;
-
-  emulate_6502_cycle(2);
-  cyc = 2;
 }
 void instr_TAY(Cpu6502 *cpu) {
   cpu->Y = cpu->A;
@@ -347,9 +332,6 @@ void instr_TAY(Cpu6502 *cpu) {
   cpu->P[1] = cpu->Y == 0;
   cpu->P[7] = (cpu->Y & 0x80) == 0x80;
   cpu->PC++;
-
-  emulate_6502_cycle(2);
-  cyc = 2;
 }
 void instr_TYA(Cpu6502 *cpu) {
   cpu->A = cpu->Y;
@@ -357,9 +339,6 @@ void instr_TYA(Cpu6502 *cpu) {
   cpu->P[1] = cpu->A == 0;
   cpu->P[7] = (cpu->A & 0x80) == 0x80;
   cpu->PC++;
-
-  emulate_6502_cycle(2);
-  cyc = 2;
 }
 
 // Arithmetic
@@ -433,9 +412,6 @@ void instr_INX(Cpu6502 *cpu) {
   cpu->P[1] = cpu->X == 0;
   cpu->P[7] = (cpu->X & 0x80) == 0x80;
   cpu->PC++;
-
-  emulate_6502_cycle(2);
-  cyc = 2;
 }
 
 void instr_DEX(Cpu6502 *cpu) {
@@ -444,9 +420,6 @@ void instr_DEX(Cpu6502 *cpu) {
   cpu->P[1] = cpu->X == 0;
   cpu->P[7] = (cpu->X & 0x80) == 0x80;
   cpu->PC++;
-
-  emulate_6502_cycle(2);
-  cyc = 2;
 }
 
 void instr_INY(Cpu6502 *cpu) {
@@ -455,9 +428,6 @@ void instr_INY(Cpu6502 *cpu) {
   cpu->P[1] = cpu->Y == 0;
   cpu->P[7] = (cpu->Y & 0x80) == 0x80;
   cpu->PC++;
-
-  emulate_6502_cycle(2);
-  cyc = 2;
 }
 
 void instr_DEY(Cpu6502 *cpu) {
@@ -466,9 +436,6 @@ void instr_DEY(Cpu6502 *cpu) {
   cpu->P[1] = cpu->Y == 0;
   cpu->P[7] = (cpu->Y & 0x80) == 0x80;
   cpu->PC++;
-
-  emulate_6502_cycle(2);
-  cyc = 2;
 }
 
 // Shift
@@ -711,8 +678,6 @@ void instr_RTS(Cpu6502 *cpu) {
   address = memory[0x100 | cpu->S] << 8 | LB;
 
   cpu->PC = address + 1;
-  emulate_6502_cycle(6);
-  cyc = 6;
 }
 
 void instr_BRK(Cpu6502 *cpu) {
@@ -745,9 +710,6 @@ void instr_BRK(Cpu6502 *cpu) {
   cpu->S -= 1;
 
   cpu->PC = memory[0xFFFF] << 8 | memory[0xFFFE];
-
-  emulate_6502_cycle(7);
-  cyc = 7;
 }
 
 void instr_RTI(Cpu6502 *cpu) {
@@ -767,8 +729,6 @@ void instr_RTI(Cpu6502 *cpu) {
   address = memory[0x0100 | cpu->S] << 8 | LB;
 
   cpu->PC = address;
-  emulate_6502_cycle(6);
-  cyc = 6;
 }
 
 // Stack
@@ -779,9 +739,6 @@ void instr_PHA(Cpu6502 *cpu) {
 
   cpu->S--;
   cpu->PC++;
-
-  emulate_6502_cycle(3);
-  cyc = 3;
 }
 
 void instr_PLA(Cpu6502 *cpu) {
@@ -793,9 +750,6 @@ void instr_PLA(Cpu6502 *cpu) {
 
   cpu->P[1] = cpu->A == 0;
   cpu->P[7] = (cpu->A & 0x80) == 0x80;
-
-  emulate_6502_cycle(4);
-  cyc = 4;
 }
 
 void instr_PHP(Cpu6502 *cpu) {
@@ -810,8 +764,6 @@ void instr_PHP(Cpu6502 *cpu) {
   cpu->S--;
 
   cpu->PC++;
-  emulate_6502_cycle(3);
-  cyc = 3;
 }
 
 void instr_PLP(Cpu6502 *cpu) {
@@ -825,16 +777,11 @@ void instr_PLP(Cpu6502 *cpu) {
   cpu->P[4] = 1;
 
   cpu->PC++;
-  emulate_6502_cycle(4);
-  cyc = 4;
 }
 
 void instr_TXS(Cpu6502 *cpu) {
   cpu->S = cpu->X;
   cpu->PC++;
-
-  emulate_6502_cycle(2);
-  cyc = 2;
 }
 
 void instr_TSX(Cpu6502 *cpu) {
@@ -843,8 +790,6 @@ void instr_TSX(Cpu6502 *cpu) {
 
   cpu->P[1] = cpu->X == 0;
   cpu->P[7] = (cpu->X & 0x80) == 0x80;
-  emulate_6502_cycle(2);
-  cyc = 2;
 }
 
 // Flags
@@ -853,8 +798,6 @@ void instr_CLC(Cpu6502 *cpu) {
   cpu->P[0] = 0;
 
   cpu->PC++;
-  emulate_6502_cycle(2);
-  cyc = 2;
 }
 
 void instr_SEC(Cpu6502 *cpu) {
@@ -862,8 +805,6 @@ void instr_SEC(Cpu6502 *cpu) {
   cpu->P[0] = 1;
 
   cpu->PC++;
-  emulate_6502_cycle(2);
-  cyc = 2;
 }
 
 void instr_CLI(Cpu6502 *cpu) {
@@ -871,48 +812,34 @@ void instr_CLI(Cpu6502 *cpu) {
   cpu->P[2] = 0;
 
   cpu->PC++;
-  emulate_6502_cycle(2);
-  cyc = 2;
 }
 
 void instr_SEI(Cpu6502 *cpu) {
   cpu->P[2] = 1;
 
   cpu->PC++;
-  emulate_6502_cycle(2);
-  cyc = 2;
 }
 
 void instr_CLD(Cpu6502 *cpu) {
   cpu->P[3] = 0;
 
   cpu->PC++;
-  emulate_6502_cycle(2);
-  cyc = 2;
 }
 
 void instr_SED(Cpu6502 *cpu) {
   cpu->P[3] = 1;
 
   cpu->PC++;
-  emulate_6502_cycle(2);
-  cyc = 2;
 }
 
 void instr_CLV(Cpu6502 *cpu) {
   cpu->P[6] = 0;
 
   cpu->PC++;
-  emulate_6502_cycle(2);
-  cyc = 2;
 }
 
 // Other
-void instr_NOP(Cpu6502 *cpu) {
-  cpu->PC++;
-  emulate_6502_cycle(2);
-  cyc = 2;
-}
+void instr_NOP(Cpu6502 *cpu) { cpu->PC++; }
 
 // Illegal opcodes
 
@@ -1087,9 +1014,6 @@ void cpu_nmi_triggered(Cpu6502 *cpu) {
   cpu->S -= 1;
 
   cpu->PC = (memory[0xFFFB] << 8) | memory[0xFFFA];
-  cyc = 7;
-  LOG("NMI TRIGGERED PC: %x\n", cpu->PC);
-  // sleep(1);
 }
 // Addresing modes
 
@@ -1107,6 +1031,22 @@ uint16_t addr_abs(Cpu6502 *cpu) {
   return addr;
 }
 
+uint16_t addr_ind_jmp(Cpu6502 *cpu) {
+  cpu->PC++;
+  uint8_t LB = memory[cpu->PC];
+
+  cpu->PC++;
+  uint8_t HB = memory[cpu->PC];
+
+  uint16_t addr = (HB << 8) | LB;
+
+  if (LB == 0xFF) {
+    return (memory[addr & 0xFF00] << 8) | memory[addr];
+  } else {
+    return (memory[addr + 1] << 8) | memory[addr];
+  }
+}
+
 uint16_t addr_abs_X(Cpu6502 *cpu) {
   // Increment to get the lower byte
   cpu->PC++;
@@ -1117,10 +1057,14 @@ uint16_t addr_abs_X(Cpu6502 *cpu) {
   uint8_t HB = memory[cpu->PC];
 
   // addr = (memory[cpu->PC] << 8 | LB) + cpu->X;
-  addr = (HB << 8 | LB);
-  // check_page_cross(addr, cpu->X);
+  addr = (HB << 8 | LB) + cpu->X;
+  if ((addr & 0xFF00) != ((addr - cpu->X) & 0xFF00)) {
+    page_crossed = 1;
+  } else {
+    page_crossed = 0;
+  }
 
-  return addr + cpu->X;
+  return addr;
 }
 
 uint16_t addr_abs_Y(Cpu6502 *cpu) {
@@ -1133,6 +1077,11 @@ uint16_t addr_abs_Y(Cpu6502 *cpu) {
   // Increment to get the upper byte
   cpu->PC += 1;
   addr = (memory[cpu->PC] << 8 | LB) + cpu->Y;
+  if ((addr & 0xFF00) != ((addr - cpu->Y) & 0xFF00)) {
+    page_crossed = 1;
+  } else {
+    page_crossed = 0;
+  }
 
   return addr;
 }
@@ -1194,6 +1143,11 @@ uint16_t addr_ind_Y(Cpu6502 *cpu) {
 
   // addr = page_crossing(HB << 8 | LB, cpu->Y);
   addr = (HB << 8 | LB) + cpu->Y;
+  if ((addr & 0xFF00) != ((addr - cpu->Y) & 0xFF00)) {
+    page_crossed = 1;
+  } else {
+    page_crossed = 0;
+  }
   return addr;
 }
 
@@ -1224,6 +1178,2109 @@ uint16_t addr_zpg_Y(Cpu6502 *cpu) {
   addr = (LB + cpu->Y) & 0xFF;
   return addr;
 }
+Opcode lookup_table[256] =
+    {
+        [0x00] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_BRK,
+                .cycles = 7,
+                .page_cycles = 0,
+                .mnemonic = "BRK",
+                INSTR_NONE,
+            },
+        [0x01] =
+            {
+                .addr_mode = addr_X_ind,
+                .instr_val = instr_ORA,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "ORA ind,X",
+                INSTR_VAL,
+            },
+        [0x03] =
+            {
+                .addr_mode = addr_X_ind,
+                .instr_mem = instr_SLO,
+                .cycles = 8,
+                .page_cycles = 0,
+                .mnemonic = "SLO ind,X",
+                INSTR_MEM,
+            },
+        [0x04] =
+            {
+                .addr_mode = addr_zpg,
+                .instr_addr = NULL,
+                .cycles = 3,
+                .page_cycles = 0,
+                .mnemonic = "NOP zpg",
+                INSTR_ADDR,
+            },
+        [0x05] =
+            {
+                .addr_mode = addr_zpg,
+                .instr_val = instr_ORA,
+                .cycles = 3,
+                .page_cycles = 0,
+                .mnemonic = "ORA zpg",
+                INSTR_VAL,
+            },
+        [0x06] =
+            {
+                .addr_mode = addr_zpg,
+                .instr_mem = instr_ASL,
+                .cycles = 5,
+                .page_cycles = 0,
+                .mnemonic = "ASL zpg",
+                INSTR_MEM,
+            },
+        [0x07] =
+            {
+                .addr_mode = addr_zpg,
+                .instr_mem = instr_SLO,
+                .cycles = 5,
+                .page_cycles = 0,
+                .mnemonic = "SLO zpg",
+                INSTR_MEM,
+            },
+        [0x08] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_PHP,
+                .cycles = 3,
+                .page_cycles = 0,
+                .mnemonic = "PHP impl",
+                INSTR_NONE,
+            },
+        [0x09] =
+            {
+                .addr_mode = addr_imm,
+                .instr_val = instr_ORA,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "ORA #",
+                INSTR_VAL,
+            },
+        [0x0A] =
+            {
+                .addr_mode = NULL,
+                .instr_mem = instr_ASL,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "ASL A",
+                .instr_type = INSTR_ACC,
+            },
+        [0x0C] =
+            {
+                .addr_mode = addr_abs,
+                .instr_addr = NULL,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "NOP abs",
+                INSTR_ADDR,
+            },
+        [0x0D] =
+            {
+                .addr_mode = addr_abs,
+                .instr_val = instr_ORA,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "ORA abs",
+                INSTR_VAL,
+            },
+        [0x0E] =
+            {
+                .addr_mode = addr_abs,
+                .instr_mem = instr_ASL,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "ASL abs",
+                INSTR_MEM,
+            },
+        [0x0F] =
+            {
+                .addr_mode = addr_abs,
+                .instr_mem = instr_SLO,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "SLO abs",
+                INSTR_MEM,
+            },
+
+        [0x10] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_BPL,
+                .cycles = 2,
+                .page_cycles = 1,
+                .mnemonic = "BPL rel",
+                INSTR_NONE,
+            },
+        [0x11] =
+            {
+                .addr_mode = addr_ind_Y,
+                .instr_val = instr_ORA,
+                .cycles = 5,
+                .page_cycles = 1,
+                .mnemonic = "ORA (ind),Y",
+                INSTR_VAL,
+            },
+        [0x13] =
+            {
+                .addr_mode = addr_ind_Y,
+                .instr_mem = instr_SLO,
+                .cycles = 8,
+                .page_cycles = 0,
+                .mnemonic = "SLO (ind),Y",
+                INSTR_MEM,
+            },
+        [0x14] =
+            {
+                .addr_mode = addr_zpg_X,
+                .instr_addr = NULL,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "NOP zpg,X",
+                INSTR_ADDR,
+            },
+        [0x15] =
+            {
+                .addr_mode = addr_zpg_X,
+                .instr_val = instr_ORA,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "ORA zpg,X",
+                INSTR_VAL,
+            },
+        [0x16] =
+            {
+                .addr_mode = addr_zpg_X,
+                .instr_mem = instr_ASL,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "ASL zpg,X",
+                INSTR_MEM,
+            },
+        [0x17] =
+            {
+                .addr_mode = addr_zpg_X,
+                .instr_mem = instr_SLO,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "SLO zpg,X",
+                INSTR_MEM,
+            },
+        [0x18] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_CLC,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "CLC",
+                INSTR_NONE,
+            },
+        [0x19] =
+            {
+                .addr_mode = addr_abs_Y,
+                .instr_val = instr_ORA,
+                .cycles = 4,
+                .page_cycles = 1,
+                .mnemonic = "ORA abs,Y",
+                INSTR_VAL,
+            },
+        [0x1A] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_NOP,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "NOP",
+                INSTR_NONE,
+            },
+        [0x1B] =
+            {
+                .addr_mode = addr_abs_Y,
+                .instr_mem = instr_SLO,
+                .cycles = 7,
+                .page_cycles = 0,
+                .mnemonic = "SLO abs,Y",
+                INSTR_MEM,
+            },
+        [0x1C] =
+            {
+                .addr_mode = addr_abs_X,
+                .instr_addr = NULL,
+                .cycles = 4,
+                .page_cycles = 1,
+                .mnemonic = "NOP abs,X",
+                INSTR_ADDR,
+            },
+        [0x1D] =
+            {
+                .addr_mode = addr_abs_X,
+                .instr_val = instr_ORA,
+                .cycles = 4,
+                .page_cycles = 1,
+                .mnemonic = "ORA abs,X",
+                INSTR_VAL,
+            },
+        [0x1E] =
+            {
+                .addr_mode = addr_abs_X,
+                .instr_mem = instr_ASL,
+                .cycles = 7,
+                .page_cycles = 0,
+                .mnemonic = "ASL abs,X",
+                INSTR_MEM,
+            },
+        [0x1F] =
+            {
+                .addr_mode = addr_abs_X,
+                .instr_mem = instr_SLO,
+                .cycles = 7,
+                .page_cycles = 0,
+                .mnemonic = "SLO abs,X",
+                INSTR_MEM,
+            },
+        [0x20] =
+            {
+                .addr_mode = addr_abs,
+                .instr_addr = instr_JSR,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "JSR",
+                INSTR_ADDR,
+            },
+        [0x21] =
+            {
+                .addr_mode = addr_X_ind,
+                .instr_val = instr_AND,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "AND",
+                INSTR_VAL,
+            },
+        [0x23] =
+            {
+                .addr_mode = addr_X_ind,
+                .instr_mem = instr_RLA,
+                .cycles = 8,
+                .page_cycles = 0,
+                .mnemonic = "RLA",
+                INSTR_MEM,
+            },
+        [0x24] =
+            {
+                .addr_mode = addr_zpg,
+                .instr_val = instr_BIT,
+                .cycles = 3,
+                .page_cycles = 0,
+                .mnemonic = "BIT",
+                INSTR_VAL,
+            },
+        [0x25] =
+            {
+                .addr_mode = addr_zpg,
+                .instr_val = instr_AND,
+                .cycles = 3,
+                .page_cycles = 0,
+                .mnemonic = "AND",
+                INSTR_VAL,
+            },
+        [0x26] =
+            {
+                .addr_mode = addr_zpg,
+                .instr_mem = instr_ROL,
+                .cycles = 5,
+                .page_cycles = 0,
+                .mnemonic = "ROL",
+                INSTR_MEM,
+            },
+        [0x27] =
+            {
+                .addr_mode = addr_zpg,
+                .instr_mem = instr_RLA,
+                .cycles = 5,
+                .page_cycles = 0,
+                .mnemonic = "RLA",
+                INSTR_MEM,
+            },
+        [0x28] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_PLP,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "PLP",
+                INSTR_NONE,
+            },
+        [0x29] =
+            {
+                .addr_mode = addr_imm,
+                .instr_val = instr_AND,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "AND",
+                INSTR_VAL,
+            },
+        [0x2A] =
+            {
+                .addr_mode = NULL,
+                .instr_mem = instr_ROL,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "ROL A",
+                INSTR_ACC,
+            },
+        [0x2C] =
+            {
+                .addr_mode = addr_abs,
+                .instr_val = instr_BIT,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "BIT",
+                INSTR_VAL,
+            },
+        [0x2D] =
+            {
+                .addr_mode = addr_abs,
+                .instr_val = instr_AND,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "AND",
+                INSTR_VAL,
+            },
+        [0x2E] =
+            {
+                .addr_mode = addr_abs,
+                .instr_mem = instr_ROL,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "ROL",
+                INSTR_MEM,
+            },
+        [0x2F] =
+            {
+                .addr_mode = addr_abs,
+                .instr_mem = instr_RLA,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "RLA",
+                INSTR_MEM,
+            },
+
+        [0x30] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_BMI,
+                .cycles = 2,
+                .page_cycles = 1,
+                .mnemonic = "BMI rel",
+                INSTR_NONE,
+            },
+        [0x31] =
+            {
+                .addr_mode = addr_ind_Y,
+                .instr_val = instr_AND,
+                .cycles = 5,
+                .page_cycles = 1,
+                .mnemonic = "AND (ind),Y",
+                INSTR_VAL,
+            },
+        [0x33] =
+            {
+                .addr_mode = addr_ind_Y,
+                .instr_mem = instr_RLA,
+                .cycles = 8,
+                .page_cycles = 0,
+                .mnemonic = "RLA (ind),Y",
+                INSTR_MEM,
+            },
+        [0x34] =
+            {
+                .addr_mode = addr_zpg_X,
+                .instr_addr = NULL,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "NOP zpg,X",
+                INSTR_ADDR,
+            },
+        [0x35] =
+            {
+                .addr_mode = addr_zpg_X,
+                .instr_val = instr_AND,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "AND zpg,X",
+                INSTR_VAL,
+            },
+        [0x36] =
+            {
+                .addr_mode = addr_zpg_X,
+                .instr_mem = instr_ROL,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "ROL zpg,X",
+                INSTR_MEM,
+            },
+        [0x37] =
+            {
+                .addr_mode = addr_zpg_X,
+                .instr_mem = instr_RLA,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "RLA zpg",
+                INSTR_MEM,
+            },
+        [0x38] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_SEC,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "SEC",
+                INSTR_NONE,
+            },
+        [0x39] =
+            {
+                .addr_mode = addr_abs_Y,
+                .instr_val = instr_AND,
+                .cycles = 4,
+                .page_cycles = 1,
+                .mnemonic = "AND abs,Y",
+                INSTR_VAL,
+            },
+        [0x3A] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_NOP,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "NOP",
+                INSTR_NONE,
+            },
+        [0x3B] =
+            {
+                .addr_mode = addr_abs_Y,
+                .instr_mem = instr_RLA,
+                .cycles = 7,
+                .page_cycles = 0,
+                .mnemonic = "RLA abs,Y",
+                INSTR_MEM,
+            },
+        [0x3C] =
+            {
+                .addr_mode = addr_abs_X,
+                .instr_addr = NULL,
+                .cycles = 4,
+                .page_cycles = 1,
+                .mnemonic = "NOP abs,X",
+                INSTR_ADDR,
+            },
+        [0x3D] =
+            {
+                .addr_mode = addr_abs_X,
+                .instr_val = instr_AND,
+                .cycles = 4,
+                .page_cycles = 1,
+                .mnemonic = "AND abs,X",
+                INSTR_VAL,
+            },
+        [0x3E] =
+            {
+                .addr_mode = addr_abs_X,
+                .instr_mem = instr_ROL,
+                .cycles = 7,
+                .page_cycles = 0,
+                .mnemonic = "ROL abs,X",
+                INSTR_MEM,
+            },
+        [0x3F] =
+            {
+                .addr_mode = addr_abs_X,
+                .instr_mem = instr_RLA,
+                .cycles = 7,
+                .page_cycles = 0,
+                .mnemonic = "RLA abs,X",
+                INSTR_MEM,
+            },
+
+        [0x40] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_RTI,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "RTI",
+                INSTR_NONE,
+            },
+        [0x41] =
+            {
+                .addr_mode = addr_X_ind,
+                .instr_val = instr_EOR,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "EOR",
+                INSTR_VAL,
+            },
+        [0x43] =
+            {
+                .addr_mode = addr_X_ind,
+                .instr_mem = instr_SRE,
+                .cycles = 8,
+                .page_cycles = 0,
+                .mnemonic = "SRE",
+                INSTR_MEM,
+            },
+        [0x44] =
+            {
+                .addr_mode = addr_zpg,
+                .instr_addr = NULL,
+                .cycles = 3,
+                .page_cycles = 0,
+                .mnemonic = "NOP",
+                INSTR_ADDR,
+            },
+        [0x45] =
+            {
+                .addr_mode = addr_zpg,
+                .instr_val = instr_EOR,
+                .cycles = 3,
+                .page_cycles = 0,
+                .mnemonic = "EOR",
+                INSTR_VAL,
+            },
+        [0x46] =
+            {
+                .addr_mode = addr_zpg,
+                .instr_mem = instr_LSR,
+                .cycles = 5,
+                .page_cycles = 0,
+                .mnemonic = "LSR",
+                INSTR_MEM,
+            },
+        [0x47] =
+            {
+                .addr_mode = addr_zpg,
+                .instr_mem = instr_SRE,
+                .cycles = 5,
+                .page_cycles = 0,
+                .mnemonic = "SRE",
+                INSTR_MEM,
+            },
+        [0x48] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_PHA,
+                .cycles = 3,
+                .page_cycles = 0,
+                .mnemonic = "PHA",
+                INSTR_NONE,
+            },
+        [0x49] =
+            {
+                .addr_mode = addr_imm,
+                .instr_val = instr_EOR,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "EOR",
+                INSTR_VAL,
+            },
+        [0x4A] =
+            {
+                .addr_mode = NULL,
+                .instr_mem = instr_LSR,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "LSR A",
+                .instr_type = INSTR_ACC, // Pass accumulator to *M
+            },
+        [0x4B] =
+            {
+                .addr_mode = addr_abs_Y,
+                .instr_mem = instr_SRE,
+                .cycles = 7,
+                .page_cycles = 0,
+                .mnemonic = "SRE",
+                INSTR_MEM,
+            },
+        [0x4C] =
+            {
+                .addr_mode = addr_abs,
+                .instr_addr = instr_JMP,
+                .cycles = 3,
+                .page_cycles = 0,
+                .mnemonic = "JMP",
+                INSTR_ADDR,
+            },
+        [0x4D] =
+            {
+                .addr_mode = addr_abs,
+                .instr_val = instr_EOR,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "EOR",
+                INSTR_VAL,
+            },
+        [0x4E] =
+            {
+                .addr_mode = addr_abs,
+                .instr_mem = instr_LSR,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "LSR",
+                INSTR_MEM,
+            },
+        [0x4F] =
+            {
+                .addr_mode = addr_abs,
+                .instr_mem = instr_SRE,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "SRE",
+                INSTR_MEM,
+            },
+
+        [0x50] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_BVC,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "BVC",
+                INSTR_NONE,
+            },
+        [0x51] =
+            {
+                .addr_mode = addr_ind_Y,
+                .instr_val = instr_EOR,
+                .cycles = 5,
+                .page_cycles = 1,
+                .mnemonic = "EOR",
+                INSTR_VAL,
+            },
+        [0x53] =
+            {
+                .addr_mode = addr_ind_Y,
+                .instr_mem = instr_SRE,
+                .cycles = 8,
+                .page_cycles = 0,
+                .mnemonic = "SRE",
+                INSTR_MEM,
+            },
+        [0x54] =
+            {
+                .addr_mode = addr_zpg_X,
+                .instr_addr = NULL,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "NOP zpg,X",
+                INSTR_ADDR,
+            },
+        [0x55] =
+            {
+                .addr_mode = addr_zpg_X,
+                .instr_val = instr_EOR,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "EOR",
+                INSTR_VAL,
+            },
+        [0x56] =
+            {
+                .addr_mode = addr_zpg_X,
+                .instr_mem = instr_LSR,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "LSR",
+                INSTR_MEM,
+            },
+        [0x57] =
+            {
+                .addr_mode = addr_zpg_X,
+                .instr_mem = instr_SRE,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "SRE",
+                INSTR_MEM,
+            },
+        [0x58] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_CLI,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "CLI",
+                INSTR_NONE,
+            },
+        [0x59] =
+            {
+                .addr_mode = addr_abs_Y,
+                .instr_val = instr_EOR,
+                .cycles = 4,
+                .page_cycles = 1,
+                .mnemonic = "EOR",
+                INSTR_VAL,
+            },
+        [0x5A] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_NOP,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "NOP",
+                INSTR_NONE,
+            }, // NOP implied, PC increment externally
+        [0x5B] =
+            {
+                .addr_mode = addr_abs_Y,
+                .instr_mem = instr_SRE,
+                .cycles = 7,
+                .page_cycles = 0,
+                .mnemonic = "SRE",
+                INSTR_MEM,
+            },
+        [0x5C] =
+            {
+                .addr_mode = addr_abs_X,
+                .instr_addr = NULL,
+                .cycles = 4,
+                .page_cycles = 1,
+                .mnemonic = "NOP abs,X",
+                INSTR_ADDR,
+            },
+        [0x5D] =
+            {
+                .addr_mode = addr_abs_X,
+                .instr_val = instr_EOR,
+                .cycles = 4,
+                .page_cycles = 1,
+                .mnemonic = "EOR",
+                INSTR_VAL,
+            },
+        [0x5E] =
+            {
+                .addr_mode = addr_abs_X,
+                .instr_mem = instr_LSR,
+                .cycles = 7,
+                .page_cycles = 0,
+                .mnemonic = "LSR",
+                INSTR_MEM,
+            },
+        [0x5F] =
+            {
+                .addr_mode = addr_abs_X,
+                .instr_mem = instr_SRE,
+                .cycles = 7,
+                .page_cycles = 0,
+                .mnemonic = "SRE",
+                INSTR_MEM,
+            },
+
+        [0x60] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_RTS,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "RTS",
+                INSTR_NONE,
+            },
+        [0x61] =
+            {
+                .addr_mode = addr_X_ind,
+                .instr_val = instr_ADC,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "ADC",
+                INSTR_VAL,
+            },
+        [0x63] =
+            {
+                .addr_mode = addr_X_ind,
+                .instr_mem = instr_RRA,
+                .cycles = 8,
+                .page_cycles = 0,
+                .mnemonic = "RRA",
+                INSTR_MEM,
+            },
+        [0x64] =
+            {
+                .addr_mode = addr_zpg,
+                .instr_addr = NULL,
+                .cycles = 3,
+                .page_cycles = 0,
+                .mnemonic = "NOP",
+                INSTR_ADDR,
+            }, // NOP zpg, PC increment handled externally
+        [0x65] =
+            {
+                .addr_mode = addr_zpg,
+                .instr_val = instr_ADC,
+                .cycles = 3,
+                .page_cycles = 0,
+                .mnemonic = "ADC",
+                INSTR_VAL,
+            },
+        [0x66] =
+            {
+                .addr_mode = addr_zpg,
+                .instr_mem = instr_ROR,
+                .cycles = 5,
+                .page_cycles = 0,
+                .mnemonic = "ROR",
+                INSTR_MEM,
+            },
+        [0x67] =
+            {
+                .addr_mode = addr_zpg,
+                .instr_mem = instr_RRA,
+                .cycles = 5,
+                .page_cycles = 0,
+                .mnemonic = "RRA",
+                INSTR_MEM,
+            },
+        [0x68] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_PLA,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "PLA",
+                INSTR_NONE,
+            },
+        [0x69] =
+            {
+                .addr_mode = addr_imm,
+                .instr_val = instr_ADC,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "ADC",
+                INSTR_VAL,
+            },
+        [0x6A] =
+            {
+                .addr_mode = NULL,
+                .instr_mem = instr_ROR,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "ROR",
+                INSTR_ACC,
+            },
+        [0x6C] =
+            {
+                .addr_mode = addr_ind_jmp,
+                .instr_addr = instr_JMP,
+                .cycles = 5,
+                .page_cycles = 0,
+                .mnemonic = "JMP",
+                INSTR_ADDR,
+            }, // JMP indirect, PC handled in switch
+        [0x6D] =
+            {
+                .addr_mode = addr_abs,
+                .instr_val = instr_ADC,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "ADC",
+                INSTR_VAL,
+            },
+        [0x6E] =
+            {
+                .addr_mode = addr_abs,
+                .instr_mem = instr_ROR,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "ROR",
+                INSTR_MEM,
+            },
+        [0x6F] =
+            {
+                .addr_mode = addr_abs,
+                .instr_mem = instr_RRA,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "RRA",
+                INSTR_MEM,
+            },
+
+        [0x70] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_BVS,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "BVS",
+                INSTR_NONE,
+            },
+        [0x71] =
+            {
+                .addr_mode = addr_ind_Y,
+                .instr_val = instr_ADC,
+                .cycles = 5,
+                .page_cycles = 1,
+                .mnemonic = "ADC",
+                INSTR_VAL,
+            },
+        [0x73] =
+            {
+                .addr_mode = addr_ind_Y,
+                .instr_mem = instr_RRA,
+                .cycles = 8,
+                .page_cycles = 0,
+                .mnemonic = "RRA",
+                INSTR_MEM,
+            },
+        [0x74] =
+            {
+                .addr_mode = addr_zpg_X,
+                .instr_addr = NULL,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "NOP",
+                INSTR_ADDR,
+            }, // NOP zpg,X, PC increment done in switch
+        [0x75] =
+            {
+                .addr_mode = addr_zpg_X,
+                .instr_val = instr_ADC,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "ADC",
+                INSTR_VAL,
+            },
+        [0x76] =
+            {
+                .addr_mode = addr_zpg_X,
+                .instr_mem = instr_ROR,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "ROR",
+                INSTR_MEM,
+            },
+        [0x77] =
+            {
+                .addr_mode = addr_zpg_X,
+                .instr_mem = instr_RRA,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "RRA",
+                INSTR_MEM,
+            },
+        [0x78] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_SEI,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "SEI",
+                INSTR_NONE,
+            },
+        [0x79] =
+            {
+                .addr_mode = addr_abs_Y,
+                .instr_val = instr_ADC,
+                .cycles = 4,
+                .page_cycles = 1,
+                .mnemonic = "ADC",
+                INSTR_VAL,
+            },
+        [0x7A] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_NOP,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "NOP",
+                INSTR_NONE,
+            }, // NOP implied, PC increment handled externally
+        [0x7B] =
+            {
+                .addr_mode = addr_abs_X,
+                .instr_mem = instr_RRA,
+                .cycles = 7,
+                .page_cycles = 0,
+                .mnemonic = "RRA",
+                INSTR_MEM,
+            },
+        [0x7C] =
+            {
+                .addr_mode = addr_abs_X,
+                .instr_addr = NULL,
+                .cycles = 4,
+                .page_cycles = 1,
+                .mnemonic = "NOP",
+                INSTR_ADDR,
+            }, // Unofficial NOP or placeholder
+        [0x7D] =
+            {
+                .addr_mode = addr_abs_X,
+                .instr_val = instr_ADC,
+                .cycles = 4,
+                .page_cycles = 1,
+                .mnemonic = "ADC",
+                INSTR_VAL,
+            },
+        [0x7E] =
+            {
+                .addr_mode = addr_abs_X,
+                .instr_mem = instr_ROR,
+                .cycles = 7,
+                .page_cycles = 0,
+                .mnemonic = "ROR",
+                INSTR_MEM,
+            },
+        [0x7F] =
+            {
+                .addr_mode = addr_abs_X,
+                .instr_mem = instr_RRA,
+                .cycles = 7,
+                .page_cycles = 0,
+                .mnemonic = "RRA",
+                INSTR_MEM,
+            },
+
+        [0x80] =
+            {
+                .addr_mode = addr_imm,
+                .instr_addr = NULL,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "NOP",
+                INSTR_ADDR,
+            },
+        [0x81] =
+            {
+                .addr_mode = addr_X_ind,
+                .instr_addr = instr_STA,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "STA",
+                .instr_type = INSTR_ADDR,
+            },
+        [0x82] =
+            {
+                .addr_mode = addr_imm,
+                .instr_none = NULL,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "NOP",
+                INSTR_NONE,
+            },
+        [0x83] =
+            {
+                .addr_mode = addr_X_ind,
+                .instr_addr = instr_SAX,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "SAX",
+                INSTR_ADDR,
+            },
+        [0x84] =
+            {
+                .addr_mode = addr_zpg,
+                .instr_addr = instr_STY,
+                .cycles = 3,
+                .page_cycles = 0,
+                .mnemonic = "STY",
+                .instr_type = INSTR_ADDR,
+            },
+        [0x85] =
+            {
+                .addr_mode = addr_zpg,
+                .instr_addr = instr_STA,
+                .cycles = 3,
+                .page_cycles = 0,
+                .mnemonic = "STA",
+                INSTR_ADDR,
+            },
+        [0x86] =
+            {
+                .addr_mode = addr_zpg,
+                .instr_addr = instr_STX,
+                .cycles = 3,
+                .page_cycles = 0,
+                .mnemonic = "STX",
+                INSTR_ADDR,
+            },
+        [0x87] =
+            {
+                .addr_mode = addr_zpg,
+                .instr_addr = instr_SAX,
+                .cycles = 3,
+                .page_cycles = 0,
+                .mnemonic = "SAX",
+                INSTR_ADDR,
+            },
+        [0x88] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_DEY,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "DEY",
+                INSTR_NONE,
+            },
+        [0x89] =
+            {
+                .addr_mode = addr_imm,
+                .instr_none = NULL,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "NOP #",
+                INSTR_NONE,
+            },
+        [0x8A] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_TXA,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "TXA",
+                INSTR_NONE,
+            },
+        [0x8C] =
+            {
+                .addr_mode = addr_abs,
+                .instr_addr = instr_STY,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "STY abs",
+                INSTR_ADDR,
+            },
+        [0x8D] =
+            {
+                .addr_mode = addr_abs,
+                .instr_addr = instr_STA,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "STA abs",
+                INSTR_ADDR,
+            },
+        [0x8E] =
+            {
+                .addr_mode = addr_abs,
+                .instr_addr = instr_STX,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "STX abs",
+                INSTR_ADDR,
+            },
+        [0x8F] =
+            {
+                .addr_mode = addr_abs,
+                .instr_addr = instr_SAX,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "SAX abs",
+                INSTR_ADDR,
+            },
+
+        [0x90] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_BCC,
+                .cycles = 2,
+                .page_cycles = 1,
+                .mnemonic = "BCC rel",
+                INSTR_NONE,
+            },
+        [0x91] =
+            {
+                .addr_mode = addr_ind_Y,
+                .instr_addr = instr_STA,
+                .cycles = 6,
+                .page_cycles = 0,
+                .mnemonic = "STA ind,Y",
+                INSTR_ADDR,
+            },
+        [0x94] =
+            {
+                .addr_mode = addr_zpg_X,
+                .instr_addr = instr_STY,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "STY zpg,X",
+                INSTR_ADDR,
+            },
+        [0x95] =
+            {
+                .addr_mode = addr_zpg_X,
+                .instr_addr = instr_STA,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "STA zpg,X",
+                INSTR_ADDR,
+            },
+        [0x96] =
+            {
+                .addr_mode = addr_zpg_Y,
+                .instr_addr = instr_STX,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "STX zpg,Y",
+                INSTR_ADDR,
+            },
+        [0x97] =
+            {
+                .addr_mode = addr_zpg_Y,
+                .instr_addr = instr_SAX,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "SAX zpg,Y",
+                INSTR_ADDR,
+            },
+        [0x98] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_TYA,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "TYA",
+                INSTR_NONE,
+            },
+        [0x99] =
+            {
+                .addr_mode = addr_abs_Y,
+                .instr_addr = instr_STA,
+                .cycles = 5,
+                .page_cycles = 0,
+                .mnemonic = "STA abs,Y",
+                INSTR_ADDR,
+            },
+        [0x9A] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_TXS,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "TXS",
+                INSTR_NONE,
+            },
+        [0x9D] =
+            {
+                .addr_mode = addr_abs_X,
+                .instr_addr = instr_STA,
+                .cycles = 5,
+                .page_cycles = 0,
+                .mnemonic = "STA abs,X",
+                INSTR_ADDR,
+            },
+        [0xA0] =
+            {
+                addr_imm,
+                .instr_addr = instr_LDY,
+                2,
+                0,
+                "LDY #",
+                INSTR_ADDR,
+            },
+        [0xA1] =
+            {
+                addr_X_ind,
+                .instr_addr = instr_LDA,
+                6,
+                0,
+                "LDA ind,X",
+                INSTR_ADDR,
+            },
+        [0xA2] =
+            {
+                addr_imm,
+                .instr_addr = instr_LDX,
+                2,
+                0,
+                "LDX #",
+                INSTR_ADDR,
+            },
+        [0xA3] =
+            {
+                addr_X_ind,
+                .instr_val = instr_LAX,
+                6,
+                0,
+                "LAX ind,X",
+                INSTR_VAL,
+            },
+        [0xA4] =
+            {
+                addr_zpg,
+                .instr_addr = instr_LDY,
+                3,
+                0,
+                "LDY zpg",
+                INSTR_ADDR,
+            },
+        [0xA5] =
+            {
+                addr_zpg,
+                .instr_addr = instr_LDA,
+                3,
+                0,
+                "LDA zpg",
+                INSTR_ADDR,
+            },
+        [0xA6] =
+            {
+                addr_zpg,
+                .instr_addr = instr_LDX,
+                3,
+                0,
+                "LDX zpg",
+                INSTR_ADDR,
+            },
+        [0xA7] =
+            {
+                addr_zpg,
+                .instr_val = instr_LAX,
+                3,
+                0,
+                "LAX zpg",
+                INSTR_VAL,
+            },
+        [0xA8] =
+            {
+                NULL,
+                .instr_none = instr_TAY,
+                2,
+                0,
+                "TAY impl",
+                INSTR_NONE,
+            },
+        [0xA9] =
+            {
+                addr_imm,
+                .instr_addr = instr_LDA,
+                2,
+                0,
+                "LDA #",
+                INSTR_ADDR,
+            },
+        [0xAA] =
+            {
+                NULL,
+                .instr_none = instr_TAX,
+                2,
+                0,
+                "TAX impl",
+                INSTR_NONE,
+            },
+        [0xAC] =
+            {
+                addr_abs,
+                .instr_addr = instr_LDY,
+                4,
+                1,
+                "LDY abs",
+                INSTR_ADDR,
+            },
+        [0xAD] =
+            {
+                addr_abs,
+                .instr_addr = instr_LDA,
+                4,
+                1,
+                "LDA abs",
+                INSTR_ADDR,
+            },
+        [0xAE] =
+            {
+                addr_abs,
+                .instr_addr = instr_LDX,
+                4,
+                1,
+                "LDX abs",
+                INSTR_ADDR,
+            },
+        [0xAF] =
+            {
+                addr_abs,
+                .instr_val = instr_LAX,
+                4,
+                1,
+                "LAX abs",
+                INSTR_VAL,
+            },
+        [0xB0] =
+            {
+                NULL,
+                .instr_none = instr_BCS,
+                2,
+                0,
+                "BCS",
+                INSTR_NONE,
+            },
+        [0xB1] =
+            {
+                addr_ind_Y,
+                .instr_addr = instr_LDA,
+                5,
+                1,
+                "LDA (ind),Y",
+                INSTR_ADDR,
+            },
+        [0xB3] =
+            {
+                addr_ind_Y,
+                .instr_val = instr_LAX,
+                5,
+                1,
+                "LAX (ind),Y",
+                INSTR_VAL,
+            },
+        [0xB4] =
+            {
+                addr_zpg_X,
+                .instr_addr = instr_LDY,
+                4,
+                0,
+                "LDY zpg,X",
+                INSTR_ADDR,
+            },
+        [0xB5] =
+            {
+                addr_zpg_X,
+                .instr_addr = instr_LDA,
+                4,
+                0,
+                "LDA zpg,X",
+                INSTR_ADDR,
+            },
+        [0xB6] =
+            {
+                addr_zpg_Y,
+                .instr_addr = instr_LDX,
+                4,
+                0,
+                "LDX zpg,Y",
+                INSTR_ADDR,
+            },
+        [0xB7] =
+            {
+                addr_zpg_Y,
+                .instr_val = instr_LAX,
+                4,
+                0,
+                "LAX zpg,Y",
+                INSTR_VAL,
+            },
+        [0xB8] =
+            {
+                NULL,
+                .instr_none = instr_CLV,
+                2,
+                0,
+                "CLV",
+                INSTR_NONE,
+            },
+        [0xB9] =
+            {
+                addr_abs_Y,
+                .instr_addr = instr_LDA,
+                4,
+                1,
+                "LDA abs,Y",
+                INSTR_ADDR,
+            },
+        [0xBA] =
+            {
+                NULL,
+                .instr_none = instr_TSX,
+                2,
+                0,
+                "TSX",
+                INSTR_NONE,
+            },
+        [0xBC] =
+            {
+                addr_abs_X,
+                .instr_addr = instr_LDY,
+                4,
+                1,
+                "LDY abs,X",
+                INSTR_ADDR,
+            },
+        [0xBD] =
+            {
+                addr_abs_X,
+                .instr_addr = instr_LDA,
+                4,
+                1,
+                "LDA abs,X",
+                INSTR_ADDR,
+            },
+        [0xBE] =
+            {
+                addr_abs_Y,
+                .instr_addr = instr_LDX,
+                4,
+                1,
+                "LDX abs,Y",
+                INSTR_ADDR,
+            },
+        [0xBF] =
+            {
+                addr_abs_Y,
+                .instr_val = instr_LAX,
+                4,
+                1,
+                "LAX abs,Y",
+                INSTR_VAL,
+            },
+        [0xC0] =
+            {
+                addr_imm,
+                .instr_val = instr_CPY,
+                2,
+                0,
+                "CPY #",
+                INSTR_VAL,
+            },
+        [0xC1] =
+            {
+                addr_X_ind,
+                .instr_val = instr_CMP,
+                6,
+                0,
+                "CMP X,ind",
+                INSTR_VAL,
+            },
+        [0xC2] =
+            {
+                addr_imm,
+                .instr_none = instr_NOP,
+                2,
+                0,
+                "NOP #",
+                INSTR_NONE,
+            },
+        [0xC3] =
+            {
+                addr_X_ind,
+                .instr_mem = instr_DCP,
+                8,
+                0,
+                "DCP X,ind",
+                INSTR_MEM,
+            },
+        [0xC4] =
+            {
+                addr_zpg,
+                .instr_val = instr_CPY,
+                3,
+                0,
+                "CPY zpg",
+                INSTR_VAL,
+            },
+        [0xC5] =
+            {
+                addr_zpg,
+                .instr_val = instr_CMP,
+                3,
+                0,
+                "CMP zpg",
+                INSTR_VAL,
+            },
+        [0xC6] =
+            {
+                addr_zpg,
+                .instr_mem = instr_DEC,
+                5,
+                0,
+                "DEC zpg",
+                INSTR_MEM,
+            },
+        [0xC7] =
+            {
+                addr_zpg,
+                .instr_mem = instr_DCP,
+                5,
+                0,
+                "DCP zpg",
+                INSTR_MEM,
+            },
+        [0xC8] =
+            {
+                NULL,
+                .instr_none = instr_INY,
+                2,
+                0,
+                "INY",
+                INSTR_NONE,
+            },
+        [0xC9] =
+            {
+                addr_imm,
+                .instr_val = instr_CMP,
+                2,
+                0,
+                "CMP #",
+                INSTR_VAL,
+            },
+        [0xCA] =
+            {
+                NULL,
+                .instr_none = instr_DEX,
+                2,
+                0,
+                "DEX",
+                INSTR_NONE,
+            },
+        [0xCC] =
+            {
+                addr_abs,
+                .instr_val = instr_CPY,
+                4,
+                0,
+                "CPY abs",
+                INSTR_VAL,
+            },
+        [0xCD] =
+            {
+                addr_abs,
+                .instr_val = instr_CMP,
+                4,
+                0,
+                "CMP abs",
+                INSTR_VAL,
+            },
+        [0xCE] =
+            {
+                addr_abs,
+                .instr_mem = instr_DEC,
+                6,
+                0,
+                "DEC abs",
+                INSTR_MEM,
+            },
+        [0xCF] =
+            {
+                addr_abs,
+                .instr_mem = instr_DCP,
+                6,
+                0,
+                "DCP abs",
+                INSTR_MEM,
+            },
+
+        [0xD0] =
+            {
+                NULL,
+                .instr_none = instr_BNE,
+                2,
+                0,
+                "BNE rel",
+                INSTR_NONE,
+            },
+        [0xD1] =
+            {
+                addr_ind_Y,
+                .instr_val = instr_CMP,
+                5,
+                1,
+                "CMP ind,Y",
+                INSTR_VAL,
+            },
+        [0xD3] =
+            {
+                addr_ind_Y,
+                .instr_mem = instr_DCP,
+                8,
+                0,
+                "DCP ind,Y",
+                INSTR_MEM,
+            },
+        [0xD4] =
+            {
+                .addr_mode = addr_zpg_X,
+                .instr_addr = NULL,
+                .cycles = 4,
+                .page_cycles = 0,
+                .mnemonic = "NOP",
+                INSTR_ADDR,
+            }, // NOP zpg,X, PC increment done in switch
+        [0xD5] =
+            {
+                addr_zpg_X,
+                .instr_val = instr_CMP,
+                4,
+                0,
+                "CMP zpg,X",
+                INSTR_VAL,
+            },
+        [0xD6] =
+            {
+                addr_zpg_X,
+                .instr_mem = instr_DEC,
+                6,
+                0,
+                "DEC zpg,X",
+                INSTR_MEM,
+            },
+        [0xD7] =
+            {
+                addr_zpg_X,
+                .instr_mem = instr_DCP,
+                6,
+                0,
+                "DCP zpg,X",
+                INSTR_MEM,
+            },
+        [0xD8] =
+            {
+                NULL,
+                .instr_none = instr_CLD,
+                2,
+                0,
+                "CLD",
+                INSTR_NONE,
+            },
+        [0xD9] =
+            {
+                addr_abs_Y,
+                .instr_val = instr_CMP,
+                4,
+                1,
+                "CMP abs,Y",
+                INSTR_VAL,
+            },
+        [0xDA] =
+            {
+                .addr_mode = NULL,
+                .instr_none = instr_NOP,
+                .cycles = 2,
+                .page_cycles = 0,
+                .mnemonic = "NOP",
+                INSTR_NONE,
+            }, // NOP implied, PC increment handled externally
+        [0xDB] =
+            {
+                addr_abs_Y,
+                .instr_mem = instr_DCP,
+                7,
+                0,
+                "DCP abs,Y",
+                INSTR_MEM,
+            },
+        [0xDC] =
+            {
+                addr_abs_X,
+                .instr_addr = NULL,
+                4,
+                1,
+                "NOP abs,X",
+                INSTR_ADDR,
+            }, // This one exists in your code: cpu->PC++;
+               // emulate_6502_cycle(cyc);
+        [0xDD] =
+            {
+                addr_abs_X,
+                .instr_val = instr_CMP,
+                4,
+                1,
+                "CMP abs,X",
+                INSTR_VAL,
+            },
+        [0xDE] =
+            {
+                addr_abs_X,
+                .instr_mem = instr_DEC,
+                7,
+                0,
+                "DEC abs,X",
+                INSTR_MEM,
+            },
+        [0xDF] =
+            {
+                addr_abs_X,
+                .instr_mem = instr_DCP,
+                7,
+                0,
+                "DCP abs,X",
+                INSTR_MEM,
+            },
+
+        [0xE0] =
+            {
+                addr_imm,
+                .instr_val = instr_CPX,
+                2,
+                0,
+                "CPX #",
+                INSTR_VAL,
+            },
+        [0xE1] =
+            {
+                addr_X_ind,
+                .instr_val = instr_SBC,
+                6,
+                0,
+                "SBC X,ind",
+                INSTR_VAL,
+            },
+        [0xE2] =
+            {
+                NULL,
+                .instr_none = NULL,
+                2,
+                0,
+                "NOP imm",
+                INSTR_NONE,
+            },
+        [0xE3] =
+            {
+                addr_X_ind,
+                .instr_mem = instr_ISC,
+                8,
+                0,
+                "ISC X,ind",
+                INSTR_MEM,
+            },
+        [0xE4] =
+            {
+                addr_zpg,
+                .instr_val = instr_CPX,
+                3,
+                0,
+                "CPX zpg",
+                INSTR_VAL,
+            },
+        [0xE5] =
+            {
+                addr_zpg,
+                .instr_val = instr_SBC,
+                3,
+                0,
+                "SBC zpg",
+                INSTR_VAL,
+            },
+        [0xE6] =
+            {
+                addr_zpg,
+                .instr_mem = instr_INC,
+                5,
+                0,
+                "INC zpg",
+                INSTR_MEM,
+            },
+        [0xE7] =
+            {
+                addr_zpg,
+                .instr_mem = instr_ISC,
+                5,
+                0,
+                "ISC zpg",
+                INSTR_MEM,
+            },
+        [0xE8] =
+            {
+                NULL,
+                .instr_none = instr_INX,
+                2,
+                0,
+                "INX",
+                INSTR_NONE,
+            },
+        [0xE9] =
+            {
+                addr_imm,
+                .instr_val = instr_SBC,
+                2,
+                0,
+                "SBC #",
+                INSTR_VAL,
+            },
+        [0xEA] =
+            {
+                NULL,
+                .instr_none = instr_NOP,
+                2,
+                0,
+                "NOP",
+                INSTR_NONE,
+            },
+        [0xEB] =
+            {
+                addr_imm,
+                .instr_val = instr_SBC,
+                2,
+                0,
+                "USBC #",
+                INSTR_VAL,
+            },
+        [0xEC] =
+            {
+                addr_abs,
+                .instr_val = instr_CPX,
+                4,
+                0,
+                "CPX abs",
+                INSTR_VAL,
+            },
+        [0xED] =
+            {
+                addr_abs,
+                .instr_val = instr_SBC,
+                4,
+                0,
+                "SBC abs",
+                INSTR_VAL,
+            },
+        [0xEE] =
+            {
+                addr_abs,
+                .instr_mem = instr_INC,
+                6,
+                0,
+                "INC abs",
+                INSTR_MEM,
+            },
+        [0xEF] =
+            {
+                addr_abs,
+                .instr_mem = instr_ISC,
+                6,
+                0,
+                "ISC abs",
+                INSTR_MEM,
+            },
+
+        [0xF0] =
+            {
+                NULL,
+                .instr_none = instr_BEQ,
+                2,
+                0,
+                "BEQ rel",
+                INSTR_NONE,
+            },
+        [0xF1] =
+            {
+                addr_ind_Y,
+                .instr_val = instr_SBC,
+                5,
+                1,
+                "SBC ind,Y",
+                INSTR_VAL,
+            },
+        [0xF3] =
+            {
+                addr_ind_Y,
+                .instr_mem = instr_ISC,
+                8,
+                0,
+                "ISC ind,Y",
+                INSTR_MEM,
+            },
+        [0xF4] =
+            {
+                addr_zpg_X,
+                .instr_addr = NULL,
+                4,
+                0,
+                "NOP zpg,X",
+                INSTR_ADDR,
+            },
+        [0xF5] =
+            {
+                addr_zpg_X,
+                .instr_val = instr_SBC,
+                4,
+                0,
+                "SBC zpg,X",
+                INSTR_VAL,
+            },
+        [0xF6] =
+            {
+                addr_zpg_X,
+                .instr_mem = instr_INC,
+                6,
+                0,
+                "INC zpg,X",
+                INSTR_MEM,
+            },
+        [0xF7] =
+            {
+                addr_zpg_X,
+                .instr_mem = instr_ISC,
+                6,
+                0,
+                "ISC zpg,X",
+                INSTR_MEM,
+            },
+        [0xF8] =
+            {
+                NULL,
+                .instr_none = instr_SED,
+                2,
+                0,
+                "SED",
+                INSTR_NONE,
+            },
+        [0xF9] =
+            {
+                addr_abs_Y,
+                .instr_val = instr_SBC,
+                4,
+                1,
+                "SBC abs,Y",
+                INSTR_VAL,
+            },
+        [0xFA] =
+            {
+                NULL,
+                .instr_none = instr_NOP,
+                2,
+                0,
+                "NOP imp",
+                INSTR_NONE,
+            },
+        [0xFB] =
+            {
+                addr_abs_Y,
+                .instr_mem = instr_ISC,
+                7,
+                0,
+                "ISC abs,Y",
+                INSTR_MEM,
+            },
+        [0xFC] =
+            {
+                addr_abs_X,
+                .instr_addr = NULL,
+                4,
+                1,
+                "NOP abs,X",
+                INSTR_ADDR,
+            },
+        [0xFD] =
+            {
+                addr_abs_X,
+                .instr_val = instr_SBC,
+                4,
+                1,
+                "SBC abs,X",
+                INSTR_VAL,
+            },
+        [0xFE] =
+            {
+                addr_abs_X,
+                .instr_mem = instr_INC,
+                7,
+                0,
+                "INC abs,X",
+                INSTR_MEM,
+            },
+        [0xFF] =
+            {
+                addr_abs_X,
+                .instr_mem = instr_ISC,
+                7,
+                0,
+                "ISC abs,X",
+                INSTR_MEM,
+            },
+};
 
 void cpu_execute(Cpu6502 *cpu) {
 
@@ -1241,9 +3298,9 @@ void cpu_execute(Cpu6502 *cpu) {
   LOG("A: %x\n", cpu->A);
   LOG("X: %x\n", cpu->X);
   LOG("Y: %x\n", cpu->Y);
-  printf("Cycle: %d\n\n", cpu->cycles);
+  LOG("Cycle: %d\n\n", cpu->cycles);
 
-  dump_log_file(cpu);
+  // dump_log_file(cpu);
 
 #if NES_TEST_ROM
   if (cpu->PC == 0x7001) {
@@ -1255,7 +3312,7 @@ void cpu_execute(Cpu6502 *cpu) {
   if (dma_active_flag) {
     if (dma_cycles > 0) {
       dma_cycles--;
-      cpu->cycles += 1;
+      cpu->cycles++;
       ppu_execute_cycle(cpu->ppu);
       ppu_execute_cycle(cpu->ppu);
       ppu_execute_cycle(cpu->ppu);
@@ -1264,2417 +3321,36 @@ void cpu_execute(Cpu6502 *cpu) {
       dma_active_flag = 0;
     }
   }
+  Opcode opcode = lookup_table[instr];
+  cyc = opcode.cycles;
+  uint8_t val;
+  uint16_t addr;
 
-  // Compare the upper 4 bits
-  switch ((instr >> 4) & 0x0F) {
-
-  // 0x0X
-  case 0x0:
-
-    switch (instr & 0x0F) {
-    // 0x00
-    // BRK impl
-    case 0x0:
-
-      instr_BRK(cpu);
-
-      emulate_6502_cycle(7);
-      cyc = 7;
-
-      break;
-
-    // 0x01
-    // ORA X,ind
-    case 0x1:
-      address = addr_X_ind(cpu);
-      instr_ORA(cpu, memory[address]);
-
-      // cpu->PC++;
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0x03
-    // SLO X,ind
-    case 0x3:
-      address = addr_X_ind(cpu);
-      instr_SLO(cpu, &memory[address]);
-
-      emulate_6502_cycle(8);
-      cyc = 8;
-      break;
-
-    // NOP zpg
-    case 0x4:
-      cpu->PC += 2;
-      emulate_6502_cycle(3);
-      cyc = 3;
-      break;
-
-    // 0x05
-    // ORA zpg
-    case 0x5:
-      address = addr_zpg(cpu);
-      instr_ORA(cpu, memory[address]);
-
-      emulate_6502_cycle(3);
-      cyc = 3;
-      break;
-
-    // 0x06
-    // ASL zpg
-    case 0x6:
-
-      address = addr_zpg(cpu);
-      instr_ASL(cpu, &memory[address]);
-
-      emulate_6502_cycle(5);
-      cyc = 5;
-      break;
-
-    // 0x06
-    // SLO zpg
-    case 0x7:
-      address = addr_zpg(cpu);
-      instr_SLO(cpu, &memory[address]);
-
-      emulate_6502_cycle(5);
-      cyc = 5;
-      break;
-
-    // 0x08
-    // PHP impl
-    case 0x8:
-      instr_PHP(cpu);
-      break;
-
-    // 0x09
-    // ORA #
-    case 0x9:
-      address = addr_imm(cpu);
-      instr_ORA(cpu, memory[address]);
-
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0x0A
-    // ASL A
-    case 0xA:
-      instr_ASL(cpu, &cpu->A);
-
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // NOP abs
-    case 0xc:
-      cpu->PC += 3;
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0x0D
-    // ORA abs
-    case 0xD:
-      address = addr_abs(cpu);
-      instr_ORA(cpu, memory[address]);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0x0E
-    // ASL abs
-    case 0xE:
-      address = addr_abs(cpu);
-      instr_ASL(cpu, &memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0x0F
-    // SLO abs
-    case 0xF:
-      address = addr_abs(cpu);
-      instr_SLO(cpu, &memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-    }
-
+  switch (opcode.instr_type) {
+  case INSTR_NONE:
+    opcode.instr_none(cpu);
     break;
-
-  // 0x1X
-  case 0x1:
-    switch (instr & 0x0F) {
-    // 0x10
-    // BPL rel
-    case 0x0:
-      instr_BPL(cpu);
-      break;
-
-    // 0x11
-    // ORA ind,Y
-    case 0x1:
-      address = addr_ind_Y(cpu);
-      if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-        cyc = 6;
-      } else {
-        cyc = 5;
-      }
-      instr_ORA(cpu, memory[address]);
-
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // 0x13
-    // SLO ind,Y
-    case 0x3:
-      address = addr_ind_Y(cpu);
-      instr_SLO(cpu, &memory[address]);
-
-      emulate_6502_cycle(8);
-      cyc = 8;
-      break;
-
-    // NOP zpg,X
-    case 0x4:
-      cpu->PC += 2;
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0x15
-    // ORA zpg,X
-    case 0x5:
-      address = addr_zpg_X(cpu);
-      instr_ORA(cpu, memory[address]);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0x16
-    // ASL zpg,X
-    case 0x6:
-      address = addr_zpg_X(cpu);
-      instr_ASL(cpu, &memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0x17
-    // SLO zpg,X
-    case 0x7:
-      address = addr_zpg_X(cpu);
-      instr_SLO(cpu, &memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0x18
-    // CLC impl
-    case 0x8:
-      instr_CLC(cpu);
-      break;
-
-    // 0x19
-    // ORA abs,Y
-    case 0x9:
-      address = addr_abs_Y(cpu);
-
-      if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-        cyc = 5;
-      } else {
-        cyc = 4;
-      }
-
-      instr_ORA(cpu, memory[address]);
-
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    case 0xA:
+  case INSTR_VAL:
+    val = memory[opcode.addr_mode(cpu)];
+    opcode.instr_val(cpu, val);
+    break;
+  case INSTR_MEM:
+    addr = opcode.addr_mode(cpu);
+    opcode.instr_mem(cpu, &memory[addr]);
+    break;
+  case INSTR_ADDR:
+    addr = opcode.addr_mode(cpu);
+    if (opcode.instr_addr == NULL) {
       cpu->PC++;
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0x1B
-    // SLO abs,Y
-    case 0xB:
-      address = addr_abs_Y(cpu);
-      instr_SLO(cpu, &memory[address]);
-
-      emulate_6502_cycle(7);
-      cyc = 7;
-      break;
-
-    case 0xc:
-      address = addr_abs_X(cpu);
-      if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-        cyc = 5;
-      } else {
-        cyc = 4;
-      }
-      cpu->PC++;
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // 0x1D
-    // ORA abs,X
-    case 0xD:
-      address = addr_abs_X(cpu);
-      if ((address & 0xFF00) != ((address - cpu->X) & 0xFF00)) {
-        cyc = 5;
-      } else {
-        cyc = 4;
-      }
-
-      instr_ORA(cpu, memory[address]);
-
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // 0x1E
-    // ASL abs,X
-    case 0xE:
-      address = addr_abs_X(cpu);
-      instr_ASL(cpu, &memory[address]);
-
-      emulate_6502_cycle(7);
-      cyc = 7;
-      break;
-
-    // 0x1F
-    // SLO abs,X
-    case 0xF:
-      address = addr_abs_X(cpu);
-      instr_SLO(cpu, &memory[address]);
-
-      emulate_6502_cycle(7);
-      cyc = 7;
-      break;
+    } else {
+      opcode.instr_addr(cpu, addr);
     }
     break;
-
-  case 0x2:
-
-    switch (instr & 0x0F) {
-    // 0x20
-    // JSR abs
-    case 0x0:
-
-      address = addr_abs(cpu);
-      instr_JSR(cpu, address);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0x21
-    // AND X,ind
-    case 0x1:
-      address = addr_X_ind(cpu);
-      instr_AND(cpu, memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0x23
-    // RLA X,ind
-    case 0x3:
-      address = addr_X_ind(cpu);
-      instr_RLA(cpu, &memory[address]);
-
-      emulate_6502_cycle(8);
-      cyc = 8;
-      break;
-
-    // 0x24
-    // BIT zpg
-    case 0x4:
-      address = addr_zpg(cpu);
-      instr_BIT(cpu, memory[address]);
-
-      emulate_6502_cycle(3);
-      cyc = 3;
-      break;
-
-    // 0x25
-    // AND zpg
-    case 0x5:
-      address = addr_zpg(cpu);
-      instr_AND(cpu, memory[address]);
-
-      emulate_6502_cycle(3);
-      cyc = 3;
-      break;
-
-    // 0x26
-    // ROL zpg
-    case 0x6:
-      address = addr_zpg(cpu);
-      instr_ROL(cpu, &memory[address]);
-
-      emulate_6502_cycle(5);
-      cyc = 5;
-      break;
-
-    // 0x27
-    // RLA zpg
-    case 0x7:
-      address = addr_zpg(cpu);
-      instr_RLA(cpu, &memory[address]);
-
-      emulate_6502_cycle(5);
-      cyc = 5;
-      break;
-
-    // 0x28
-    // PLP
-    case 0x8:
-      instr_PLP(cpu);
-      break;
-
-    // 0x29
-    // AND #
-    case 0x9:
-      address = addr_imm(cpu);
-      instr_AND(cpu, memory[address]);
-
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0x2A
-    // ROL A
-    case 0xA:
-
-      instr_ROL(cpu, &cpu->A);
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0x2C
-    // BIT abs
-    case 0xC:
-      address = addr_abs(cpu);
-      instr_BIT(cpu, memory[address]);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0x2D
-    // AND abs
-    case 0xD:
-
-      address = addr_abs(cpu);
-      instr_AND(cpu, memory[address]);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0x2E
-    // ROL abs
-    case 0xE:
-
-      address = addr_abs(cpu);
-      instr_ROL(cpu, &memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0x2F
-    // RLA abs
-    case 0xF:
-      address = addr_abs(cpu);
-      instr_RLA(cpu, &memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-    }
-
-    break;
-
-  case 0x3:
-    switch (instr & 0x0F) {
-    // 0x30
-    // BMI rel
-    case 0x0:
-      instr_BMI(cpu);
-      break;
-
-    // 0x31
-    // AND ind,Y
-    case 0x1:
-      address = addr_ind_Y(cpu);
-      if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-        cyc = 6;
-      } else {
-        cyc = 5;
-      }
-
-      instr_AND(cpu, memory[address]);
-
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // 0x33
-    // RLA ind,Y
-    case 0x3:
-      address = addr_ind_Y(cpu);
-      instr_RLA(cpu, &memory[address]);
-
-      emulate_6502_cycle(8);
-      cyc = 8;
-      break;
-
-    // NOP zpg,X
-    case 0x4:
-      cpu->PC += 2;
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0x35
-    // AND zpg,X
-    case 0x5:
-      address = addr_zpg_X(cpu);
-      instr_AND(cpu, memory[address]);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0x36
-    // ROL zpg, X
-    case 0x6:
-      address = addr_zpg_X(cpu);
-      instr_ROL(cpu, &memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0x36
-    // RLA zpg, X
-    case 0x7:
-      address = addr_zpg_X(cpu);
-      instr_RLA(cpu, &memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0x38
-    // SEC impl
-    case 0x8:
-      // Set Carry Flag
-      instr_SEC(cpu);
-      break;
-
-    // 0x39
-    // AND abs,Y
-    case 0x9:
-      address = addr_abs_Y(cpu);
-      if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-        cyc = 5;
-      } else {
-        cyc = 4;
-      }
-      instr_AND(cpu, memory[address]);
-
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // NOP imp
-    case 0xA:
-      cpu->PC++;
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0x3B
-    // ROL abs,Y
-    case 0xB:
-      address = addr_abs_Y(cpu);
-      instr_RLA(cpu, &memory[address]);
-
-      emulate_6502_cycle(7);
-      cyc = 7;
-      break;
-
-    case 0xc:
-      address = addr_abs_X(cpu);
-      if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-        cyc = 5;
-      } else {
-        cyc = 4;
-      }
-      cpu->PC++;
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // 0x3D
-    // AND abs,X
-    case 0xD:
-      address = addr_abs_X(cpu);
-      if ((address & 0xFF00) != ((address - cpu->X) & 0xFF00)) {
-        cyc = 5;
-      } else {
-        cyc = 4;
-      }
-
-      instr_AND(cpu, memory[address]);
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // 0x3E
-    // ROL abs,X
-    case 0xE:
-      address = addr_abs_X(cpu);
-      instr_ROL(cpu, &memory[address]);
-
-      emulate_6502_cycle(7);
-      cyc = 7;
-      break;
-
-    // 0x3F
-    // ROL abs,X
-    case 0xF:
-      address = addr_abs_X(cpu);
-      instr_RLA(cpu, &memory[address]);
-
-      emulate_6502_cycle(7);
-      cyc = 7;
-      break;
-    }
-    break;
-
-  case 0x4:
-
-    switch (instr & 0x0F) {
-    // 0x40
-    // RTI impl
-    case 0x0:
-      instr_RTI(cpu);
-      break;
-
-    // 0x41
-    // EOR X,ind
-    case 0x1:
-      address = addr_X_ind(cpu);
-      instr_EOR(cpu, memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0x43
-    // SRE X,ind
-    case 0x3:
-      address = addr_X_ind(cpu);
-      instr_SRE(cpu, &memory[address]);
-
-      emulate_6502_cycle(8);
-      cyc = 8;
-      break;
-
-    // NOP zpg
-    case 0x4:
-      cpu->PC += 2;
-      emulate_6502_cycle(3);
-      cyc = 3;
-      break;
-
-    // 0x45
-    // EOR zpg
-    case 0x5:
-      address = addr_zpg(cpu);
-      instr_EOR(cpu, memory[address]);
-
-      emulate_6502_cycle(3);
-      cyc = 3;
-      break;
-
-    // 0x46
-    // LSR zpg
-    case 0x6:
-      address = addr_zpg(cpu);
-      instr_LSR(cpu, &memory[address]);
-
-      emulate_6502_cycle(5);
-      cyc = 5;
-      break;
-
-    // 0x47
-    // SRE zpg
-    case 0x7:
-      address = addr_zpg(cpu);
-      instr_SRE(cpu, &memory[address]);
-
-      emulate_6502_cycle(5);
-      cyc = 5;
-      break;
-
-    // 0x48
-    // PHA impl
-    case 0x8:
-      instr_PHA(cpu);
-      break;
-
-    // 0x49
-    // EOR #
-    case 0x9:
-
-      address = addr_imm(cpu);
-      instr_EOR(cpu, memory[address]);
-
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0x4A
-    // LSR A
-    case 0xA:
-
-      instr_LSR(cpu, &cpu->A);
-
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0x4B
-    // SRE abs,Y
-    case 0xB:
-      address = addr_abs_Y(cpu);
-      instr_SRE(cpu, &memory[address]);
-
-      emulate_6502_cycle(7);
-      cyc = 6;
-      break;
-
-    // 0x4C
-    // JMP abs
-    case 0xC:
-
-      address = addr_abs(cpu);
-      instr_JMP(cpu, address);
-
-      emulate_6502_cycle(3);
-      cyc = 3;
-      break;
-
-    // 0x4D
-    // EOR abs
-    case 0xD:
-
-      address = addr_abs(cpu);
-      instr_EOR(cpu, memory[address]);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0x4E
-    // LSR abs
-    case 0xE:
-      address = addr_abs(cpu);
-      instr_LSR(cpu, &memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0x4F
-    // SRE abs
-    case 0xF:
-      address = addr_abs(cpu);
-      instr_SRE(cpu, &memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-    }
-
-    break;
-
-  case 0x5:
-
-    switch (instr & 0x0F) {
-    // 0x50
-    // BVC rel
-    case 0x0:
-
-      instr_BVC(cpu);
-
-      break;
-
-    // 0x51
-    // EOR ind,Y
-    case 0x1:
-
-      address = addr_ind_Y(cpu);
-      if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-        cyc = 6;
-      } else {
-        cyc = 5;
-      }
-
-      instr_EOR(cpu, memory[address]);
-
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // 0x53
-    // SRE ind,%
-    case 0x3:
-      address = addr_ind_Y(cpu);
-      instr_SRE(cpu, &memory[address]);
-
-      emulate_6502_cycle(8);
-      cyc = 8;
-      break;
-
-    // NOP zpg,X
-    case 0x4:
-      cpu->PC += 2;
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0x55
-    // EOR zpg,X
-    case 0x5:
-
-      address = addr_zpg_X(cpu);
-      instr_EOR(cpu, memory[address]);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0x56
-    // LSR zpg, X
-    case 0x6:
-
-      address = addr_zpg_X(cpu);
-      instr_LSR(cpu, &memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0x57
-    // SRE zpg,X
-    case 0x7:
-      address = addr_zpg_X(cpu);
-      instr_SRE(cpu, &memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0x58
-    // CLI impl
-    case 0x8:
-      instr_CLI(cpu);
-      break;
-
-    // 0x59
-    // EOR abs,Y
-    case 0x9:
-
-      address = addr_abs_Y(cpu);
-      if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-        cyc = 5;
-      } else {
-        cyc = 4;
-      }
-      instr_EOR(cpu, memory[address]);
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // NOP imp
-    case 0xA:
-      cpu->PC++;
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    case 0xc:
-      address = addr_abs_X(cpu);
-      if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-        cyc = 5;
-      } else {
-        cyc = 4;
-      }
-      cpu->PC++;
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // 0x5B
-    // SRE abs,Y
-    case 0xB:
-      address = addr_abs_Y(cpu);
-      instr_SRE(cpu, &memory[address]);
-
-      emulate_6502_cycle(7);
-      cyc = 7;
-      break;
-
-    // 0x5D
-    // EOR abs,X
-    case 0xD:
-
-      address = addr_abs_X(cpu);
-      if ((address & 0xFF00) != ((address - cpu->X) & 0xFF00)) {
-        cyc = 5;
-      } else {
-        cyc = 4;
-      }
-
-      instr_EOR(cpu, memory[address]);
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // 0x5E
-    // LSR abs,X
-    case 0xE:
-
-      address = addr_abs_X(cpu);
-      instr_LSR(cpu, &memory[address]);
-
-      emulate_6502_cycle(7);
-      cyc = 7;
-      break;
-
-    // 0x5F
-    // SRE abs,X
-    case 0xF:
-      address = addr_abs_X(cpu);
-      instr_SRE(cpu, &memory[address]);
-
-      emulate_6502_cycle(7);
-      cyc = 7;
-      break;
-    }
-
-    break;
-
-  case 0x6:
-    switch (instr & 0x0F) {
-    // 0x60
-    // RTS impl
-    case 0x0:
-      instr_RTS(cpu);
-      break;
-
-    // 0x61
-    // ADC X,ind
-    case 0x1:
-      address = addr_X_ind(cpu);
-      instr_ADC(cpu, memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0x63
-    // RRA X,ind
-    case 0x3:
-      address = addr_X_ind(cpu);
-      instr_RRA(cpu, &memory[address]);
-
-      emulate_6502_cycle(8);
-      cyc = 8;
-      break;
-
-    // NOP zpg
-    case 0x4:
-      cpu->PC += 2;
-      emulate_6502_cycle(3);
-      cyc = 3;
-      break;
-
-    // 0x65
-    // ADC zpg
-    case 0x5:
-      address = addr_zpg(cpu);
-      instr_ADC(cpu, memory[address]);
-
-      emulate_6502_cycle(3);
-      cyc = 3;
-      break;
-
-    // 0x66
-    // ROR zpg
-    case 0x6:
-      address = addr_zpg(cpu);
-      instr_ROR(cpu, &memory[address]);
-
-      emulate_6502_cycle(5);
-      cyc = 5;
-      break;
-
-    // 0x67
-    // RRA zpg
-    case 0x7:
-      address = addr_zpg(cpu);
-      instr_RRA(cpu, &memory[address]);
-
-      emulate_6502_cycle(5);
-      cyc = 5;
-      break;
-
-    // 0x68
-    // PLA impl
-    case 0x8:
-      instr_PLA(cpu);
-      break;
-
-    // 0x69
-    // ADC #
-    case 0x9:
-
-      address = addr_imm(cpu);
-      instr_ADC(cpu, memory[address]);
-
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0x6A
-    // ROR A
-    case 0xA:
-      instr_ROR(cpu, &cpu->A);
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0x6C
-    // JMP ind
-    case 0xC:
-      cpu->PC++;
-      LB = memory[cpu->PC];
-
-      cpu->PC++;
-      // Address of the location of new address
-      address = memory[cpu->PC] << 8 | LB;
-
-      // If address crosses boundary, bug occurs
-      // For example, address = 0x2ff, this is the lower byte
-      // higher byte should be retrieved from 0x300
-      // instead, 6502 wraps the address around to 0x200
-
-      if (LB == 0xFF) {
-        cpu->PC = memory[address & 0xF00] << 8 | memory[address];
-      } else {
-        cpu->PC = memory[address + 1] << 8 | memory[address];
-      }
-      emulate_6502_cycle(5);
-      cyc = 5;
-      break;
-
-    // 0x6D
-    // ADC abs
-    case 0xD:
-
-      address = addr_abs(cpu);
-      instr_ADC(cpu, memory[address]);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0x6E
-    // ROR abs
-    case 0xE:
-      address = addr_abs(cpu);
-      instr_ROR(cpu, &memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0x6F
-    // RRA abs
-    case 0xF:
-      address = addr_abs(cpu);
-      instr_RRA(cpu, &memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-    }
-
-    break;
-
-  case 0x7:
-
-    switch (instr & 0x0F) {
-    // 0x70
-    // BVS rel
-    case 0x0:
-      instr_BVS(cpu);
-      break;
-
-    // 0x71
-    // ADC ind,Y
-    case 0x1:
-      address = addr_ind_Y(cpu);
-      if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-        cyc = 6;
-      } else {
-        cyc = 5;
-      }
-      instr_ADC(cpu, memory[address]);
-
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // 0x73
-    // RRA ind,Y
-    case 0x3:
-      address = addr_ind_Y(cpu);
-      instr_RRA(cpu, &memory[address]);
-
-      emulate_6502_cycle(8);
-      cyc = 8;
-      break;
-
-    // NOP zpg,X
-    case 0x4:
-      cpu->PC += 2;
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0x75
-    // ADC zpg,X
-    case 0x5:
-      address = addr_zpg_X(cpu);
-      instr_ADC(cpu, memory[address]);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0x76
-    // ROR zpg,X
-    case 0x6:
-      address = addr_zpg_X(cpu);
-      instr_ROR(cpu, &memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0x77
-    // RRA zpg,X
-    case 0x7:
-      address = addr_zpg_X(cpu);
-      instr_RRA(cpu, &memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0x78
-    // SEI impl
-    case 0x8:
-      instr_SEI(cpu);
-      break;
-
-    // 0x79
-    // ADC abs,Y
-    case 0x9:
-      address = addr_abs_Y(cpu);
-      if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-        cyc = 5;
-      } else {
-        cyc = 4;
-      }
-      instr_ADC(cpu, memory[address]);
-
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // NOP imp
-    case 0xA:
-      cpu->PC++;
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0x7B
-    // RRA abs,Y
-    case 0xB:
-      address = addr_abs_X(cpu);
-      instr_RRA(cpu, &memory[address]);
-
-      emulate_6502_cycle(7);
-      cyc = 7;
-      break;
-
-    case 0xc:
-      address = addr_abs_X(cpu);
-      if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-        cyc = 5;
-      } else {
-        cyc = 4;
-      }
-      cpu->PC++;
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // 0x7D
-    // ADC abs,X
-    case 0xD:
-      address = addr_abs_X(cpu);
-      if ((address & 0xFF00) != ((address - cpu->X) & 0xFF00)) {
-        cyc = 5;
-      } else {
-        cyc = 4;
-      }
-      instr_ADC(cpu, memory[address]);
-
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // 0x7E
-    // ROR abs,X
-    case 0xE:
-      address = addr_abs_X(cpu);
-      instr_ROR(cpu, &memory[address]);
-
-      emulate_6502_cycle(7);
-      cyc = 7;
-      break;
-
-    // 0x7F
-    // RRA abs,X
-    case 0xF:
-      address = addr_abs_X(cpu);
-      instr_RRA(cpu, &memory[address]);
-
-      emulate_6502_cycle(7);
-      cyc = 7;
-      break;
-    }
-
-    break;
-
-  case 0x8:
-
-    switch (instr & 0x0F) {
-    // 0x80
-    // NOP imm
-    case 0x0:
-      cpu->PC += 2;
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0x81
-    // STA X,ind
-    case 0x1:
-      address = addr_X_ind(cpu);
-      instr_STA(cpu, address);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // NOP imm
-    case 0x2:
-      cpu->PC += 2;
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0x83
-    // SAX X,ind
-    case 0x3:
-      address = addr_X_ind(cpu);
-      instr_SAX(cpu, address);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0x84
-    // STY zpg
-    case 0x4:
-      address = addr_zpg(cpu);
-      instr_STY(cpu, address);
-
-      emulate_6502_cycle(3);
-      cyc = 3;
-      break;
-
-    // 0x85
-    // STA zpg
-    case 0x5:
-      address = addr_zpg(cpu);
-      instr_STA(cpu, address);
-
-      emulate_6502_cycle(3);
-      cyc = 3;
-      break;
-
-    // 0x86
-    // STX zpg
-    case 0x6:
-      address = addr_zpg(cpu);
-      instr_STX(cpu, address);
-
-      emulate_6502_cycle(3);
-      cyc = 3;
-      break;
-
-    // 0x87
-    // SAX zpg
-    case 0x7:
-      address = addr_zpg(cpu);
-      instr_SAX(cpu, address);
-
-      emulate_6502_cycle(3);
-      cyc = 3;
-      break;
-
-    // 0x88
-    // DEY impl
-    case 0x8:
-      instr_DEY(cpu);
-      break;
-
-    // NOP imm
-    case 0x9:
-      cpu->PC += 2;
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0x8A
-    // TXA impl
-    case 0xA:
-      instr_TXA(cpu);
-      break;
-
-    // 0x8C
-    // STY abs
-    case 0xC:
-      address = addr_abs(cpu);
-      instr_STY(cpu, address);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0x8D
-    // STA abs
-    case 0xD:
-      address = addr_abs(cpu);
-      instr_STA(cpu, address);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0x8E
-    // STX abs
-    case 0xE:
-      address = addr_abs(cpu);
-      instr_STX(cpu, address);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0x8F
-    // SAX abs
-    case 0xF:
-      address = addr_abs(cpu);
-      instr_SAX(cpu, address);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-    }
-
-    break;
-
-  case 0x9:
-    switch (instr & 0x0F) {
-    // 0x90
-    // BCC rel
-    case 0x0:
-
-      instr_BCC(cpu);
-      break;
-
-    // 0x91
-    // STA ind,Y
-    case 0x1:
-      address = addr_ind_Y(cpu);
-      instr_STA(cpu, address);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0x94
-    // STY zpg,X
-    case 0x4:
-      address = addr_zpg_X(cpu);
-      instr_STY(cpu, address);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0x95
-    // STA zpg,X
-    case 0x5:
-      address = addr_zpg_X(cpu);
-      instr_STA(cpu, address);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0x96
-    // STX zpg,Y
-    case 0x6:
-      address = addr_zpg_Y(cpu);
-      instr_STX(cpu, address);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0x97
-    // SAX zpg,Y
-    case 0x7:
-      address = addr_zpg_Y(cpu);
-      instr_SAX(cpu, address);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0x98
-    // TYA impl
-    case 0x8:
-      // Transfer Index Y to Accumulator
-      instr_TYA(cpu);
-      break;
-
-    // 0x99
-    // STA abs,Y
-    case 0x9:
-      // Increment to get the lower byte
-      address = addr_abs_Y(cpu);
-      instr_STA(cpu, address);
-
-      emulate_6502_cycle(5);
-      cyc = 5;
-      break;
-
-    // 0x9A
-    // TXS impl
-    case 0xA:
-      instr_TXS(cpu);
-      break;
-
-    // 0x9D
-    // STA abs,X
-    case 0xD:
-      address = addr_abs_X(cpu);
-      instr_STA(cpu, address);
-      emulate_6502_cycle(5);
-      cyc = 5;
-      break;
-    }
-
-    break;
-
-  case 0xA:
-
-    switch (instr & 0x0F) {
-
-    // 0xA0
-    // LDY #
-    case 0x0:
-      // Load Index Y with Memory
-      address = addr_imm(cpu);
-      instr_LDY(cpu, address);
-
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0xA1
-    // LDA X,ind
-    case 0x1:
-      address = addr_X_ind(cpu);
-      instr_LDA(cpu, address);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0xA2
-    // LDX #
-    case 0x2:
-      address = addr_imm(cpu);
-      instr_LDX(cpu, address);
-
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0xA2
-    // LDX #
-    case 0x3:
-      address = addr_X_ind(cpu);
-      instr_LAX(cpu, memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0xA4
-    // LDY zpg
-    case 0x4:
-      address = addr_zpg(cpu);
-      instr_LDY(cpu, address);
-
-      emulate_6502_cycle(3);
-      cyc = 3;
-      break;
-
-    // 0xA5
-    // LDA zpg
-    case 0x5:
-      address = addr_zpg(cpu);
-      instr_LDA(cpu, address);
-
-      emulate_6502_cycle(3);
-      cyc = 3;
-      break;
-
-    // 0xA6
-    // LDX zpg
-    case 0x6:
-      address = addr_zpg(cpu);
-      instr_LDX(cpu, address);
-
-      emulate_6502_cycle(3);
-      cyc = 3;
-      break;
-
-    // Ilegal Opcode 0xA7
-    // LAX zpg
-    case 0x7:
-      address = addr_zpg(cpu);
-      instr_LAX(cpu, memory[address]);
-
-      emulate_6502_cycle(3);
-      cyc = 3;
-      break;
-
-    // 0xA8
-    // TAY impl
-    case 0x8:
-      instr_TAY(cpu);
-      break;
-
-    // 0xA9
-    // LDA #
-    case 0x9:
-      address = addr_imm(cpu);
-      instr_LDA(cpu, address);
-
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0xAA
-    // TAX impl
-    case 0xA:
-      instr_TAX(cpu);
-      break;
-
-    // 0xAC
-    // LDY abs
-    case 0xC:
-      address = addr_abs(cpu);
-      instr_LDY(cpu, address);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0xAD
-    // LDA abs
-    case 0xD:
-      address = addr_abs(cpu);
-      LOG("INSTR: LDA ABS ADDR: %x\n", address);
-      instr_LDA(cpu, address);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0xAE
-    // LDX abs
-    case 0xE:
-      address = addr_abs(cpu);
-      instr_LDX(cpu, address);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0xAF
-    // LAX abs
-    case 0xF:
-
-      address = addr_abs(cpu);
-      instr_LAX(cpu, memory[address]);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-    }
-
-    break;
-
-  case 0xB:
-
-    switch (instr & 0x0F) {
-    // 0xB0
-    // BCS rel
-    case 0x0:
-
-      instr_BCS(cpu);
-      break;
-
-    // 0xB1
-    // LDA ind,Y
-    case 0x1:
-      address = addr_ind_Y(cpu);
-      if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-        cyc = 6;
-      } else {
-        cyc = 5;
-      }
-      instr_LDA(cpu, address);
-
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // 0xB3
-    // LAX ind,Y
-    case 0x3:
-      address = addr_ind_Y(cpu);
-      if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-        cyc = 6;
-      } else {
-        cyc = 5;
-      }
-      instr_LAX(cpu, memory[address]);
-
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // 0xB4
-    // LDY zpg,X
-    case 0x4:
-      address = addr_zpg_X(cpu);
-      instr_LDY(cpu, address);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0xB5
-    // LDA zpg,X
-    case 0x5:
-      address = addr_zpg_X(cpu);
-      instr_LDA(cpu, address);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0xB6
-    // LDX zpg,Y
-    case 0x6:
-      address = addr_zpg_Y(cpu);
-      instr_LDX(cpu, address);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // Illegal opcode 0xB7
-    // LAX zpg, Y
-    case 0x7:
-      address = addr_zpg_Y(cpu);
-      instr_LAX(cpu, memory[address]);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0xB8
-    // CLV impl
-    case 0x8:
-      instr_CLV(cpu);
-      break;
-
-    // 0xB9
-    // LDA abs,Y
-    case 0x9:
-      address = addr_abs_Y(cpu);
-      if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-        cyc = 5;
-      } else {
-        cyc = 4;
-      }
-      instr_LDA(cpu, address);
-
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // 0xBA
-    // TSX impl
-    case 0xA:
-      instr_TSX(cpu);
-      break;
-
-    // 0xBC
-    // LDY abs,X
-    case 0xC:
-      address = addr_abs_X(cpu);
-      if ((address & 0xFF00) != ((address - cpu->X) & 0xFF00)) {
-        cyc = 5;
-      } else {
-        cyc = 4;
-      }
-      instr_LDY(cpu, address);
-
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // 0xBD
-    // LDA abs,X
-    case 0xD:
-
-      address = addr_abs_X(cpu);
-      if ((address & 0xFF00) != ((address - cpu->X) & 0xFF00)) {
-        cyc = 5;
-      } else {
-        cyc = 4;
-      }
-
-      instr_LDA(cpu, address);
-
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // 0xBE
-    // LDX abs,Y
-    case 0xE:
-      address = addr_abs_Y(cpu);
-      if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-        cyc = 5;
-      } else {
-        cyc = 4;
-      }
-      // cyc += 4;
-      instr_LDX(cpu, address);
-
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // 0xBF
-    // LAX abs,Y
-    case 0xF:
-      address = addr_abs_Y(cpu);
-      if ((address & 0xFF00) != ((address - cpu->X) & 0xFF00)) {
-        cyc = 5;
-      } else {
-        cyc = 4;
-      }
-      instr_LAX(cpu, memory[address]);
-
-      emulate_6502_cycle(cyc);
-
-      break;
-    }
-
-    break;
-
-  case 0xC:
-
-    switch (instr & 0x0F) {
-
-    // 0xC0
-    // CPY #
-    case 0x0:
-      address = addr_imm(cpu);
-      instr_CPY(cpu, memory[address]);
-
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0xC1
-    // CMP X,ind
-    case 0x1:
-      address = addr_X_ind(cpu);
-      instr_CMP(cpu, memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // NOP imm
-    case 0x2:
-      cpu->PC += 2;
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0xC3
-    // DCP X,ind
-    case 0x3:
-      address = addr_X_ind(cpu);
-      instr_DCP(cpu, &memory[address]);
-
-      emulate_6502_cycle(8);
-      cyc = 8;
-      break;
-
-    // 0xC4
-    // CPY zpg
-    case 0x4:
-      address = addr_zpg(cpu);
-      instr_CPY(cpu, memory[address]);
-
-      emulate_6502_cycle(3);
-      cyc = 3;
-      break;
-
-    // 0xC5
-    // CMP zpg
-    case 0x5:
-      address = addr_zpg(cpu);
-      instr_CMP(cpu, memory[address]);
-
-      emulate_6502_cycle(3);
-      cyc = 3;
-      break;
-
-    // 0xC6
-    // DEC zpg
-    case 0x6:
-      address = addr_zpg(cpu);
-      instr_DEC(cpu, &memory[address]);
-
-      emulate_6502_cycle(5);
-      cyc = 5;
-      break;
-
-    // 0xC7
-    // DCP zpg
-    case 0x7:
-      address = addr_zpg(cpu);
-      instr_DCP(cpu, &memory[address]);
-
-      emulate_6502_cycle(5);
-      cyc = 5;
-      break;
-
-    // 0xC8
-    // INY impl
-    case 0x8:
-      instr_INY(cpu);
-      break;
-
-    // 0xC9
-    // CMP #
-    case 0x9:
-      address = addr_imm(cpu);
-      instr_CMP(cpu, memory[address]);
-
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0xCA
-    // DEX impl
-    case 0xA:
-      instr_DEX(cpu);
-      break;
-
-    // 0xCC
-    // CPY abs
-    case 0xC:
-      address = addr_abs(cpu);
-      instr_CPY(cpu, memory[address]);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0xCD
-    // CMP abs
-    case 0xD:
-      address = addr_abs(cpu);
-      instr_CMP(cpu, memory[address]);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0xCE
-    // DEC abs
-    case 0xE:
-      address = addr_abs(cpu);
-      instr_DEC(cpu, &memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0xCF
-    // DCP abs
-    case 0xF:
-      address = addr_abs(cpu);
-      instr_DCP(cpu, &memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-    }
-    break;
-
-  case 0xD:
-
-    switch (instr & 0x0F) {
-
-    // 0xD0
-    // BNE rel
-    case 0x0:
-      instr_BNE(cpu);
-      break;
-
-    // 0xD1
-    // CMP ind,Y
-    case 0x1:
-      address = addr_ind_Y(cpu);
-      if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-        cyc = 6;
-      } else {
-        cyc = 5;
-      }
-      instr_CMP(cpu, memory[address]);
-
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // 0xD3
-    // DCP ind,Y
-    case 0x3:
-      address = addr_ind_Y(cpu);
-      instr_DCP(cpu, &memory[address]);
-
-      emulate_6502_cycle(8);
-      cyc = 8;
-      break;
-
-    // NOP zpg,X
-    case 0x4:
-      cpu->PC += 2;
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0xD5
-    // CMP zpg,X
-    case 0x5:
-      address = addr_zpg_X(cpu);
-      instr_CMP(cpu, memory[address]);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0xD7
-    // DCP zpg,X
-    case 0x7:
-      address = addr_zpg_X(cpu);
-      instr_DCP(cpu, &memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0xD6
-    // DEC zpg,X
-    case 0x6:
-      address = addr_zpg_X(cpu);
-      instr_DEC(cpu, &memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0xD8
-    // CLD impl
-    case 0x8:
-      instr_CLD(cpu);
-      break;
-
-    // 0xD9
-    // CMP abs,Y
-    case 0x9:
-      address = addr_abs_Y(cpu);
-      if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-        cyc = 5;
-      } else {
-        cyc = 4;
-      }
-      instr_CMP(cpu, memory[address]);
-
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // NOP imp
-    case 0xA:
-      cpu->PC++;
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0xDB
-    // DCP abs,Y
-    case 0xB:
-      address = addr_abs_Y(cpu);
-      instr_DCP(cpu, &memory[address]);
-
-      emulate_6502_cycle(7);
-      cyc = 7;
-      break;
-
-    case 0xc:
-      address = addr_abs_X(cpu);
-      if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-        cyc = 5;
-      } else {
-        cyc = 4;
-      }
-      cpu->PC++;
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // 0xDD
-    // CMP abs,X
-    case 0xD:
-      address = addr_abs_X(cpu);
-      if ((address & 0xFF00) != ((address - cpu->X) & 0xFF00)) {
-        cyc = 5;
-      } else {
-        cyc = 4;
-      }
-      instr_CMP(cpu, memory[address]);
-
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // 0xDE
-    // DEC abs,X
-    case 0xE:
-      address = addr_abs_X(cpu);
-      instr_DEC(cpu, &memory[address]);
-
-      emulate_6502_cycle(7);
-      cyc = 7;
-      break;
-
-    // 0xDF
-    // DCP abs,X
-    case 0xF:
-      address = addr_abs_X(cpu);
-      instr_DCP(cpu, &memory[address]);
-
-      emulate_6502_cycle(7);
-      cyc = 7;
-      break;
-    }
-
-    break;
-
-  case 0xE:
-
-    switch (instr & 0x0F) {
-
-    // 0xE0
-    // CPX #
-    case 0x0:
-      address = addr_imm(cpu);
-      instr_CPX(cpu, memory[address]);
-
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0xE1
-    // SBC X,ind
-    case 0x1:
-      address = addr_X_ind(cpu);
-      instr_SBC(cpu, memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // NOP imm
-    case 0x2:
-      cpu->PC += 2;
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0xE3
-    // ISC X,ind
-    case 0x3:
-      address = addr_X_ind(cpu);
-      instr_ISC(cpu, &memory[address]);
-
-      emulate_6502_cycle(8);
-      cyc = 8;
-      break;
-
-    // 0xE4
-    // CPX zpg
-    case 0x4:
-      address = addr_zpg(cpu);
-      instr_CPX(cpu, memory[address]);
-
-      emulate_6502_cycle(3);
-      cyc = 3;
-      break;
-
-    // 0xE5
-    // SBC zpg
-    case 0x5:
-      address = addr_zpg(cpu);
-      instr_SBC(cpu, memory[address]);
-
-      emulate_6502_cycle(3);
-      cyc = 3;
-      break;
-
-    // 0xE6
-    // INC zpg
-    case 0x6:
-      address = addr_zpg(cpu);
-      instr_INC(cpu, &memory[address]);
-
-      emulate_6502_cycle(5);
-      cyc = 5;
-      break;
-
-    // 0xE7
-    // ISC zpg
-    case 0x7:
-      address = addr_zpg(cpu);
-      instr_ISC(cpu, &memory[address]);
-
-      emulate_6502_cycle(5);
-      cyc = 5;
-      break;
-
-    // 0xE8
-    // INX impl
-    case 0x8:
-      instr_INX(cpu);
-      break;
-
-    // 0xE9
-    // SBC #
-    case 0x9:
-      address = addr_imm(cpu);
-      instr_SBC(cpu, memory[address]);
-
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0xEA
-    // NOP impl
-    case 0xA:
-      cpu->PC++;
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0xEB
-    // USBC #
-    case 0xB:
-      address = addr_imm(cpu);
-      instr_SBC(cpu, memory[address]);
-
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0xEC
-    // CPX abs
-    case 0xC:
-      address = addr_abs(cpu);
-      instr_CPX(cpu, memory[address]);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0xED
-    // SBC abs
-    case 0xD:
-      address = addr_abs(cpu);
-      instr_SBC(cpu, memory[address]);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0xEE
-    // INC abs
-    case 0xE:
-      address = addr_abs(cpu);
-      instr_INC(cpu, &memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0xE7
-    // ISC abs
-    case 0xF:
-      address = addr_abs(cpu);
-      instr_ISC(cpu, &memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-    }
-    break;
-
-  case 0xF:
-
-    switch (instr & 0x0F) {
-
-    // 0xF0
-    // BEQ rel
-    case 0x0:
-      instr_BEQ(cpu);
-      break;
-
-    // 0xF1
-    // SBC ind,Y
-    case 0x1:
-      address = addr_ind_Y(cpu);
-      if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-        cyc = 6;
-      } else {
-        cyc = 5;
-      }
-      instr_SBC(cpu, memory[address]);
-
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // 0xF3
-    // ISC ind,Y
-    case 0x3:
-      address = addr_ind_Y(cpu);
-      instr_ISC(cpu, &memory[address]);
-
-      emulate_6502_cycle(8);
-      cyc = 8;
-      break;
-
-    // NOP zpg,X
-    case 0x4:
-      cpu->PC += 2;
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0xF5
-    // SBC zpg,X
-    case 0x5:
-      address = addr_zpg_X(cpu);
-      instr_SBC(cpu, memory[address]);
-
-      emulate_6502_cycle(4);
-      cyc = 4;
-      break;
-
-    // 0xF6
-    // INC zpg,X
-    case 0x6:
-      address = addr_zpg_X(cpu);
-      instr_INC(cpu, &memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0xF7
-    // ISC zpg,X
-    case 0x7:
-      address = addr_zpg_X(cpu);
-      instr_ISC(cpu, &memory[address]);
-
-      emulate_6502_cycle(6);
-      cyc = 6;
-      break;
-
-    // 0xF8
-    // SED impl
-    case 0x8:
-      instr_SED(cpu);
-      break;
-
-    // 0xF9
-    // SBC abs,Y
-    case 0x9:
-      address = addr_abs_Y(cpu);
-      if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-        cyc = 5;
-      } else {
-        cyc = 4;
-      }
-      instr_SBC(cpu, memory[address]);
-
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // NOP imp
-    case 0xA:
-      cpu->PC++;
-      emulate_6502_cycle(2);
-      cyc = 2;
-      break;
-
-    // 0xFB
-    // ISC abs,Y
-    case 0xB:
-      address = addr_abs_Y(cpu);
-      instr_ISC(cpu, &memory[address]);
-
-      emulate_6502_cycle(7);
-      cyc = 7;
-      break;
-
-    case 0xc:
-      address = addr_abs_X(cpu);
-      if ((address & 0xFF00) != ((address - cpu->Y) & 0xFF00)) {
-        cyc = 5;
-      } else {
-        cyc = 4;
-      }
-      cpu->PC++;
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // 0xFD
-    // SBC abs,X
-    case 0xD:
-      address = addr_abs_X(cpu);
-      if ((address & 0xFF00) != ((address - cpu->X) & 0xFF00)) {
-        cyc = 5;
-      } else {
-        cyc = 4;
-      }
-      instr_SBC(cpu, memory[address]);
-
-      emulate_6502_cycle(cyc);
-
-      break;
-
-    // 0xFE
-    // INC abs,X
-    case 0xE:
-      address = addr_abs_X(cpu);
-      instr_INC(cpu, &memory[address]);
-
-      emulate_6502_cycle(7);
-      cyc = 7;
-      break;
-
-    // 0xFF
-    // ISC abs,X
-    case 0xF:
-      address = addr_abs_X(cpu);
-      instr_ISC(cpu, &memory[address]);
-
-      emulate_6502_cycle(7);
-      cyc = 7;
-      break;
-    }
-    break;
+  case INSTR_ACC:
+    opcode.instr_mem(cpu, &cpu->A);
   }
+
+  cyc += page_crossed ? opcode.page_cycles : 0;
 
   for (int i = 0; i < cyc; i++) {
     ppu_execute_cycle(cpu->ppu);
@@ -3683,6 +3359,7 @@ void cpu_execute(Cpu6502 *cpu) {
   }
   cpu->cycles += cyc;
   cyc = 0;
+  page_crossed = 0;
 
   // PPU set NMI flag
   if (cpu->ppu->nmi_flag) {

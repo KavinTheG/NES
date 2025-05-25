@@ -1,6 +1,7 @@
 #include "ppu_render.h"
 #include "ppu.h"
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
 uint8_t fetch_name_table_byte(PPU *ppu) {
@@ -24,13 +25,99 @@ uint8_t fetch_pattern_table_byte(PPU *ppu, uint8_t row_padding,
   return read_mem(ppu, base_address + (bit_plane ? 8 : 0) + row + row_padding);
 }
 
+void sprite_ppu_render(PPU *ppu) {
+  if (ppu->current_scanline_cycle == ppu->sprite_zero_index) {
+    // sprite zero hit!
+    ppu->PPUSTATUS |= 0x40;
+    ppu->sprite_zero_index = 0;
+  }
+  int sprite_height = ppu->PPUCTRL & 0x20 ? 16 : 8;
+
+  for (int i = 0; i <= OAM_SECONDARY_SIZE - 4; i += 4) {
+    int sprite_y = oam_buffer_latches[i] + 1;
+    int sprite_x = oam_buffer_latches[i + 3];
+
+    if (ppu->scanline >= sprite_y && ppu->scanline < sprite_y + sprite_height) {
+      if (sprite_x == ppu->current_scanline_cycle - 8) {
+        ppu->sprite_render_index = i;
+        break;
+      }
+    }
+  }
+  if (ppu->sprite_render_index == -1)
+    return;
+  ppu->sprite_pipeline.name_table_byte =
+      oam_buffer_latches[ppu->sprite_render_index + 1];
+
+  // Fetch the corresponding attribute byte
+  ppu->sprite_pipeline.attribute_byte =
+      oam_buffer_latches[ppu->sprite_render_index + 2] & 0x3;
+  ppu->sprite_pipeline.palette_index =
+      ppu->sprite_pipeline.attribute_byte & 0x3;
+
+  // Fetch nametable low byte
+  ppu->sprite_pipeline.pattern_table_lsb =
+      ppu_memory[((ppu->PPUCTRL & 0x08) ? 0x1000 : 0x0) |
+                 (((ppu->sprite_pipeline.name_table_byte * 16) +
+                   (ppu->scanline -
+                    (oam_buffer_latches[ppu->sprite_render_index] + 1))) &
+                  0xFFF)];
+  // Fetch nametable high byte
+  ppu->sprite_pipeline.pattern_table_msb =
+      ppu_memory[((ppu->PPUCTRL & 0x08) ? 0x1000 : 0x0) |
+                 (((ppu->sprite_pipeline.name_table_byte * 16) + 8 +
+                   (ppu->scanline -
+                    (oam_buffer_latches[ppu->sprite_render_index] + 1))) &
+                  0xFFF)];
+  for (int i = 0; i < 8; i++) {
+    uint8_t bit = 7 - i;
+    uint8_t sprite_lo = (ppu->sprite_pipeline.pattern_table_lsb >> bit) & 1;
+    uint8_t sprite_hi = (ppu->sprite_pipeline.pattern_table_msb >> bit) & 1;
+    ppu->sprite_pipeline.tile_pixel_value[i] = (sprite_hi << 1) | sprite_lo;
+  }
+
+  unsigned char is_pre_fetch =
+      ppu->current_scanline_cycle >= 321 && ppu->current_scanline_cycle <= 336
+          ? 1
+          : 0;
+
+  int row = is_pre_fetch ? ppu->scanline + 1 : ppu->scanline;
+  int column_base = ppu->current_scanline_cycle - 8;
+
+  int sprite_flipped =
+      !is_pre_fetch &&
+      (oam_buffer_latches[ppu->sprite_render_index + 2] & 0x40);
+
+  for (int i = 0; i < TILE_SIZE; i++) {
+    uint8_t tile_val = ppu->sprite_pipeline.tile_pixel_value[i];
+
+    uint8_t palette_index = ppu->sprite_pipeline.palette_index;
+
+    uint16_t pal_addr = 0x3F10 | (palette_index << 2) | tile_val;
+
+    uint8_t palette_data = read_mem(ppu, pal_addr);
+    uint8_t alpha = (tile_val == 0) ? 0x00 : 0xFF;
+
+    uint8_t *color = &ppu_palette[palette_data * 3];
+    uint8_t r = color[0], g = color[1], b = color[2];
+
+    int column = sprite_flipped ? (ppu->current_scanline_cycle + 8 - i)
+                                : (column_base + i);
+
+    if (column >= 256 || row >= 240)
+      break;
+
+    ppu->frame_buffer[row][column] = (r << 24) | (g << 16) | (b << 8) | alpha;
+  }
+}
+
 /**
  * @brief  Executes PPU memory fetches for rendering
  *
  * @param       ppu     PPU instance
  * @return              void
  */
-void ppu_render(PPU *ppu) {
+void background_ppu_render(PPU *ppu) {
   if (ppu->current_scanline_cycle == ppu->sprite_zero_index) {
     // sprite zero hit!
     ppu->PPUSTATUS |= 0x40;
@@ -40,42 +127,14 @@ void ppu_render(PPU *ppu) {
   switch (ppu->current_scanline_cycle % 8) {
   // Fetch Nametable byte
   case 1:
-    // Set background tile flag to 1 by default
     ppu->drawing_bg_flag = 1;
 
-    for (int i = 0; i <= OAM_SECONDARY_SIZE - 4; i += 4) {
-      int sprite_y = oam_buffer_latches[i] + 1;
-      int sprite_x = oam_buffer_latches[i + 3];
-
-      if (ppu->scanline >= sprite_y &&
-          ppu->scanline < sprite_y + sprite_height) {
-
-        if (sprite_x <= ppu->current_scanline_cycle + 16 &&
-            sprite_x + 8 > ppu->current_scanline_cycle + 16 &&
-            !((oam_buffer_latches[i + 2]) & 0x20)) {
-
-          ppu->drawing_bg_flag = 0;
-          ppu->sprite_render_index = i;
-          break;
-        }
-      }
-    }
-    printf("%d\n", ppu->sprite_render_index);
-    fflush(stdout);
     ppu->bg_pipeline.name_table_byte = fetch_name_table_byte(ppu);
-    ppu->sprite_pipeline.name_table_byte =
-        oam_buffer_latches[ppu->sprite_render_index + 1];
-    printf("%d\n", ppu->current_scanline_cycle);
-    fflush(stdout);
     break;
 
   // Fetch the corresponding attribute byte
   case 3:
     ppu->bg_pipeline.attribute_byte = fetch_attr_table_byte(ppu);
-    ppu->sprite_pipeline.attribute_byte =
-        oam_buffer_latches[ppu->sprite_render_index + 2] & 0x3;
-    ppu->sprite_pipeline.palette_index =
-        ppu->sprite_pipeline.attribute_byte & 0x3;
     // Determines which of the four areas of the attribute byte to use
     uint8_t tile_area_horizontal = (ppu->v & 0x00F) % 4;
     uint8_t tile_area_vertical = ((ppu->v & 0x0F0) / 0x20) % 4;
@@ -108,16 +167,6 @@ void ppu_render(PPU *ppu) {
     ppu->bg_pipeline.pattern_table_lsb =
         read_mem(ppu, (ppu->bg_pipeline.name_table_byte * 16) +
                           (ppu->scanline % 8) + row_padding);
-    ppu->sprite_pipeline.pattern_table_lsb =
-        ppu_memory[((ppu->PPUCTRL & 0x08) ? 0x1000 : 0x0) |
-                   (((ppu->sprite_pipeline.name_table_byte * 16) +
-                     (ppu->scanline -
-                      (oam_buffer_latches[ppu->sprite_render_index] + 1))) &
-                    0xFFF)];
-    // ppu->pattern_table_lsb = fetch_pattern_table_byte(ppu, row_padding, 0);
-    // ppu->pattern_table_msb = read_mem(ppu, (ppu->name_table_byte * 16) + 8 +
-    // ppu->scanline);
-
     break;
 
   // Fetch high byte
@@ -131,21 +180,12 @@ void ppu_render(PPU *ppu) {
     ppu->bg_pipeline.pattern_table_msb =
         read_mem(ppu, (ppu->bg_pipeline.name_table_byte * 16) + 8 +
                           (ppu->scanline % 8) + row_padding);
-    ppu->sprite_pipeline.pattern_table_msb =
-        ppu_memory[((ppu->PPUCTRL & 0x08) ? 0x1000 : 0x0) |
-                   (((ppu->sprite_pipeline.name_table_byte * 16) + 8 +
-                     (ppu->scanline -
-                      (oam_buffer_latches[ppu->sprite_render_index] + 1))) &
-                    0xFFF)];
     for (int i = 0; i < 8; i++) {
       uint8_t bit = 7 - i;
-      uint8_t sprite_lo = (ppu->sprite_pipeline.pattern_table_lsb >> bit) & 1;
-      uint8_t sprite_hi = (ppu->sprite_pipeline.pattern_table_msb >> bit) & 1;
       uint8_t bg_lo = (ppu->bg_pipeline.pattern_table_lsb >> bit) & 1;
       uint8_t bg_hi = (ppu->bg_pipeline.pattern_table_msb >> bit) & 1;
 
       ppu->bg_pipeline.tile_pixel_value[i] = (bg_hi << 1) | bg_lo;
-      ppu->sprite_pipeline.tile_pixel_value[i] = (sprite_hi << 1) | sprite_lo;
     }
 
     break;
@@ -184,64 +224,39 @@ void ppu_render(PPU *ppu) {
             : 0;
 
     int row = is_pre_fetch ? ppu->scanline + 1 : ppu->scanline;
+    int column_base = is_pre_fetch ? ppu->current_scanline_cycle - 328
+                                   : ppu->current_scanline_cycle + 8;
+    int sprite_flipped =
+        !is_pre_fetch &&
+        (oam_buffer_latches[ppu->sprite_render_index + 2] & 0x40) &&
+        !ppu->drawing_bg_flag;
 
     for (int i = 0; i < TILE_SIZE; i++) {
-      uint8_t palette_data;
-      uint8_t r, g, b, a;
+      // int draw_sprite = !ppu->drawing_bg_flag &&
+      //                   ppu->sprite_pipeline.tile_pixel_value[i] != 0;
+      int draw_sprite = !ppu->drawing_bg_flag;
+      uint8_t tile_val = draw_sprite ? ppu->sprite_pipeline.tile_pixel_value[i]
+                                     : ppu->bg_pipeline.tile_pixel_value[i];
 
-      ppu->bg_pipeline.palette_ram_addr = 0x3F00;
-      // Bit 0 & Bit 1 determine Pixel Value
-      ppu->bg_pipeline.palette_ram_addr |= ppu->bg_pipeline.tile_pixel_value[i];
-      // Bit 3 & Bit 2 determine Palette # from attribute table
-      ppu->bg_pipeline.palette_ram_addr |= (ppu->bg_pipeline.palette_index)
-                                           << 2;
+      uint8_t palette_index = draw_sprite ? ppu->sprite_pipeline.palette_index
+                                          : ppu->bg_pipeline.palette_index;
 
-      ppu->sprite_pipeline.palette_ram_addr = 0x3F10;
-      // Bit 0 & Bit 1 determine Pixel Value
-      ppu->sprite_pipeline.palette_ram_addr |=
-          ppu->sprite_pipeline.tile_pixel_value[i];
-      // Bit 3 & Bit 2 determine Palette # from attribute table
-      ppu->sprite_pipeline.palette_ram_addr |=
-          (ppu->sprite_pipeline.palette_index) << 2;
+      uint16_t pal_addr = 0x3F00 | (palette_index << 2) | tile_val;
+      if (draw_sprite)
+        pal_addr |= 0x10;
 
-      if (ppu->drawing_bg_flag) {
-        palette_data = read_mem(ppu, ppu->bg_pipeline.palette_ram_addr);
-        a = ppu->bg_pipeline.tile_pixel_value[i] == 0 ? 0x0 : 0xFF;
-      } else {
-        if (ppu->sprite_pipeline.tile_pixel_value[i] == 0) {
-          palette_data = read_mem(ppu, ppu->bg_pipeline.palette_ram_addr);
-          a = ppu->bg_pipeline.tile_pixel_value[i] == 0 ? 0x0 : 0xFF;
-        } else {
-          palette_data = read_mem(ppu, ppu->sprite_pipeline.palette_ram_addr);
-          a = ppu->sprite_pipeline.tile_pixel_value[i] == 0 ? 0x0 : 0xFF;
-        }
-      }
-      // RGBA format
-      r = ppu_palette[palette_data * 3];
-      g = ppu_palette[palette_data * 3 + 1];
-      b = ppu_palette[palette_data * 3 + 2];
+      uint8_t palette_data = read_mem(ppu, pal_addr);
+      uint8_t alpha = (tile_val == 0) ? 0x00 : 0xFF;
 
-      int column = is_pre_fetch ? ppu->current_scanline_cycle - 321 - (7 - i)
-                                : ppu->current_scanline_cycle + 8 + i;
+      uint8_t *color = &ppu_palette[palette_data * 3];
+      uint8_t r = color[0], g = color[1], b = color[2];
 
-      // Horizontal sprite flip logic
-      if (!is_pre_fetch &&
-          oam_buffer_latches[ppu->sprite_render_index + 2] & 0x40 &&
-          !ppu->drawing_bg_flag) {
-        column = ppu->current_scanline_cycle + 16 - i;
-      }
-
-      //  Bit 2 of PPUMASK determine background rendering for leftmost 8 pixels
-      if (row == 8 && (ppu->PPUMASK & 0x02) && ppu->drawing_bg_flag)
-        break;
-      // Bit 3 of PPUMASK determines sprite rendering for leftmost 8 pixels
-      if (row == 8 && (ppu->PPUMASK & 0x04) && !ppu->drawing_bg_flag)
-        break;
+      int column = column_base + i;
 
       if (column >= 256 || row >= 240)
         break;
 
-      ppu->frame_buffer[row][column] = (r << 24) | (g << 16) | (b << 8) | a;
+      ppu->frame_buffer[row][column] = (r << 24) | (g << 16) | (b << 8) | alpha;
     }
     break;
   }
@@ -266,7 +281,7 @@ void ppu_exec_pre_render(PPU *ppu) {
 
   if (ppu->current_scanline_cycle >= 321 &&
       ppu->current_scanline_cycle <= 336 && ppu->PPUMASK & 0x18) {
-    ppu_render(ppu);
+    background_ppu_render(ppu);
   }
 }
 
@@ -327,7 +342,9 @@ void ppu_exec_visible_scanline(PPU *ppu) {
   sprite_detect(ppu);
 
   if (ppu->current_scanline_cycle >= 1 && ppu->current_scanline_cycle <= 256) {
-    ppu_render(ppu);
+    background_ppu_render(ppu);
+    sprite_ppu_render(ppu);
+    ppu->sprite_render_index = -1;
   } else if (ppu->current_scanline_cycle >= 257 &&
              ppu->current_scanline_cycle <= 320) {
     /* HBLANK */
@@ -340,15 +357,9 @@ void ppu_exec_visible_scanline(PPU *ppu) {
     // latches
     oam_buffer_latches[(ppu->current_scanline_cycle - 257) % 32] =
         oam_memory_secondary[(ppu->current_scanline_cycle - 257) % 32];
-    // if (oam_memory_secondary[(ppu->current_scanline_cycle - 257) % 32] ==
-    // 0xA2) {
-    //     printf("Index: %d\n", (ppu->current_scanline_cycle - 257) % 32);
-    //     fflush(stdout);
-    //     sleep(5);
-    // }
   } else if (ppu->current_scanline_cycle >= 321 &&
              ppu->current_scanline_cycle <= 336) {
-    ppu_render(ppu);
+    background_ppu_render(ppu);
   }
 }
 
@@ -364,7 +375,6 @@ void ppu_exec_vblank(PPU *ppu) {
       // Set NMI
       ppu->nmi_flag = 1;
       LOG("NMI triggered\n");
-      fflush(stdout);
     }
   }
 }

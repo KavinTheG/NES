@@ -118,9 +118,7 @@ inline uint8_t read_mem(PPU *ppu, uint16_t addr) {
   else if (addr < 0x4000) {
     // Palette memory
     addr &= 0x1F;
-    if ((addr & 0x13) == 0x10) {
-      addr &= ~0x10; // mirror 0x3F10, 0x3F14, ... to 0x3F00, 0x3F04, ...
-    }
+    addr ^= ((addr & 0x13) == 0x10) ? 0x10 : 0x00;
     return ppu_memory[0x3F00 + addr];
   }
 

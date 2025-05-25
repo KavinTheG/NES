@@ -34,8 +34,12 @@ int main() {
   Frontend frontend;
 
   Frontend_Init(&frontend, SCREEN_WIDTH_VIS, SCREEN_HEIGHT_VIS, SCALE);
+  rom_load_cartridge(&rom, "rom/Donkey Kong.nes");
 
   rom_load_cartridge(&rom, "rom/Donkey Kong.nes");
+#if NES_TEST_ROM
+  rom_load_cartridge(&rom, "rom/nestest.nes");
+#endif
 
   load_cpu_memory(&cpu, rom.prg_data, rom.prg_size);
 
@@ -67,7 +71,6 @@ int main() {
     } else {
       if (cpu.strobe) {
         cpu.ctrl_latch_state = frontend.controller;
-        printf("Controller State: %x\n", frontend.controller);
       }
     }
   }
