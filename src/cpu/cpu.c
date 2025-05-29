@@ -35,6 +35,11 @@ int page_crossed = 0;
 int dma_cycles = 0;
 
 /**  Helper functions **/
+static inline void ppu_exec(Cpu6502 *cpu) {
+  ppu_execute_cycle(cpu->ppu);
+  ppu_execute_cycle(cpu->ppu);
+  ppu_execute_cycle(cpu->ppu);
+}
 
 inline void push_stack(uint8_t lower_addr, uint8_t val) {
   memory[0x0100 | lower_addr] = val;
@@ -131,10 +136,11 @@ void cpu_init(Cpu6502 *cpu) {
   cpu->nmi_state = 0;
   cpu->PC = (memory[0xFFFD] << 8) | memory[0xFFFC];
 
-#if NES_TEST_ROM
-  cpu->PC = 0xC000;
-#endif /* ifdef NES_TEST_ROM */
+  // #if NES_TEST_ROM == 1
+  //   cpu->PC = 0xC000;
+  // #endif
 
+  printf("ADDR: %X\n", cpu->PC);
   cpu->instr = memory[cpu->PC];
   cpu->cycles = 7;
 
@@ -150,9 +156,7 @@ void cpu_init(Cpu6502 *cpu) {
   // memset(memory, 0, sizeof(memory));
 
   for (int i = 0; i < 25; i++) {
-    ppu_execute_cycle(cpu->ppu);
-    ppu_execute_cycle(cpu->ppu);
-    ppu_execute_cycle(cpu->ppu);
+    ppu_exec(cpu);
   }
 
   log_file = fopen("log.txt", "w");
@@ -3302,7 +3306,7 @@ void cpu_execute(Cpu6502 *cpu) {
 
   // dump_log_file(cpu);
 
-#if NES_TEST_ROM
+#if NES_TEST_ROM == 1
   if (cpu->PC == 0x7001) {
     printf("Reached addressed originally pushed to stack!");
     exit(0);
@@ -3313,9 +3317,7 @@ void cpu_execute(Cpu6502 *cpu) {
     if (dma_cycles > 0) {
       dma_cycles--;
       cpu->cycles++;
-      ppu_execute_cycle(cpu->ppu);
-      ppu_execute_cycle(cpu->ppu);
-      ppu_execute_cycle(cpu->ppu);
+      ppu_exec(cpu);
       return;
     } else {
       dma_active_flag = 0;
@@ -3353,9 +3355,7 @@ void cpu_execute(Cpu6502 *cpu) {
   cyc += page_crossed ? opcode.page_cycles : 0;
 
   for (int i = 0; i < cyc; i++) {
-    ppu_execute_cycle(cpu->ppu);
-    ppu_execute_cycle(cpu->ppu);
-    ppu_execute_cycle(cpu->ppu);
+    ppu_exec(cpu);
   }
   cpu->cycles += cyc;
   cyc = 0;

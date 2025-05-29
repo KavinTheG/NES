@@ -34,6 +34,8 @@ void Frontend_Init(Frontend *frontend, int w, int h, int scale) {
   SDL_SetTextureBlendMode(frontend->texture,
                           SDL_BLENDMODE_BLEND); // Enable alpha blending
   SDL_RenderSetLogicalSize(frontend->renderer, w, h);
+  frontend->w = w;
+  frontend->h = h;
 }
 
 void Frontend_DrawFrame(Frontend *frontend,

@@ -49,10 +49,12 @@ void ppu_init(PPU *ppu) {
   // Determines if a tile is background vs sprite
   ppu->drawing_bg_flag = 1;
 
-  ppu->sprite_render_index = 0;
+  ppu->sprite_render_index = -1;
   ppu->current_scanline_cycle = 0;
   ppu->scanline = 0;
   ppu->frame = 0;
+
+  memset(&oam_memory_secondary, 0xFF, OAM_SECONDARY_SIZE);
 }
 
 void load_ppu_memory(PPU *ppu, unsigned char *chr_rom, int chr_size) {

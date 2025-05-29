@@ -1,17 +1,16 @@
 #ifndef PPU_H
 #define PPU_H
 
-// === Standard and Project Includes ===
+// === Project Includes ===
 #include "config.h"
 #include "pipeline.h"
-#include <stdio.h>
 
 // === Constants ===
 #define PPU_MEMORY_SIZE 0x4000 // 16 KB
 #define PALETTE_SIZE 64
 #define NES_HEADER_SIZE 16
 
-#define OAM_SIZE 0xFF
+#define OAM_SIZE 0x100
 #define OAM_SECONDARY_SIZE 32
 
 #define NUM_DOTS 341

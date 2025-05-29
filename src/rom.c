@@ -27,6 +27,7 @@ int rom_load_cartridge(Rom *rom, char *filename) {
   rom->chr_size = rom->header[5] * 8 * 1024;
 
   if (rom->prg_size != 16384 && rom->prg_size != 32768) {
+    printf("Unsupported PRG Size: %ld", rom->prg_size);
     return ROM_ERR_PRG_SIZE;
   }
 

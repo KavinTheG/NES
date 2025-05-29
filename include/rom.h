@@ -2,7 +2,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define ROM_OK 1
+#define ROM_OK 0
 #define ROM_ERR_NOFILE -1
 #define ROM_ERR_HEADER_MISMATCH -2
 #define ROM_ERR_PRG_SIZE -3

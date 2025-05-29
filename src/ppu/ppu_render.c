@@ -26,88 +26,61 @@ uint8_t fetch_pattern_table_byte(PPU *ppu, uint8_t row_padding,
 }
 
 void sprite_ppu_render(PPU *ppu) {
-  if (ppu->current_scanline_cycle == ppu->sprite_zero_index) {
-    // sprite zero hit!
-    ppu->PPUSTATUS |= 0x40;
-    ppu->sprite_zero_index = 0;
-  }
-  int sprite_height = ppu->PPUCTRL & 0x20 ? 16 : 8;
+  int sprite_height = (ppu->PPUCTRL & 0x20) ? 16 : 8;
 
   for (int i = 0; i <= OAM_SECONDARY_SIZE - 4; i += 4) {
     int sprite_y = oam_buffer_latches[i] + 1;
     int sprite_x = oam_buffer_latches[i + 3];
 
-    if (ppu->scanline >= sprite_y && ppu->scanline < sprite_y + sprite_height) {
-      if (sprite_x == ppu->current_scanline_cycle - 8) {
-        ppu->sprite_render_index = i;
-        break;
-      }
+    if (ppu->scanline < sprite_y || ppu->scanline >= sprite_y + sprite_height)
+      continue;
+
+    int row_in_tile = ppu->scanline - sprite_y;
+
+    uint8_t tile_index = oam_buffer_latches[i + 1];
+    uint8_t attr = oam_buffer_latches[i + 2];
+    uint8_t palette_index = attr & 0x3;
+
+    int flip_horizontal = attr & 0x40;
+    int flip_vertical = attr & 0x80;
+
+    if (flip_vertical)
+      row_in_tile = sprite_height - 1 - row_in_tile;
+
+    uint16_t pattern_addr_base = (ppu->PPUCTRL & 0x08) ? 0x1000 : 0x0000;
+
+    if (sprite_height == 16) {
+      pattern_addr_base = (tile_index & 1) ? 0x1000 : 0x0000;
+      tile_index &= 0xFE;
     }
-  }
-  if (ppu->sprite_render_index == -1)
-    return;
-  ppu->sprite_pipeline.name_table_byte =
-      oam_buffer_latches[ppu->sprite_render_index + 1];
 
-  // Fetch the corresponding attribute byte
-  ppu->sprite_pipeline.attribute_byte =
-      oam_buffer_latches[ppu->sprite_render_index + 2] & 0x3;
-  ppu->sprite_pipeline.palette_index =
-      ppu->sprite_pipeline.attribute_byte & 0x3;
+    uint16_t pattern_addr = pattern_addr_base + tile_index * 16 + row_in_tile;
+    uint8_t pattern_lsb = ppu_memory[pattern_addr & 0x1FFF];
+    uint8_t pattern_msb = ppu_memory[(pattern_addr + 8) & 0x1FFF];
 
-  // Fetch nametable low byte
-  ppu->sprite_pipeline.pattern_table_lsb =
-      ppu_memory[((ppu->PPUCTRL & 0x08) ? 0x1000 : 0x0) |
-                 (((ppu->sprite_pipeline.name_table_byte * 16) +
-                   (ppu->scanline -
-                    (oam_buffer_latches[ppu->sprite_render_index] + 1))) &
-                  0xFFF)];
-  // Fetch nametable high byte
-  ppu->sprite_pipeline.pattern_table_msb =
-      ppu_memory[((ppu->PPUCTRL & 0x08) ? 0x1000 : 0x0) |
-                 (((ppu->sprite_pipeline.name_table_byte * 16) + 8 +
-                   (ppu->scanline -
-                    (oam_buffer_latches[ppu->sprite_render_index] + 1))) &
-                  0xFFF)];
-  for (int i = 0; i < 8; i++) {
-    uint8_t bit = 7 - i;
-    uint8_t sprite_lo = (ppu->sprite_pipeline.pattern_table_lsb >> bit) & 1;
-    uint8_t sprite_hi = (ppu->sprite_pipeline.pattern_table_msb >> bit) & 1;
-    ppu->sprite_pipeline.tile_pixel_value[i] = (sprite_hi << 1) | sprite_lo;
-  }
+    for (int j = 0; j < 8; j++) {
+      int bit = flip_horizontal ? j : (7 - j);
+      uint8_t lo = (pattern_lsb >> bit) & 1;
+      uint8_t hi = (pattern_msb >> bit) & 1;
+      uint8_t pixel_val = (hi << 1) | lo;
 
-  unsigned char is_pre_fetch =
-      ppu->current_scanline_cycle >= 321 && ppu->current_scanline_cycle <= 336
-          ? 1
-          : 0;
+      if (pixel_val == 0)
+        continue; // Transparent
 
-  int row = is_pre_fetch ? ppu->scanline + 1 : ppu->scanline;
-  int column_base = ppu->current_scanline_cycle - 8;
+      int screen_x = sprite_x + j;
+      int screen_y = ppu->scanline;
 
-  int sprite_flipped =
-      !is_pre_fetch &&
-      (oam_buffer_latches[ppu->sprite_render_index + 2] & 0x40);
+      if (screen_x >= 256 || screen_y >= 240)
+        continue;
 
-  for (int i = 0; i < TILE_SIZE; i++) {
-    uint8_t tile_val = ppu->sprite_pipeline.tile_pixel_value[i];
+      uint16_t pal_addr = 0x3F10 | (palette_index << 2) | pixel_val;
+      uint8_t palette_data = read_mem(ppu, pal_addr);
+      uint8_t *color = &ppu_palette[palette_data * 3];
+      uint8_t r = color[0], g = color[1], b = color[2];
 
-    uint8_t palette_index = ppu->sprite_pipeline.palette_index;
-
-    uint16_t pal_addr = 0x3F10 | (palette_index << 2) | tile_val;
-
-    uint8_t palette_data = read_mem(ppu, pal_addr);
-    uint8_t alpha = (tile_val == 0) ? 0x00 : 0xFF;
-
-    uint8_t *color = &ppu_palette[palette_data * 3];
-    uint8_t r = color[0], g = color[1], b = color[2];
-
-    int column = sprite_flipped ? (ppu->current_scanline_cycle + 8 - i)
-                                : (column_base + i);
-
-    if (column >= 256 || row >= 240)
-      break;
-
-    ppu->frame_buffer[row][column] = (r << 24) | (g << 16) | (b << 8) | alpha;
+      ppu->frame_buffer[screen_y][screen_x] =
+          (r << 24) | (g << 16) | (b << 8) | 0xFF;
+    }
   }
 }
 
@@ -118,12 +91,6 @@ void sprite_ppu_render(PPU *ppu) {
  * @return              void
  */
 void background_ppu_render(PPU *ppu) {
-  if (ppu->current_scanline_cycle == ppu->sprite_zero_index) {
-    // sprite zero hit!
-    ppu->PPUSTATUS |= 0x40;
-    ppu->sprite_zero_index = 0;
-  }
-  int sprite_height = ppu->PPUCTRL & 0x20 ? 16 : 8;
   switch (ppu->current_scanline_cycle % 8) {
   // Fetch Nametable byte
   case 1:
@@ -302,32 +269,27 @@ void sprite_detect(PPU *ppu) {
   int sprite_height = ppu->PPUCTRL & 0x20 ? 16 : 8;
 
   if (ppu->current_scanline_cycle >= 65 && ppu->current_scanline_cycle <= 256) {
-    int index = ppu->sprite_evaluation_index * 4 + ppu->index_of_sprite;
+    // int index = ppu->sprite_evaluation_index * 4 + ppu->index_of_sprite;
+    int index = ppu->sprite_evaluation_index * 4;
     // Odd cycle; read OAM
     if (ppu->current_scanline_cycle % 2 == 1) {
-      if (ppu->index_of_sprite == 0) {
-        if (ppu->scanline >= oam_memory[index] &&
-            oam_memory[index] < ppu->scanline + sprite_height) {
-          ppu->copy_sprite_flag = 1;
-          if (index == 0)
-            ppu->sprite_zero_index = oam_memory[3];
-        }
+      if (ppu->scanline >= oam_memory[index] &&
+          ppu->scanline < oam_memory[index] + sprite_height) {
+        ppu->copy_sprite_flag = 1;
       }
     } else {
       if (ppu->copy_sprite_flag && ppu->oam_memory_top <= 31) {
         oam_memory_secondary[ppu->oam_memory_top++] = oam_memory[index];
-
-        ppu->index_of_sprite++;
-
-        if (ppu->index_of_sprite > 3) {
-          ppu->sprite_evaluation_index++;
-          ppu->index_of_sprite = 0;
-          ppu->copy_sprite_flag = 0;
-        }
-      } else {
-        ppu->sprite_evaluation_index++;
-        ppu->copy_sprite_flag = 0;
+        oam_memory_secondary[ppu->oam_memory_top++] = oam_memory[index + 1];
+        oam_memory_secondary[ppu->oam_memory_top++] = oam_memory[index + 2];
+        oam_memory_secondary[ppu->oam_memory_top++] = oam_memory[index + 3];
       }
+      if (ppu->sprite_evaluation_index == 64) {
+        ppu->sprite_evaluation_index = -1;
+        ppu->PPUSTATUS |= 0x20;
+      }
+      ppu->sprite_evaluation_index++;
+      ppu->copy_sprite_flag = 0;
     }
   }
 }
@@ -345,6 +307,8 @@ void ppu_exec_visible_scanline(PPU *ppu) {
     background_ppu_render(ppu);
     sprite_ppu_render(ppu);
     ppu->sprite_render_index = -1;
+  } else if (ppu->current_scanline_cycle == 256) {
+    memset(oam_memory_secondary, 0, 32);
   } else if (ppu->current_scanline_cycle >= 257 &&
              ppu->current_scanline_cycle <= 320) {
     /* HBLANK */

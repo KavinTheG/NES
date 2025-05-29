@@ -34,13 +34,16 @@ int main() {
   Frontend frontend;
 
   Frontend_Init(&frontend, SCREEN_WIDTH_VIS, SCREEN_HEIGHT_VIS, SCALE);
-  rom_load_cartridge(&rom, "rom/Donkey Kong.nes");
 
-  rom_load_cartridge(&rom, "rom/Donkey Kong.nes");
-#if NES_TEST_ROM
+#if NES_TEST_ROM == 1
   rom_load_cartridge(&rom, "rom/nestest.nes");
+#elif NES_TEST_ROM == 2
+  if (rom_load_cartridge(&rom, "rom/official.nes") != 0) {
+    printf("ROM LOAD FAILED\n");
+  }
+#else
+  rom_load_cartridge(&rom, "rom/Donkey Kong.nes");
 #endif
-
   load_cpu_memory(&cpu, rom.prg_data, rom.prg_size);
 
   load_ppu_ines_header(rom.header);
