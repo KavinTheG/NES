@@ -1,6 +1,5 @@
 #include "ppu_render.h"
 #include "ppu.h"
-#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -26,13 +25,13 @@ uint8_t fetch_pattern_table_byte(PPU *ppu, uint8_t row_padding,
 }
 
 void sprite_ppu_render(PPU *ppu) {
-  int sprite_height = (ppu->PPUCTRL & 0x20) ? 16 : 8;
 
   for (int i = 0; i <= OAM_SECONDARY_SIZE - 4; i += 4) {
     int sprite_y = oam_buffer_latches[i] + 1;
     int sprite_x = oam_buffer_latches[i + 3];
 
-    if (ppu->scanline < sprite_y || ppu->scanline >= sprite_y + sprite_height)
+    if (ppu->scanline < sprite_y ||
+        ppu->scanline >= sprite_y + ppu->sprite_height)
       continue;
 
     int row_in_tile = ppu->scanline - sprite_y;
@@ -45,11 +44,11 @@ void sprite_ppu_render(PPU *ppu) {
     int flip_vertical = attr & 0x80;
 
     if (flip_vertical)
-      row_in_tile = sprite_height - 1 - row_in_tile;
+      row_in_tile = ppu->sprite_height - 1 - row_in_tile;
 
     uint16_t pattern_addr_base = (ppu->PPUCTRL & 0x08) ? 0x1000 : 0x0000;
 
-    if (sprite_height == 16) {
+    if (ppu->sprite_height == 16) {
       pattern_addr_base = (tile_index & 1) ? 0x1000 : 0x0000;
       tile_index &= 0xFE;
     }
@@ -94,7 +93,6 @@ void background_ppu_render(PPU *ppu) {
   switch (ppu->current_scanline_cycle % 8) {
   // Fetch Nametable byte
   case 1:
-    ppu->drawing_bg_flag = 1;
 
     ppu->bg_pipeline.name_table_byte = fetch_name_table_byte(ppu);
     break;
@@ -103,25 +101,14 @@ void background_ppu_render(PPU *ppu) {
   case 3:
     ppu->bg_pipeline.attribute_byte = fetch_attr_table_byte(ppu);
     // Determines which of the four areas of the attribute byte to use
-    uint8_t tile_area_horizontal = (ppu->v & 0x00F) % 4;
-    uint8_t tile_area_vertical = ((ppu->v & 0x0F0) / 0x20) % 4;
+    // Each attribute byte covers 4x4 tiles → each quadrant is 2x2 tiles
+    uint8_t quadrant_x = ((ppu->v & 0x1F) >> 1) & 1; // 0 = left, 1 = right
+    uint8_t quadrant_y =
+        (((ppu->v >> 5) & 0x1F) >> 1) & 1; // 0 = top,  1 = bottom
 
-    if (tile_area_vertical == 0 && tile_area_horizontal == 0) {
-      // Top left quadrant (bit 1 & 0)
-      ppu->bg_pipeline.palette_index = ppu->bg_pipeline.attribute_byte & 0x03;
-    } else if (tile_area_vertical == 0 && tile_area_horizontal == 1) {
-      // Top right quadrant (bit 3 & 2)
-      ppu->bg_pipeline.palette_index =
-          (ppu->bg_pipeline.attribute_byte & 0x0C) >> 2;
-    } else if (tile_area_vertical == 1 && tile_area_horizontal == 0) {
-      // Bottom left quadrant (bit 5 & 4)
-      ppu->bg_pipeline.palette_index =
-          (ppu->bg_pipeline.attribute_byte & 0x30) >> 4;
-    } else if (tile_area_vertical == 1 && tile_area_horizontal == 1) {
-      // Bottom right quadrant (bit 7 6 6)
-      ppu->bg_pipeline.palette_index =
-          (ppu->bg_pipeline.attribute_byte & 0xC0) >> 6;
-    }
+    uint8_t shift = (quadrant_y << 1 | quadrant_x) * 2; // 0, 2, 4, or 6
+    ppu->bg_pipeline.palette_index =
+        (ppu->bg_pipeline.attribute_byte >> shift) & 0x3;
     break;
 
   // Fetch nametable low byte
@@ -133,7 +120,7 @@ void background_ppu_render(PPU *ppu) {
 
     ppu->bg_pipeline.pattern_table_lsb =
         read_mem(ppu, (ppu->bg_pipeline.name_table_byte * 16) +
-                          (ppu->scanline % 8) + row_padding);
+                          ((ppu->scanline + row_padding) % 8));
     break;
 
   // Fetch high byte
@@ -146,15 +133,7 @@ void background_ppu_render(PPU *ppu) {
 
     ppu->bg_pipeline.pattern_table_msb =
         read_mem(ppu, (ppu->bg_pipeline.name_table_byte * 16) + 8 +
-                          (ppu->scanline % 8) + row_padding);
-    for (int i = 0; i < 8; i++) {
-      uint8_t bit = 7 - i;
-      uint8_t bg_lo = (ppu->bg_pipeline.pattern_table_lsb >> bit) & 1;
-      uint8_t bg_hi = (ppu->bg_pipeline.pattern_table_msb >> bit) & 1;
-
-      ppu->bg_pipeline.tile_pixel_value[i] = (bg_hi << 1) | bg_lo;
-    }
-
+                          ((ppu->scanline + row_padding) % 8));
     break;
 
   // Store value in buffer
@@ -193,27 +172,21 @@ void background_ppu_render(PPU *ppu) {
     int row = is_pre_fetch ? ppu->scanline + 1 : ppu->scanline;
     int column_base = is_pre_fetch ? ppu->current_scanline_cycle - 328
                                    : ppu->current_scanline_cycle + 8;
-    int sprite_flipped =
-        !is_pre_fetch &&
-        (oam_buffer_latches[ppu->sprite_render_index + 2] & 0x40) &&
-        !ppu->drawing_bg_flag;
 
     for (int i = 0; i < TILE_SIZE; i++) {
-      // int draw_sprite = !ppu->drawing_bg_flag &&
-      //                   ppu->sprite_pipeline.tile_pixel_value[i] != 0;
-      int draw_sprite = !ppu->drawing_bg_flag;
-      uint8_t tile_val = draw_sprite ? ppu->sprite_pipeline.tile_pixel_value[i]
-                                     : ppu->bg_pipeline.tile_pixel_value[i];
+      uint8_t bit = 7 - i;
+      uint8_t bg_lo = (ppu->bg_pipeline.pattern_table_lsb >> bit) & 1;
+      uint8_t bg_hi = (ppu->bg_pipeline.pattern_table_msb >> bit) & 1;
 
-      uint8_t palette_index = draw_sprite ? ppu->sprite_pipeline.palette_index
-                                          : ppu->bg_pipeline.palette_index;
+      ppu->bg_pipeline.tile_pixel_value[i] = (bg_hi << 1) | bg_lo;
 
-      uint16_t pal_addr = 0x3F00 | (palette_index << 2) | tile_val;
-      if (draw_sprite)
-        pal_addr |= 0x10;
+      uint8_t palette_index = ppu->bg_pipeline.palette_index;
+
+      uint16_t pal_addr =
+          0x3F00 | (palette_index << 2) | ppu->bg_pipeline.tile_pixel_value[i];
 
       uint8_t palette_data = read_mem(ppu, pal_addr);
-      uint8_t alpha = (tile_val == 0) ? 0x00 : 0xFF;
+      uint8_t alpha = (ppu->bg_pipeline.tile_pixel_value[i] == 0) ? 0x00 : 0xFF;
 
       uint8_t *color = &ppu_palette[palette_data * 3];
       uint8_t r = color[0], g = color[1], b = color[2];
@@ -247,7 +220,7 @@ void ppu_exec_pre_render(PPU *ppu) {
   }
 
   if (ppu->current_scanline_cycle >= 321 &&
-      ppu->current_scanline_cycle <= 336 && ppu->PPUMASK & 0x18) {
+      ppu->current_scanline_cycle <= 340 && ppu->PPUMASK & 0x18) {
     background_ppu_render(ppu);
   }
 }
@@ -338,7 +311,6 @@ void ppu_exec_vblank(PPU *ppu) {
     if (ppu->PPUCTRL & 0x80) {
       // Set NMI
       ppu->nmi_flag = 1;
-      LOG("NMI triggered\n");
     }
   }
 }

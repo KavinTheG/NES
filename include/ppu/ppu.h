@@ -43,9 +43,9 @@ typedef struct PPU {
   uint8_t x;     // Fine X scroll
 
   // Internal flags
+  unsigned char drawing_bg_flag;
   unsigned char vblank_flag;
   unsigned char nmi_flag;
-  unsigned char drawing_bg_flag;
   unsigned char copy_sprite_flag;
   unsigned char update_graphics;
 
@@ -60,6 +60,8 @@ typedef struct PPU {
   uint8_t sprite_evaluation_index;
   uint8_t index_of_sprite;
   uint8_t oam_memory_top;
+  uint8_t sprite_height;
+
   int sprite_render_index;
   int sprite_zero_index;
 

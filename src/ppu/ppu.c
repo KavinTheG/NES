@@ -46,9 +46,6 @@ void ppu_init(PPU *ppu) {
   // Bit 0 determine h/v n.t arrangment (h = 1, v = 0)
   nametable_mirror_flag = ((nes_header[6] & 0x01) == 0x01);
 
-  // Determines if a tile is background vs sprite
-  ppu->drawing_bg_flag = 1;
-
   ppu->sprite_render_index = -1;
   ppu->current_scanline_cycle = 0;
   ppu->scanline = 0;

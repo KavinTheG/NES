@@ -10,3 +10,5 @@ bin/*
 log.txt
 
 *.o
+
+gmon.out

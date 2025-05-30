@@ -91,11 +91,6 @@ void check_page_cross(uint16_t base, uint8_t index) {
 /* PPU Functions */
 
 void cpu_ppu_write(Cpu6502 *cpu, uint16_t addr, uint8_t val) {
-  LOG("PPU MMIO WRITE: $%X; val: %x\n", addr, val);
-  // sleep(1);
-
-  // if ((addr == 0x2000 || addr == 0x2001 || addr == 0x2005 || addr == 0x2006)
-  // && cpu->cycles <= 29657) return;
   ppu_registers_write(cpu->ppu, addr, val);
 }
 
@@ -197,53 +192,35 @@ void dump_log_file(Cpu6502 *cpu) {
   fprintf(log_file, "P: %x (%b) ", status, status);
   fprintf(log_file, "Cycle: %d ", cpu->cycles);
   fprintf(log_file, "I #: %d\n", instr_num);
-
-  fprintf(log_file, "\n");
-
-  // fprintf(log_file, "M @ 0x00 = %x\n", memory[0x0]);
-  // fprintf(log_file, "M @ 0x10 = %x\n", memory[0x10]);
-  // fprintf(log_file, "M @ 0x11 = %x\n", memory[0x11]);
-  // fprintf(log_file, "M @ 0x0647 = %x\n", memory[0x647]);
-
   fprintf(log_file, "\n");
 }
-
-// access
-void instr_LDA(Cpu6502 *cpu, uint16_t addr) {
+uint8_t read_instr(Cpu6502 *cpu, uint16_t addr) {
   if (addr >= 0x2000 && addr <= 0x3FFF) {
     uint16_t reg_addr = 0x2000 + (addr % 8);
-    cpu->A = cpu_ppu_read(cpu, reg_addr);
-    LOG("CPU: READING PPU REG $%04X: $%02X\n", reg_addr, cpu->A);
+    return cpu_ppu_read(cpu, reg_addr);
   } else if (addr == 0x4016) {
-    cpu->A = ctrl1_read(cpu);
+    return ctrl1_read(cpu);
   } else {
-    cpu->A = memory[addr];
+    return memory[addr];
   }
+}
+// access
+void instr_LDA(Cpu6502 *cpu, uint16_t addr) {
+  cpu->A = read_instr(cpu, addr);
   cpu->PC++;
   cpu->P[1] = cpu->A == 0;
   cpu->P[7] = (cpu->A & 0x80) == 0x80;
 }
 
 void instr_LDX(Cpu6502 *cpu, uint16_t addr) {
-  if (addr >= 0x2000 && addr <= 0x3FFF) {
-    uint16_t reg_addr = 0x2000 + (addr % 8);
-    cpu->X = cpu_ppu_read(cpu, reg_addr);
-    cpu_ppu_read(cpu, reg_addr);
-  } else {
-    cpu->X = memory[addr];
-  }
+  cpu->X = read_instr(cpu, addr);
   cpu->PC++;
   cpu->P[1] = cpu->X == 0;
   cpu->P[7] = (cpu->X & 0x80) == 0x80;
 }
 
 void instr_LDY(Cpu6502 *cpu, uint16_t addr) {
-  if (addr >= 0x2000 && addr <= 0x3FFF) {
-    uint16_t reg_addr = 0x2000 + (addr % 8);
-    cpu->Y = cpu_ppu_read(cpu, reg_addr);
-  } else {
-    cpu->Y = memory[addr];
-  }
+  cpu->Y = read_instr(cpu, addr);
   cpu->PC++;
   cpu->P[1] = cpu->Y == 0;
   cpu->P[7] = (cpu->Y & 0x80) == 0x80;
@@ -254,7 +231,6 @@ void instr_STA(Cpu6502 *cpu, uint16_t addr) {
   if (addr >= 0x2000 && addr <= 0x3FFF) {
     uint16_t reg_addr = 0x2000 + (addr % 8);
     addr = reg_addr;
-    LOG("CPU: WRITING TO PPU REG $%04X: %02X\n", reg_addr, cpu->A);
     cpu_ppu_write(cpu, reg_addr, cpu->A);
   } else if (addr == 0x4014) {
     dma_active_flag = 1;
@@ -267,7 +243,6 @@ void instr_STA(Cpu6502 *cpu, uint16_t addr) {
   }
 
   memory[addr] = cpu->A;
-
   cpu->PC++;
 }
 
@@ -276,7 +251,6 @@ void instr_STX(Cpu6502 *cpu, uint16_t addr) {
   if (addr >= 0x2000 && addr <= 0x3FFF) {
     uint16_t reg_addr = 0x2000 + (addr % 8);
     addr = reg_addr;
-    LOG("CPU: WRITING TO PPU REG $%04X: %02X\n", reg_addr, cpu->X);
     cpu_ppu_write(cpu, reg_addr, cpu->X);
   } else if (addr == 0x4014) {
     dma_active_flag = 1;

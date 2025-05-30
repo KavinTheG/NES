@@ -6,13 +6,13 @@ This is my implementation of an NES emulator written in C.
 - [ ] Rendering
   - [x] 8x8 sprite rendering
   - [ ] 8x16 sprite rendering
-  - [ ] Horizontal sprite flipping
-  - [ ] Vertical sprite flipping
+  - [x] Horizontal sprite flipping
+  - [x] Vertical sprite flipping
   - [x] Background rendering
-  - [ ] Sprite-background priority handling
+  - [x] Sprite-background priority handling
   - [ ] Sprite overflow / sprite zero hit detection
 - [ ] Audio support
-- [ ] Mapper support (only NROM / mapper 0)
+- [x] Mapper support (only NROM / mapper 0)
 
 ## Project Structure
 #### src/main.c
