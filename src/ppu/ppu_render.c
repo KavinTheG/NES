@@ -25,7 +25,6 @@ uint8_t fetch_pattern_table_byte(PPU *ppu, uint8_t row_padding,
 }
 
 void sprite_ppu_render(PPU *ppu) {
-
   for (int i = 0; i <= OAM_SECONDARY_SIZE - 4; i += 4) {
     int sprite_y = oam_buffer_latches[i] + 1;
     int sprite_x = oam_buffer_latches[i + 3];
@@ -90,6 +89,7 @@ void sprite_ppu_render(PPU *ppu) {
  * @return              void
  */
 void background_ppu_render(PPU *ppu) {
+  uint8_t fine_y = (ppu->v >> 12) & 0x07;
   switch (ppu->current_scanline_cycle % 8) {
   // Fetch Nametable byte
   case 1:
@@ -113,27 +113,17 @@ void background_ppu_render(PPU *ppu) {
 
   // Fetch nametable low byte
   case 5:
-    int row_padding =
-        ppu->current_scanline_cycle >= 321 && ppu->current_scanline_cycle <= 336
-            ? 1
-            : 0;
-
     ppu->bg_pipeline.pattern_table_lsb =
-        read_mem(ppu, (ppu->bg_pipeline.name_table_byte * 16) +
-                          ((ppu->scanline + row_padding) % 8));
+        read_mem(ppu, (ppu->bg_pipeline.name_table_byte * 16) + fine_y);
+    // ppu->bg_pipeline.pattern_table_lsb =
+    //     read_mem(ppu, (ppu->bg_pipeline.name_table_byte * 16) +
+    //                       ((ppu->scanline + row_padding) % 8));
     break;
 
   // Fetch high byte
   case 7:
-
-    row_padding =
-        ppu->current_scanline_cycle >= 321 && ppu->current_scanline_cycle <= 336
-            ? 1
-            : 0;
-
     ppu->bg_pipeline.pattern_table_msb =
-        read_mem(ppu, (ppu->bg_pipeline.name_table_byte * 16) + 8 +
-                          ((ppu->scanline + row_padding) % 8));
+        read_mem(ppu, (ppu->bg_pipeline.name_table_byte * 16) + 8 + fine_y);
     break;
 
   // Store value in buffer

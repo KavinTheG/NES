@@ -43,6 +43,7 @@ int main() {
   }
 #else
   rom_load_cartridge(&rom, "rom/Donkey Kong.nes");
+  // rom_load_cartridge(&rom, "rom/Ice_Climber.nes");
 #endif
   load_cpu_memory(&cpu, rom.prg_data, rom.prg_size);
 
@@ -68,13 +69,14 @@ int main() {
       ppu.update_graphics = 0;
 
       Frontend_DrawFrame(&frontend, ppu.frame_buffer);
+      if (Frontend_HandleInput(&frontend) != 0)
+        break;
     }
-    if (Frontend_HandleInput(&frontend) != 0) {
-      break;
-    } else {
-      if (cpu.strobe) {
-        cpu.ctrl_latch_state = frontend.controller;
-      }
+    // if (Frontend_HandleInput(&frontend) != 0) {
+    //   break;
+    // } else {
+    if (cpu.strobe) {
+      cpu.ctrl_latch_state = frontend.controller;
     }
   }
 
