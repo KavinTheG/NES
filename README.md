@@ -58,9 +58,12 @@ This will create a binary file located in the bin/ folder. Currently, I am only 
 ```
 
 ### Progress 
-Currently able to load menu of games utilising mapper 0. 
+Able to run Donkey Kong with minor issues.
 ![image](https://github.com/user-attachments/assets/76d6df8b-2864-4093-95c5-c1831ef01364)
+![image](https://github.com/user-attachments/assets/f319269c-a6a1-4a1e-a45f-04f62f8f5c8d)
+![image](https://github.com/user-attachments/assets/7ee75dc4-60ea-4312-9314-5b9880a8fe90)
 
 
-## References
+## References![Uploading image.png…]()
+
 - https://www.nesdev.org/wiki/Nesdev_Wiki
