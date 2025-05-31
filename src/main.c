@@ -42,8 +42,8 @@ int main() {
     printf("ROM LOAD FAILED\n");
   }
 #else
-  rom_load_cartridge(&rom, "rom/Donkey Kong.nes");
-  // rom_load_cartridge(&rom, "rom/Ice_Climber.nes");
+  // rom_load_cartridge(&rom, "rom/Donkey Kong.nes");
+  rom_load_cartridge(&rom, "rom/Ice_Climber.nes");
 #endif
   load_cpu_memory(&cpu, rom.prg_data, rom.prg_size);
 
