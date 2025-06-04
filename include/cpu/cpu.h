@@ -58,6 +58,8 @@ void cpu_execute(Cpu6502 *cpu);
 void push_stack(uint8_t lower_addr, uint8_t val);
 void dump_log(Cpu6502 *cpu, FILE *log);
 
+void cpu_cleanup(Cpu6502 *cpu);
+
 // Address modes
 uint16_t addr_abs(Cpu6502 *cpu);
 uint16_t addr_abs_X(Cpu6502 *cpu);
@@ -159,17 +161,6 @@ void instr_RLA(Cpu6502 *cpu, uint8_t *M);
 void instr_RRA(Cpu6502 *cpu, uint8_t *M);
 void instr_SLO(Cpu6502 *cpu, uint8_t *M);
 void instr_SRE(Cpu6502 *cpu, uint8_t *M);
-
-// PPU Functions
-void set_ppu_w_reg(unsigned char ppu_w);
-unsigned char get_ppu_w_reg();
-uint16_t get_ppu_PPUADDR(Cpu6502 *cpu);
-unsigned char get_ppu_PPUADDR_completed();
-unsigned char get_ppu_PPUDATA_write();
-unsigned char get_ppu_OAM_write();
-unsigned char get_ppu_OAMDMA_write();
-
-void get_ppu_dma_page(Cpu6502 *cpu, uint8_t *page_mem);
 
 typedef uint16_t (*AddrMode)(Cpu6502 *cpu);
 typedef void (*InstrAddr)(Cpu6502 *cpu, uint16_t addr);
