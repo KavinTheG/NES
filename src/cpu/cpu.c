@@ -35,12 +35,6 @@ int page_crossed = 0;
 int dma_cycles = 0;
 
 /**  Helper functions **/
-static inline void ppu_exec(Cpu6502 *cpu) {
-  ppu_execute_cycle(cpu->ppu);
-  ppu_execute_cycle(cpu->ppu);
-  ppu_execute_cycle(cpu->ppu);
-}
-
 inline void push_stack(uint8_t lower_addr, uint8_t val) {
   memory[0x0100 | lower_addr] = val;
 }
@@ -91,11 +85,11 @@ void check_page_cross(uint16_t base, uint8_t index) {
 /* PPU Functions */
 
 void cpu_ppu_write(Cpu6502 *cpu, uint16_t addr, uint8_t val) {
-  ppu_registers_write(cpu->ppu, addr, val);
+  //  ppu_registers_write(cpu->ppu, addr, val);
 }
 
 uint8_t cpu_ppu_read(Cpu6502 *cpu, uint16_t addr) {
-  return ppu_registers_read(cpu->ppu, addr);
+  //  return ppu_registers_read(cpu->ppu, addr);
 }
 
 /* CTRL Functions */
@@ -151,7 +145,7 @@ void cpu_init(Cpu6502 *cpu) {
   // memset(memory, 0, sizeof(memory));
 
   for (int i = 0; i < 25; i++) {
-    ppu_exec(cpu);
+    // ppu_exec(cpu);
   }
 
   log_file = fopen("log.txt", "w");
@@ -237,7 +231,7 @@ void instr_STA(Cpu6502 *cpu, uint16_t addr) {
     dma_cycles = cpu->cycles % 2 == 0 ? 513 : 514;
     uint8_t page_mem[0x100];
     memcpy(page_mem, &memory[cpu->A << 8], 0x100);
-    load_ppu_oam_mem(cpu->ppu, page_mem);
+    //    load_ppu_oam_mem(cpu->ppu, page_mem);
   } else if (addr == 0x4016) {
     ctrl1_write(cpu, cpu->A);
   }
@@ -258,7 +252,7 @@ void instr_STX(Cpu6502 *cpu, uint16_t addr) {
 
     uint8_t page_mem[0x100];
     memcpy(page_mem, &memory[cpu->X << 8], 0x100);
-    load_ppu_oam_mem(cpu->ppu, page_mem);
+    //   load_ppu_oam_mem(cpu->ppu, page_mem);
   } else if (addr == 0x4016) {
     ctrl1_write(cpu, cpu->X);
   }
@@ -279,7 +273,7 @@ void instr_STY(Cpu6502 *cpu, uint16_t addr) {
 
     uint8_t page_mem[0x100];
     memcpy(page_mem, &memory[cpu->Y << 8], 0x100);
-    load_ppu_oam_mem(cpu->ppu, page_mem);
+    //  load_ppu_oam_mem(cpu->ppu, page_mem);
   } else if (addr == 0x4016) {
     ctrl1_write(cpu, cpu->Y);
   }
@@ -3267,17 +3261,6 @@ void cpu_execute(Cpu6502 *cpu) {
   instr_num++;
 
   cpu->instr = instr;
-  LOG("****CPU******\n");
-  LOG("\nPC Value: %x\n", cpu->PC);
-  LOG("Instruction: %x\n", instr);
-  LOG("Stack Pointer: %x\n", cpu->S);
-  join_char_array(&status, cpu->P);
-  LOG("Status: %b\n", status);
-  LOG("A: %x\n", cpu->A);
-  LOG("X: %x\n", cpu->X);
-  LOG("Y: %x\n", cpu->Y);
-  LOG("Cycle: %d\n\n", cpu->cycles);
-
   // dump_log_file(cpu);
 
 #if NES_TEST_ROM == 1
@@ -3291,7 +3274,7 @@ void cpu_execute(Cpu6502 *cpu) {
     if (dma_cycles > 0) {
       dma_cycles--;
       cpu->cycles++;
-      ppu_exec(cpu);
+      //      ppu_exec(cpu);
       return;
     } else {
       dma_active_flag = 0;
@@ -3329,22 +3312,22 @@ void cpu_execute(Cpu6502 *cpu) {
   cyc += page_crossed ? opcode.page_cycles : 0;
 
   for (int i = 0; i < cyc; i++) {
-    ppu_exec(cpu);
+    //    ppu_exec(cpu);
   }
   cpu->cycles += cyc;
   cyc = 0;
   page_crossed = 0;
 
   // PPU set NMI flag
-  if (cpu->ppu->nmi_flag) {
+  // if (cpu->ppu->nmi_flag) {
 
-    // Execute NMI subroutine
-    cpu_nmi_triggered(cpu);
+  //   // Execute NMI subroutine
+  //   cpu_nmi_triggered(cpu);
 
-    // Reset nmi flag
-    cpu->ppu->nmi_flag = 0;
-    return;
-  }
+  //   // Reset nmi flag
+  //   cpu->ppu->nmi_flag = 0;
+  //   return;
+  // }
 
   // print("}\n");
 }

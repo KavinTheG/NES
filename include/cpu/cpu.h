@@ -1,7 +1,6 @@
 #ifndef CPU_H
 #define CPU_H
 
-#include "ppu.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -37,8 +36,6 @@ typedef struct Cpu6502 {
   Bit 0 - C: Carry
   **/
   unsigned char P[8];
-
-  PPU *ppu;
 
   uint8_t ctrl_latch_state;
   int ctrl_bit_index;
