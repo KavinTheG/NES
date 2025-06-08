@@ -1,7 +1,7 @@
 #include <stdint.h>
 
 typedef struct APU_MMIO {
-  uint8_t apu_mmio_write_flag;
+  uint32_t apu_mmio_write_mask;
   uint8_t apu_pulse1_reg0;
   uint8_t apu_pulse1_reg1;
   uint8_t apu_pulse1_reg2;

@@ -1,7 +1,10 @@
 #include "apu/apu_mmio.h"
 
 void write_apu_mmio(APU_MMIO *apu_mmio, uint16_t addr) {
-  apu_mmio->apu_mmio_write_flag = 1;
+
+  // Set a bit to 1 if the corresponding register was modified
+  apu_mmio->apu_mmio_write_mask = (1 << (addr - 0x4000));
+
   switch (addr) {
   case 0x4000:
     apu_mmio->apu_pulse1_reg0 = addr;
