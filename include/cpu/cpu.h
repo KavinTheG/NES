@@ -1,6 +1,7 @@
 #ifndef CPU_H
 #define CPU_H
 
+#include "apu/apu_mmio.h"
 #include "ppu.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -45,6 +46,8 @@ typedef struct Cpu6502 {
 
   unsigned char nmi_state;
   unsigned char strobe;
+
+  APU_MMIO *apu_mmio;
 } Cpu6502;
 
 void cpu_init(Cpu6502 *cpu);

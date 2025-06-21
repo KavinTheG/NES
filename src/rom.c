@@ -1,5 +1,4 @@
 #include "rom.h"
-#include "config.h"
 #include "ppu.h"
 #include <stdio.h>
 #include <stdlib.h>

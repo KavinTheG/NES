@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "apu/apu.h"
+#include "apu/apu_mmio.h"
 #include "config.h"
 #include "cpu/cpu.h"
 #include "frontend.h"
@@ -30,6 +32,8 @@ int main() {
   Cpu6502 cpu;
   PPU ppu;
   Rom rom;
+  APU apu;
+  APU_MMIO apu_mmio;
 
   Frontend frontend;
 
@@ -55,15 +59,13 @@ int main() {
   cpu.ppu = &ppu;
   cpu_init(&cpu);
 
-  const char *filename = "log.txt";
-
-  FILE *log = fopen(filename, "a");
-
-  fprintf(log, "Program started\n");
+  cpu.apu_mmio = &apu_mmio;
+  apu.apu_mmio = &apu_mmio;
 
   while (1) {
     // Execute cpu cycle
     cpu_execute(&cpu);
+    apu.cpu_cycle = cpu.cycles;
 
     if (ppu.update_graphics) {
       ppu.update_graphics = 0;
