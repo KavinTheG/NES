@@ -15,3 +15,5 @@ void Frontend_DrawFrame(Frontend *frontend,
                         uint32_t frame_buffer[frontend->h][frontend->w]);
 int Frontend_HandleInput(Frontend *frontend);
 void Frontend_Destroy(Frontend *frontend);
+
+void audio_buffer_add(int16_t sample);

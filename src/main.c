@@ -1,5 +1,6 @@
 #include <SDL2/SDL.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -46,8 +47,8 @@ int main() {
     printf("ROM LOAD FAILED\n");
   }
 #else
-  // rom_load_cartridge(&rom, "rom/Donkey Kong.nes");
-  rom_load_cartridge(&rom, "rom/Ice_Climber.nes");
+  rom_load_cartridge(&rom, "rom/Donkey Kong.nes");
+  // rom_load_cartridge(&rom, "rom/Ice_Climber.nes");
 #endif
   load_cpu_memory(&cpu, rom.prg_data, rom.prg_size);
 
@@ -58,14 +59,21 @@ int main() {
   ppu_init(&ppu);
   cpu.ppu = &ppu;
   cpu_init(&cpu);
+  apu_init(&apu, &apu_mmio);
 
   cpu.apu_mmio = &apu_mmio;
-  apu.apu_mmio = &apu_mmio;
 
   while (1) {
     // Execute cpu cycle
     cpu_execute(&cpu);
-    apu.cpu_cycle = cpu.cycles;
+
+    for (int i = 0; i < cpu.instr / 2; i++) {
+      apu_execute(&apu);
+      uint8_t val = apu_output(&apu);
+
+      int16_t sample = ((int)val - 8) * 4096;
+      audio_buffer_add(sample);
+    }
 
     if (ppu.update_graphics) {
       ppu.update_graphics = 0;

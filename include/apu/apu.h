@@ -16,6 +16,8 @@ typedef struct Envelope {
   Divider *divider;
   uint8_t envelope_decay_level_counter;
   uint8_t envelope_start_flag;
+  uint8_t constant_volume_flag;
+  uint8_t volume;
 } Envelope;
 
 typedef struct Sweep {
@@ -31,10 +33,10 @@ typedef struct FrameCounter {
 } FrameCounter;
 
 typedef struct Pulse {
-  uint8_t constant_volume_flag;
   uint8_t length_counter_halt_flag;
   uint8_t sweep_negate_flag;
   uint8_t sweep_enabled_flag;
+  uint8_t muted;
 
   Envelope *envelope;
   uint8_t duty;
@@ -46,6 +48,7 @@ typedef struct Pulse {
 
   /* Timer unit */
   uint16_t timer;
+  uint16_t counter;
 
   /* Length Counter */
   uint8_t length_counter_load;
@@ -58,7 +61,7 @@ typedef struct Pulse {
 typedef struct APU {
   APU_MMIO *apu_mmio;
   /* Track cpu cycles */
-  uint8_t cpu_cycle;
+  uint8_t apu_status_register;
 
   Pulse *pulse1;
 
@@ -74,3 +77,5 @@ void apu_update_parameters(APU *apu);
 
 int apu_length_counter_clocked(Pulse *pulse);
 int apu_sweep_clocked(Pulse *pulse, uint8_t one_comp);
+
+uint8_t apu_output(APU *apu);

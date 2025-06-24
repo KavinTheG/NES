@@ -87,7 +87,6 @@ void check_page_cross(uint16_t base, uint8_t index) {
     cyc += 1;
   }
 }
-
 /* PPU Functions */
 
 void cpu_ppu_write(Cpu6502 *cpu, uint16_t addr, uint8_t val) {
@@ -108,6 +107,30 @@ void ctrl1_write(Cpu6502 *cpu, uint8_t val) {
     }
     cpu->strobe = 0;
   }
+}
+
+void memory_write(Cpu6502 *cpu, uint16_t addr, uint8_t value) {
+  if (addr >= 0x2000 && addr <= 0x3FFF) {
+    // PPU register range (mirrored every 8 bytes)
+    uint16_t reg_addr = 0x2000 + (addr % 8);
+    cpu_ppu_write(cpu, reg_addr, value);
+  } else if (addr == 0x4014) {
+    // DMA
+    dma_active_flag = 1;
+    dma_cycles = (cpu->cycles % 2 == 0) ? 513 : 514;
+    uint8_t page_mem[0x100];
+    memcpy(page_mem, &memory[value << 8], 0x100);
+    load_ppu_oam_mem(cpu->ppu, page_mem);
+  } else if (addr == 0x4016) {
+    // Controller 1
+    ctrl1_write(cpu, value);
+  } else if (addr >= 0x4000 && addr <= 0x4017) {
+    // APU/MMIO registers
+    write_apu_mmio(cpu->apu_mmio, addr, value);
+  }
+
+  // Always write to memory
+  memory[addr] = value;
 }
 
 uint8_t ctrl1_read(Cpu6502 *cpu) {
@@ -228,63 +251,32 @@ void instr_LDY(Cpu6502 *cpu, uint16_t addr) {
 
 void instr_STA(Cpu6502 *cpu, uint16_t addr) {
 
-  if (addr >= 0x2000 && addr <= 0x3FFF) {
-    uint16_t reg_addr = 0x2000 + (addr % 8);
-    addr = reg_addr;
-    cpu_ppu_write(cpu, reg_addr, cpu->A);
-  } else if (addr == 0x4014) {
-    dma_active_flag = 1;
-    dma_cycles = cpu->cycles % 2 == 0 ? 513 : 514;
-    uint8_t page_mem[0x100];
-    memcpy(page_mem, &memory[cpu->A << 8], 0x100);
-    load_ppu_oam_mem(cpu->ppu, page_mem);
-  } else if (addr == 0x4016) {
-    ctrl1_write(cpu, cpu->A);
-  }
-
-  memory[addr] = cpu->A;
+  //  if (addr >= 0x2000 && addr <= 0x3FFF) {
+  //    uint16_t reg_addr = 0x2000 + (addr % 8);
+  //    addr = reg_addr;
+  //    cpu_ppu_write(cpu, reg_addr, cpu->A);
+  //  } else if (addr == 0x4014) {
+  //    dma_active_flag = 1;
+  //    dma_cycles = cpu->cycles % 2 == 0 ? 513 : 514;
+  //    uint8_t page_mem[0x100];
+  //    memcpy(page_mem, &memory[cpu->A << 8], 0x100);
+  //    load_ppu_oam_mem(cpu->ppu, page_mem);
+  //  } else if (addr == 0x4016) {
+  //    ctrl1_write(cpu, cpu->A);
+  //  }
+  //
+  memory_write(cpu, addr, cpu->A);
+  // memory[addr] = cpu->A;
   cpu->PC++;
 }
 
 void instr_STX(Cpu6502 *cpu, uint16_t addr) {
-
-  if (addr >= 0x2000 && addr <= 0x3FFF) {
-    uint16_t reg_addr = 0x2000 + (addr % 8);
-    addr = reg_addr;
-    cpu_ppu_write(cpu, reg_addr, cpu->X);
-  } else if (addr == 0x4014) {
-    dma_active_flag = 1;
-    dma_cycles = cpu->cycles % 2 == 0 ? 513 : 514;
-
-    uint8_t page_mem[0x100];
-    memcpy(page_mem, &memory[cpu->X << 8], 0x100);
-    load_ppu_oam_mem(cpu->ppu, page_mem);
-  } else if (addr == 0x4016) {
-    ctrl1_write(cpu, cpu->X);
-  }
-  memory[addr] = cpu->X;
+  memory_write(cpu, addr, cpu->X);
   cpu->PC++;
 }
 
 void instr_STY(Cpu6502 *cpu, uint16_t addr) {
-
-  if (addr >= 0x2000 && addr <= 0x3FFF) {
-    uint16_t reg_addr = 0x2000 + (addr % 8);
-    addr = reg_addr;
-    LOG("CPU: WRITING TO PPU REG $%04X: %02X\n", reg_addr, cpu->Y);
-    cpu_ppu_write(cpu, reg_addr, cpu->Y);
-  } else if (addr == 0x4014) {
-    dma_active_flag = 1;
-    dma_cycles = cpu->cycles % 2 == 0 ? 513 : 514;
-
-    uint8_t page_mem[0x100];
-    memcpy(page_mem, &memory[cpu->Y << 8], 0x100);
-    load_ppu_oam_mem(cpu->ppu, page_mem);
-  } else if (addr == 0x4016) {
-    ctrl1_write(cpu, cpu->Y);
-  }
-
-  memory[addr] = cpu->Y;
+  memory_write(cpu, addr, cpu->Y);
   cpu->PC++;
 }
 

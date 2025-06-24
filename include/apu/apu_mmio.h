@@ -10,9 +10,11 @@ typedef struct APU_MMIO {
   uint8_t apu_pulse1_4002;
   uint8_t apu_pulse1_4003;
 
+  uint8_t apu_status_4015;
   uint8_t apu_frame_counter_4017;
 } APU_MMIO;
 
-void write_apu_mmio(APU_MMIO *apu_mmio, uint16_t addr);
+void apu_mmio_init(APU_MMIO *apu_mmio);
+void write_apu_mmio(APU_MMIO *apu_mmio, uint16_t addr, uint8_t val);
 
 #endif

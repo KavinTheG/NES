@@ -1,10 +1,13 @@
 #include "frontend.h"
+#include <SDL2/SDL_audio.h>
 #include <SDL2/SDL_events.h>
 #include <SDL2/SDL_keyboard.h>
 #include <SDL2/SDL_keycode.h>
 #include <SDL2/SDL_scancode.h>
 #include <SDL2/SDL_stdinc.h>
 #include <SDL2/SDL_timer.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #define NES_A 0x01
 #define NES_B 0x02
@@ -15,9 +18,38 @@
 #define NES_LEFT 0x40
 #define NES_RIGHT 0x80
 
+#define AUDIO_BUFFER_SIZE 8192
+static int16_t audio_buffer[AUDIO_BUFFER_SIZE];
+static size_t write_pos = 0;
+static size_t read_pos = 0;
+
 const static int keyboard[8] = {
     SDL_SCANCODE_Z,  SDL_SCANCODE_X,    SDL_SCANCODE_C,    SDL_SCANCODE_V,
     SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT};
+
+void audio_buffer_add(int16_t sample) {
+  SDL_LockAudio();
+  size_t next = (write_pos + 1) % AUDIO_BUFFER_SIZE;
+  if (next != read_pos) {
+    audio_buffer[write_pos] = sample;
+    write_pos = next;
+  }
+  SDL_UnlockAudio();
+}
+
+void audio_callback(void *userdata, Uint8 *stream, int len) {
+  int16_t *out = (int16_t *)stream;
+  int samples = len / sizeof(int16_t);
+
+  for (int i = 0; i < samples; ++i) {
+    if (read_pos != write_pos) {
+      out[i] = audio_buffer[read_pos];
+      read_pos = (read_pos + 1) % AUDIO_BUFFER_SIZE;
+    } else {
+      out[i] = 0;
+    }
+  }
+}
 
 void Frontend_Init(Frontend *frontend, int w, int h, int scale) {
   SDL_Init(SDL_INIT_VIDEO);
@@ -36,6 +68,21 @@ void Frontend_Init(Frontend *frontend, int w, int h, int scale) {
   SDL_RenderSetLogicalSize(frontend->renderer, w, h);
   frontend->w = w;
   frontend->h = h;
+
+  SDL_AudioSpec spec = {
+      .freq = 44100,
+      .format = AUDIO_S16SYS,
+      .channels = 1,
+      .samples = 512,
+      .callback = audio_callback,
+      .userdata = NULL,
+  };
+
+  if (SDL_OpenAudio(&spec, NULL) < 0) {
+    SDL_Log("SDL_OpenAudio failed: %s", SDL_GetError());
+  }
+
+  SDL_PauseAudio(0); // Start audio playback
 }
 
 void Frontend_DrawFrame(Frontend *frontend,
