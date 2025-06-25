@@ -64,6 +64,7 @@ typedef struct APU {
   uint8_t apu_status_register;
 
   Pulse *pulse1;
+  Pulse *pulse2;
 
   FrameCounter frame_counter;
 

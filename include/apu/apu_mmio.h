@@ -5,13 +5,7 @@
 
 typedef struct APU_MMIO {
   uint32_t apu_mmio_write_mask;
-  uint8_t apu_pulse1_4000;
-  uint8_t apu_pulse1_4001;
-  uint8_t apu_pulse1_4002;
-  uint8_t apu_pulse1_4003;
-
-  uint8_t apu_status_4015;
-  uint8_t apu_frame_counter_4017;
+  uint8_t regs[0x18];
 } APU_MMIO;
 
 void apu_mmio_init(APU_MMIO *apu_mmio);

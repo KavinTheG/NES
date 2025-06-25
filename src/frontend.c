@@ -28,13 +28,11 @@ const static int keyboard[8] = {
     SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT};
 
 void audio_buffer_add(int16_t sample) {
-  SDL_LockAudio();
   size_t next = (write_pos + 1) % AUDIO_BUFFER_SIZE;
   if (next != read_pos) {
     audio_buffer[write_pos] = sample;
     write_pos = next;
   }
-  SDL_UnlockAudio();
 }
 
 void audio_callback(void *userdata, Uint8 *stream, int len) {

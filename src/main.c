@@ -12,6 +12,10 @@
 #include "ppu.h"
 #include "rom.h"
 
+#define CPU_CLOCK_HZ 1789773.0
+#define APU_CLOCK_HZ (CPU_CLOCK_HZ / 2.0) // APU ticks at half CPU rate
+#define AUDIO_SAMPLE_RATE 44100.0
+
 void load_ppu_palette(char *filename) {
   FILE *pal = fopen(filename, "rb");
 
@@ -63,16 +67,25 @@ int main() {
 
   cpu.apu_mmio = &apu_mmio;
 
+  double apu_accumulator = 0.;
+  double apu_ticks_per_sample = APU_CLOCK_HZ / AUDIO_SAMPLE_RATE;
+
   while (1) {
     // Execute cpu cycle
     cpu_execute(&cpu);
 
-    for (int i = 0; i < cpu.instr / 2; i++) {
+    for (int i = 0; i < cpu.instr; i += 2) {
       apu_execute(&apu);
-      uint8_t val = apu_output(&apu);
 
-      int16_t sample = ((int)val - 8) * 4096;
-      audio_buffer_add(sample);
+      apu_accumulator += 1.0;
+
+      if (apu_accumulator >= 40.) {
+        apu_accumulator -= 40;
+
+        uint8_t val = apu_output(&apu);
+        int16_t sample = ((int)val - 8) * 4096;
+        audio_buffer_add(sample);
+      }
     }
 
     if (ppu.update_graphics) {

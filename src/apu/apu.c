@@ -57,6 +57,38 @@ void apu_init(APU *apu, APU_MMIO *apu_mmio) {
   pulse1->sweep_negate_flag = 0;
   pulse1->length_counter_halt_flag = 0;
 
+  apu->pulse2 = malloc(sizeof(Pulse));
+  memset(apu->pulse2, 0, sizeof(Pulse));
+
+  Pulse *pulse2 = apu->pulse2;
+
+  // Allocate and initialize envelope
+  pulse2->envelope = malloc(sizeof(Envelope));
+  memset(pulse2->envelope, 0, sizeof(Envelope));
+  pulse2->envelope->divider = malloc(sizeof(Divider));
+  memset(pulse2->envelope->divider, 0, sizeof(Divider));
+
+  // Allocate and initialize sweep
+  pulse2->sweep = malloc(sizeof(Sweep));
+  memset(pulse2->sweep, 0, sizeof(Sweep));
+  pulse2->sweep->divider = malloc(sizeof(Divider));
+  memset(pulse2->sweep->divider, 0, sizeof(Divider));
+
+  // Initialize pulse timer and counters
+  pulse2->timer = 0;
+  pulse2->counter = 0;
+  pulse2->length_counter = 0;
+  pulse2->length_counter_load = 0;
+  pulse2->sequencer_step_index = 0;
+
+  pulse2->muted = 0;
+  pulse2->duty = 0;
+  pulse2->sweep_divider_period = 0;
+  pulse2->sweep_shift_count = 0;
+  pulse2->sweep_enabled_flag = 0;
+  pulse2->sweep_negate_flag = 0;
+  pulse2->length_counter_halt_flag = 0;
+
   // Initialize frame counter
   apu->frame_counter.divider = malloc(sizeof(Divider));
   memset(apu->frame_counter.divider, 0, sizeof(Divider));
@@ -72,66 +104,91 @@ void apu_update_parameters(APU *apu) {
   int reg = __builtin_ctz(apu->apu_mmio->apu_mmio_write_mask);
   apu->apu_mmio->apu_mmio_write_mask = 0;
 
-  switch (reg) {
+  uint8_t val = apu->apu_mmio->regs[reg];
 
+  switch (reg) {
   // $4000
   case 0:
-    apu->pulse1->duty = (apu->apu_mmio->apu_pulse1_4000 & 0xC0) >> 6;
-
-    apu->pulse1->length_counter_halt_flag =
-        (apu->apu_mmio->apu_pulse1_4000 & 0x20) >> 5;
-
-    apu->pulse1->envelope->constant_volume_flag =
-        (apu->apu_mmio->apu_pulse1_4000 & 0x10) >> 4;
-
-    apu->pulse1->envelope->divider->P = apu->apu_mmio->apu_pulse1_4000 & 0xF;
+    apu->pulse1->duty = (val & 0xC0) >> 6;
+    apu->pulse1->length_counter_halt_flag = (val & 0x20) >> 5;
+    apu->pulse1->envelope->constant_volume_flag = (val & 0x10) >> 4;
+    apu->pulse1->envelope->divider->P = val & 0x0F;
     break;
 
   // $4001
   case 1:
-    apu->pulse1->sweep_enabled_flag =
-        (apu->apu_mmio->apu_pulse1_4001 & 0x80) == 0x80;
-
-    apu->pulse1->sweep_divider_period =
-        (apu->apu_mmio->apu_pulse1_4001 & 0x70) >> 4;
-
-    apu->pulse1->sweep_negate_flag =
-        (apu->apu_mmio->apu_pulse1_4001 & 0x08) >> 3;
-
-    apu->pulse1->sweep_shift_count = (apu->apu_mmio->apu_pulse1_4001 & 0x07);
+    apu->pulse1->sweep_enabled_flag = (val & 0x80) != 0;
+    apu->pulse1->sweep_divider_period = (val & 0x70) >> 4;
+    apu->pulse1->sweep_negate_flag = (val & 0x08) >> 3;
+    apu->pulse1->sweep_shift_count = val & 0x07;
     break;
 
   // $4002
   case 2:
-    apu->pulse1->timer |= apu->apu_mmio->apu_pulse1_4002;
+    apu->pulse1->timer &= 0xFF00; // Clear low 8 bits
+    apu->pulse1->timer |= val;    // Set low 8 bits
     break;
 
   // $4003
   case 3:
-    // High 3 bits of timer
-    apu->pulse1->timer |= (apu->apu_mmio->apu_pulse1_4003 & 0x07) << 8;
+    apu->pulse1->timer &= 0x00FF;            // Clear high 3 bits
+    apu->pulse1->timer |= (val & 0x07) << 8; // Set high 3 bits
     apu->pulse1->counter = apu->pulse1->timer;
 
-    // Length counter load
-    apu->pulse1->length_counter_load =
-        (apu->apu_mmio->apu_pulse1_4003 & 0xF8) >> 3;
-
-    // Duration of a note
+    apu->pulse1->length_counter_load = (val & 0xF8) >> 3;
     apu->pulse1->length_counter =
         length_table[apu->pulse1->length_counter_load];
     break;
 
-  case 21:
-    apu->apu_status_register = apu->apu_mmio->apu_status_4015;
+  // $4004
+  case 4:
+    apu->pulse2->duty = (val & 0xC0) >> 6;
+    apu->pulse2->length_counter_halt_flag = (val & 0x20) >> 5;
+    apu->pulse2->envelope->constant_volume_flag = (val & 0x10) >> 4;
+    apu->pulse2->envelope->divider->P = val & 0x0F;
     break;
 
-  case 23:
-    // Determines frame counter mode
-    apu->frame_counter.mode = apu->apu_mmio->apu_frame_counter_4017 & 0x80;
-    apu->frame_counter.interrupt_inhibit_flag =
-        apu->apu_mmio->apu_frame_counter_4017 & 0x40;
+  // $4001
+  case 5:
+    apu->pulse2->sweep_enabled_flag = (val & 0x80) != 0;
+    apu->pulse2->sweep_divider_period = (val & 0x70) >> 4;
+    apu->pulse2->sweep_negate_flag = (val & 0x08) >> 3;
+    apu->pulse2->sweep_shift_count = val & 0x07;
+    break;
 
+  // $4002
+  case 6:
+    apu->pulse2->timer &= 0xFF00; // Clear low 8 bits
+    apu->pulse2->timer |= val;    // Set low 8 bits
+    break;
+
+  // $4003
+  case 7:
+    apu->pulse2->timer &= 0x00FF;            // Clear high 3 bits
+    apu->pulse2->timer |= (val & 0x07) << 8; // Set high 3 bits
+    apu->pulse2->counter = apu->pulse1->timer;
+
+    apu->pulse2->length_counter_load = (val & 0xF8) >> 3;
+    apu->pulse2->length_counter =
+        length_table[apu->pulse2->length_counter_load];
+    break;
+
+  // $4015
+  case 21:
+    apu->apu_status_register = val;
+    apu->pulse1->muted = !(val & 0x1);
+    apu->pulse2->muted = !(val & 0x2);
+    break;
+
+  // $4017
+  case 23:
+    apu->frame_counter.mode = (val & 0x80) >> 7;
+    apu->frame_counter.interrupt_inhibit_flag = (val & 0x40) >> 6;
     apu->frame_counter.initial_apu_cycle = apu->apu_cycles;
+    break;
+
+  default:
+    // Ignore unimplemented registers for now
     break;
   }
 }
@@ -191,7 +248,7 @@ void apu_pulse_sequencer_clocked(Pulse *pulse) {
 }
 
 uint8_t apu_pulse_output(Pulse *pulse) {
-  if (pulse->length_counter == 0 || pulse->muted == 0)
+  if (pulse->length_counter == 0 || pulse->muted)
     return 0;
 
   uint8_t duty_value = DUTY_PATTERNS[pulse->duty][pulse->sequencer_step_index];
@@ -199,7 +256,9 @@ uint8_t apu_pulse_output(Pulse *pulse) {
   return duty_value ? pulse->envelope->volume : 0;
 }
 
-uint8_t apu_output(APU *apu) { return apu_pulse_output(apu->pulse1); }
+uint8_t apu_output(APU *apu) {
+  return (apu_pulse_output(apu->pulse1) + apu_pulse_output(apu->pulse2)) / 2;
+}
 
 void apu_envelope_clocked(Envelope *envelope, uint8_t loop_flag) {
   if (envelope->envelope_start_flag == 0) {
@@ -236,6 +295,8 @@ void apu_clock_frame_counter(APU *apu) {
     // Clock Envelopes & Triangle's Linear Counter
     apu_envelope_clocked(apu->pulse1->envelope,
                          apu->pulse1->length_counter_halt_flag);
+    apu_envelope_clocked(apu->pulse2->envelope,
+                         apu->pulse2->length_counter_halt_flag);
     break;
 
   case 7456:
@@ -249,13 +310,24 @@ void apu_clock_frame_counter(APU *apu) {
     // Decrement pulse 1 sweep unit
     apu_sweep_clocked(apu->pulse1, 1);
 
+    apu_envelope_clocked(apu->pulse2->envelope,
+                         apu->pulse2->length_counter_halt_flag);
+
+    // Decrement pulse1 length counter
+    apu_length_counter_clocked(apu->pulse2);
+
+    // Decrement pulse 1 sweep unit
+    apu_sweep_clocked(apu->pulse2, 0);
     break;
+
   case 11185:
     // quarter frame
     // Clock Envelopes & Triangle's Linear Counter
     apu_envelope_clocked(apu->pulse1->envelope,
                          apu->pulse1->length_counter_halt_flag);
     // clock envelopes and linear counters
+    apu_envelope_clocked(apu->pulse2->envelope,
+                         apu->pulse2->length_counter_halt_flag);
     break;
 
   case 14914:
@@ -271,6 +343,16 @@ void apu_clock_frame_counter(APU *apu) {
       // Clock Envelopes & Triangle's Linear Counter
       apu_envelope_clocked(apu->pulse1->envelope,
                            apu->pulse1->length_counter_halt_flag);
+
+      // Decrement pulse1 length counter
+      apu_length_counter_clocked(apu->pulse2);
+
+      // Decrement pulse 1 sweep unit
+      apu_sweep_clocked(apu->pulse2, 1);
+
+      // Clock Envelopes & Triangle's Linear Counter
+      apu_envelope_clocked(apu->pulse2->envelope,
+                           apu->pulse2->length_counter_halt_flag);
     }
     break;
 
@@ -286,6 +368,15 @@ void apu_clock_frame_counter(APU *apu) {
       // Clock Envelopes & Triangle's Linear Counter
       apu_envelope_clocked(apu->pulse1->envelope,
                            apu->pulse1->length_counter_halt_flag);
+      // Decrement pulse1 length counter
+      apu_length_counter_clocked(apu->pulse2);
+
+      // Decrement pulse 1 sweep unit
+      apu_sweep_clocked(apu->pulse2, 0);
+
+      // Clock Envelopes & Triangle's Linear Counter
+      apu_envelope_clocked(apu->pulse2->envelope,
+                           apu->pulse2->length_counter_halt_flag);
     }
     break;
   }
@@ -295,6 +386,7 @@ void apu_execute(APU *apu) {
   apu_update_parameters(apu);
 
   apu_pulse_sequencer_clocked(apu->pulse1);
+  apu_pulse_sequencer_clocked(apu->pulse2);
   apu_clock_frame_counter(apu);
 
   // uint8_t volume = apu_pulse_output(apu->pulse1);
