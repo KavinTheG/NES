@@ -79,8 +79,8 @@ int main() {
 
       apu_accumulator += 1.0;
 
-      if (apu_accumulator >= 40.) {
-        apu_accumulator -= 40;
+      if (apu_accumulator >= apu_ticks_per_sample) {
+        apu_accumulator -= apu_ticks_per_sample;
 
         uint8_t val = apu_output(&apu);
         int16_t sample = ((int)val - 8) * 4096;

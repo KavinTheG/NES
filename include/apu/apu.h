@@ -58,6 +58,19 @@ typedef struct Pulse {
 
 } Pulse;
 
+typedef struct Triangle {
+  uint8_t control_flag;
+  Divider *linear_counter;
+  uint8_t linear_counter_reload_flag;
+
+  uint16_t timer;
+  uint16_t counter;
+  uint8_t sequencer_step_index;
+
+  uint8_t length_counter_load;
+  uint8_t length_counter;
+} Triangle;
+
 typedef struct APU {
   APU_MMIO *apu_mmio;
   /* Track cpu cycles */
@@ -65,6 +78,7 @@ typedef struct APU {
 
   Pulse *pulse1;
   Pulse *pulse2;
+  Triangle *triangle;
 
   FrameCounter frame_counter;
 
@@ -76,7 +90,6 @@ void apu_init(APU *apu, APU_MMIO *apu_mmio);
 void apu_execute(APU *apu);
 void apu_update_parameters(APU *apu);
 
-int apu_length_counter_clocked(Pulse *pulse);
 int apu_sweep_clocked(Pulse *pulse, uint8_t one_comp);
 
 uint8_t apu_output(APU *apu);

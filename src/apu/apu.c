@@ -14,6 +14,10 @@ static const uint8_t DUTY_PATTERNS[4][8] = {
     {1, 0, 0, 1, 1, 1, 1, 1}  // QUARTER_NEGATED
 };
 
+static const uint8_t triangle_sequence[32] = {
+    0,  1,  2,  3,  4,  5,  6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+    15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5,  4,  3,  2,  1,  0};
+
 int length_table[32] = {10, 254, 20, 2,  40, 4,  80, 6,  160, 8,  60,
                         10, 14,  12, 26, 14, 12, 24, 48, 72,  96, 192,
                         16, 32,  14, 16, 18, 20, 22, 24, 26,  30};
@@ -24,6 +28,21 @@ void apu_init(APU *apu, APU_MMIO *apu_mmio) {
   apu->apu_mmio = apu_mmio;
   apu->apu_status_register = 0;
   apu->apu_cycles = 0;
+
+  apu->triangle = malloc(sizeof(Triangle));
+  memset(apu->triangle, 0, sizeof(Triangle));
+
+  Triangle *tri = apu->triangle;
+
+  tri->control_flag = 0;
+  tri->linear_counter = malloc(sizeof(Divider));
+  memset(tri->linear_counter, 0, sizeof(Divider));
+
+  tri->timer = 0;
+  tri->counter = 0;
+  tri->sequencer_step_index = 0;
+  tri->length_counter_load = 0;
+  tri->length_counter = 0;
 
   apu->pulse1 = malloc(sizeof(Pulse));
   memset(apu->pulse1, 0, sizeof(Pulse));
@@ -173,6 +192,27 @@ void apu_update_parameters(APU *apu) {
         length_table[apu->pulse2->length_counter_load];
     break;
 
+  case 8:
+    apu->triangle->control_flag = val & 0x80;
+    apu->triangle->linear_counter->P = val & 0x7F;
+    apu->triangle->linear_counter->counter = val & 0x7F;
+    break;
+
+  case 10:
+    apu->triangle->timer = val;
+    break;
+
+  case 11:
+    apu->triangle->timer &= 0x00FF;
+    apu->triangle->timer = ((val & 0x07) << 8) + 1;
+
+    apu->triangle->length_counter_load = (val & 0xF8) >> 3;
+    apu->triangle->length_counter =
+        length_table[apu->triangle->length_counter_load];
+
+    apu->triangle->linear_counter_reload_flag = 1;
+    break;
+
   // $4015
   case 21:
     apu->apu_status_register = val;
@@ -231,10 +271,24 @@ int apu_sweep_clocked(Pulse *pulse, uint8_t one_comp) {
   return 0;
 }
 
-int apu_length_counter_clocked(Pulse *pulse) {
-  if (pulse->length_counter != 0)
+void apu_length_counter_clocked(Pulse *pulse) {
+  if (!pulse->length_counter && !pulse->length_counter_halt_flag)
     pulse->length_counter--;
-  return 0;
+}
+
+void apu_tri_length_counter_clocked(Triangle *tri) {
+  if (!tri->length_counter && !tri->control_flag)
+    tri->length_counter--;
+}
+
+void apu_tri_linear_counter_clocked(Triangle *tri) {
+  if (tri->linear_counter_reload_flag) {
+    tri->linear_counter->counter = tri->linear_counter->P;
+  } else if (!tri->linear_counter->counter)
+    tri->linear_counter->counter--;
+
+  if (tri->control_flag)
+    tri->linear_counter_reload_flag = 0;
 }
 
 void apu_pulse_sequencer_clocked(Pulse *pulse) {
@@ -247,6 +301,26 @@ void apu_pulse_sequencer_clocked(Pulse *pulse) {
   }
 }
 
+void apu_tri_sequencer_clocked(Triangle *tri) {
+  if (tri->length_counter == 0 || tri->linear_counter->counter == 0)
+    return;
+
+  if (tri->counter <= 0 || tri->counter > 0x1F) {
+    tri->sequencer_step_index = (tri->sequencer_step_index - 1) & 0x1F;
+
+    tri->counter = tri->timer;
+  } else {
+    tri->counter -= 2;
+  }
+}
+
+uint8_t apu_triangle_output(Triangle *tri) {
+  if (tri->length_counter == 0 || tri->linear_counter->counter == 0)
+    return 0;
+
+  return triangle_sequence[tri->sequencer_step_index];
+}
+
 uint8_t apu_pulse_output(Pulse *pulse) {
   if (pulse->length_counter == 0 || pulse->muted)
     return 0;
@@ -257,9 +331,12 @@ uint8_t apu_pulse_output(Pulse *pulse) {
 }
 
 uint8_t apu_output(APU *apu) {
-  return (apu_pulse_output(apu->pulse1) + apu_pulse_output(apu->pulse2)) / 2;
-}
+  uint8_t p1 = apu_pulse_output(apu->pulse1);
+  uint8_t p2 = apu_pulse_output(apu->pulse2);
+  uint8_t tri = apu_triangle_output(apu->triangle);
 
+  return (p1 + p2 + tri) / 3;
+}
 void apu_envelope_clocked(Envelope *envelope, uint8_t loop_flag) {
   if (envelope->envelope_start_flag == 0) {
     if (envelope->divider->counter != 0) {
@@ -297,6 +374,8 @@ void apu_clock_frame_counter(APU *apu) {
                          apu->pulse1->length_counter_halt_flag);
     apu_envelope_clocked(apu->pulse2->envelope,
                          apu->pulse2->length_counter_halt_flag);
+
+    apu_tri_linear_counter_clocked(apu->triangle);
     break;
 
   case 7456:
@@ -313,11 +392,15 @@ void apu_clock_frame_counter(APU *apu) {
     apu_envelope_clocked(apu->pulse2->envelope,
                          apu->pulse2->length_counter_halt_flag);
 
-    // Decrement pulse1 length counter
+    // Decrement pulse 2l ength counter
     apu_length_counter_clocked(apu->pulse2);
 
-    // Decrement pulse 1 sweep unit
+    // Decrement pulse 2 sweep unit
     apu_sweep_clocked(apu->pulse2, 0);
+
+    // Decrement triangle length counter
+    apu_tri_linear_counter_clocked(apu->triangle);
+    apu_tri_length_counter_clocked(apu->triangle);
     break;
 
   case 11185:
@@ -328,6 +411,7 @@ void apu_clock_frame_counter(APU *apu) {
     // clock envelopes and linear counters
     apu_envelope_clocked(apu->pulse2->envelope,
                          apu->pulse2->length_counter_halt_flag);
+    apu_tri_linear_counter_clocked(apu->triangle);
     break;
 
   case 14914:
@@ -353,6 +437,10 @@ void apu_clock_frame_counter(APU *apu) {
       // Clock Envelopes & Triangle's Linear Counter
       apu_envelope_clocked(apu->pulse2->envelope,
                            apu->pulse2->length_counter_halt_flag);
+
+      // Decrement triangle length counter
+      apu_tri_linear_counter_clocked(apu->triangle);
+      apu_tri_length_counter_clocked(apu->triangle);
     }
     break;
 
@@ -377,6 +465,10 @@ void apu_clock_frame_counter(APU *apu) {
       // Clock Envelopes & Triangle's Linear Counter
       apu_envelope_clocked(apu->pulse2->envelope,
                            apu->pulse2->length_counter_halt_flag);
+
+      // Decrement triangle length counter
+      apu_tri_linear_counter_clocked(apu->triangle);
+      apu_tri_length_counter_clocked(apu->triangle);
     }
     break;
   }
@@ -387,6 +479,9 @@ void apu_execute(APU *apu) {
 
   apu_pulse_sequencer_clocked(apu->pulse1);
   apu_pulse_sequencer_clocked(apu->pulse2);
+
+  apu_tri_sequencer_clocked(apu->triangle);
+
   apu_clock_frame_counter(apu);
 
   // uint8_t volume = apu_pulse_output(apu->pulse1);
