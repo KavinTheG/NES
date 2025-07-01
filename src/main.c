@@ -68,13 +68,15 @@ int main() {
   cpu.apu_mmio = &apu_mmio;
 
   double apu_accumulator = 0.;
+  int sample_count = 0;
+  int cycle_count = 0;
   double apu_ticks_per_sample = APU_CLOCK_HZ / AUDIO_SAMPLE_RATE;
 
   while (1) {
     // Execute cpu cycle
     cpu_execute(&cpu);
 
-    for (int i = 0; i < cpu.instr; i += 2) {
+    for (int i = 0; i < cpu.cycles; i += 2) {
       apu_execute(&apu);
 
       apu_accumulator += 1.0;
@@ -84,6 +86,8 @@ int main() {
 
         uint8_t val = apu_output(&apu);
         int16_t sample = ((int)val - 8) * 4096;
+
+        sample_count++;
         audio_buffer_add(sample);
       }
     }

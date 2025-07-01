@@ -35,6 +35,7 @@ void apu_init(APU *apu, APU_MMIO *apu_mmio) {
   Triangle *tri = apu->triangle;
 
   tri->control_flag = 0;
+  tri->muted = 0;
   tri->linear_counter = malloc(sizeof(Divider));
   memset(tri->linear_counter, 0, sizeof(Divider));
 
@@ -62,7 +63,6 @@ void apu_init(APU *apu, APU_MMIO *apu_mmio) {
   memset(pulse1->sweep->divider, 0, sizeof(Divider));
 
   // Initialize pulse timer and counters
-  pulse1->timer = 0;
   pulse1->counter = 0;
   pulse1->length_counter = 0;
   pulse1->length_counter_load = 0;
@@ -204,7 +204,8 @@ void apu_update_parameters(APU *apu) {
 
   case 11:
     apu->triangle->timer &= 0x00FF;
-    apu->triangle->timer = ((val & 0x07) << 8) + 1;
+    apu->triangle->timer = ((val & 0x07) << 8);
+    printf("Triangle timer: %x\n", apu->triangle->timer);
 
     apu->triangle->length_counter_load = (val & 0xF8) >> 3;
     apu->triangle->length_counter =
@@ -218,6 +219,13 @@ void apu_update_parameters(APU *apu) {
     apu->apu_status_register = val;
     apu->pulse1->muted = !(val & 0x1);
     apu->pulse2->muted = !(val & 0x2);
+
+    if (!(val & 0x04)) {
+      apu->triangle->length_counter = 0;
+      apu->triangle->muted = 1;
+    } else {
+      apu->triangle->muted = 0;
+    }
     break;
 
   // $4017
@@ -272,12 +280,12 @@ int apu_sweep_clocked(Pulse *pulse, uint8_t one_comp) {
 }
 
 void apu_length_counter_clocked(Pulse *pulse) {
-  if (!pulse->length_counter && !pulse->length_counter_halt_flag)
+  if (pulse->length_counter && !pulse->length_counter_halt_flag)
     pulse->length_counter--;
 }
 
 void apu_tri_length_counter_clocked(Triangle *tri) {
-  if (!tri->length_counter && !tri->control_flag)
+  if (tri->length_counter && !tri->control_flag)
     tri->length_counter--;
 }
 
@@ -293,9 +301,9 @@ void apu_tri_linear_counter_clocked(Triangle *tri) {
 
 void apu_pulse_sequencer_clocked(Pulse *pulse) {
   if (pulse->counter == 0) {
-    pulse->sequencer_step_index = (pulse->sequencer_step_index - 1) & 0x07;
+    pulse->sequencer_step_index = (pulse->sequencer_step_index + 1) & 0x07;
 
-    pulse->counter = pulse->timer;
+    pulse->counter = pulse->timer + 1;
   } else {
     pulse->counter--;
   }
@@ -305,17 +313,17 @@ void apu_tri_sequencer_clocked(Triangle *tri) {
   if (tri->length_counter == 0 || tri->linear_counter->counter == 0)
     return;
 
-  if (tri->counter <= 0 || tri->counter > 0x1F) {
-    tri->sequencer_step_index = (tri->sequencer_step_index - 1) & 0x1F;
-
+  if (tri->counter <= 2) {
     tri->counter = tri->timer;
+    tri->sequencer_step_index = (tri->sequencer_step_index - 1) & 0x1F;
   } else {
     tri->counter -= 2;
   }
 }
 
 uint8_t apu_triangle_output(Triangle *tri) {
-  if (tri->length_counter == 0 || tri->linear_counter->counter == 0)
+  if (tri->length_counter == 0 || tri->linear_counter->counter == 0 ||
+      tri->timer < 2 || tri->muted)
     return 0;
 
   return triangle_sequence[tri->sequencer_step_index];
@@ -333,7 +341,7 @@ uint8_t apu_pulse_output(Pulse *pulse) {
 uint8_t apu_output(APU *apu) {
   uint8_t p1 = apu_pulse_output(apu->pulse1);
   uint8_t p2 = apu_pulse_output(apu->pulse2);
-  uint8_t tri = apu_triangle_output(apu->triangle);
+  uint8_t tri = 0; // apu_triangle_output(apu->triangle);
 
   return (p1 + p2 + tri) / 3;
 }

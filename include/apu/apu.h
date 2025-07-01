@@ -62,6 +62,7 @@ typedef struct Triangle {
   uint8_t control_flag;
   Divider *linear_counter;
   uint8_t linear_counter_reload_flag;
+  uint8_t muted;
 
   uint16_t timer;
   uint16_t counter;

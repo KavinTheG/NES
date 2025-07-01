@@ -3323,7 +3323,9 @@ void cpu_execute(Cpu6502 *cpu) {
   for (int i = 0; i < cyc; i++) {
     ppu_exec(cpu);
   }
-  cpu->cycles += cyc;
+  //  cpu->cycles += cyc;
+  cpu->cycles = cyc;
+
   cyc = 0;
   page_crossed = 0;
 
