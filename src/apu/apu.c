@@ -205,7 +205,6 @@ void apu_update_parameters(APU *apu) {
   case 11:
     apu->triangle->timer &= 0x00FF;
     apu->triangle->timer = ((val & 0x07) << 8);
-    printf("Triangle timer: %x\n", apu->triangle->timer);
 
     apu->triangle->length_counter_load = (val & 0xF8) >> 3;
     apu->triangle->length_counter =

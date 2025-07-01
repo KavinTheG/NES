@@ -234,6 +234,8 @@ void sprite_detect(PPU *ppu) {
   if (ppu->current_scanline_cycle >= 65 && ppu->current_scanline_cycle <= 256) {
     // int index = ppu->sprite_evaluation_index * 4 + ppu->index_of_sprite;
     int index = ppu->sprite_evaluation_index * 4;
+    if (index > OAM_SIZE - 1)
+      return;
     // Odd cycle; read OAM
     if (ppu->current_scanline_cycle % 2 == 1) {
       if (ppu->scanline >= oam_memory[index] &&
@@ -295,7 +297,6 @@ void ppu_exec_vblank(PPU *ppu) {
     /* VBLANK */
     ppu->vblank_flag = 1;
     ppu->PPUSTATUS |= 0b10000000;
-    ppu->update_graphics = 1;
 
     // PPUCTRL bit 7 determines if CPU accepts NMI
     if (ppu->PPUCTRL & 0x80) {

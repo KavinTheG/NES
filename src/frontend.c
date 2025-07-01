@@ -18,6 +18,8 @@
 #define NES_LEFT 0x40
 #define NES_RIGHT 0x80
 
+const uint32_t FRAME_REFRESH_RATE = 1000 / 60;
+
 #define AUDIO_BUFFER_SIZE 8192
 static int16_t audio_buffer[AUDIO_BUFFER_SIZE];
 static size_t write_pos = 0;
@@ -94,6 +96,10 @@ void Frontend_DrawFrame(Frontend *frontend,
   SDL_RenderClear(frontend->renderer);
   SDL_RenderCopy(frontend->renderer, frontend->texture, NULL, NULL);
   SDL_RenderPresent(frontend->renderer);
+
+  uint32_t delta = SDL_GetTicks() - frontend->frame_start_tick;
+  if (delta < FRAME_REFRESH_RATE)
+    SDL_Delay((FRAME_REFRESH_RATE - delta) / 2);
 }
 
 int Frontend_HandleInput(Frontend *frontend) {
@@ -120,6 +126,10 @@ int Frontend_HandleInput(Frontend *frontend) {
   if (keystate[keyboard[7]])
     frontend->controller |= NES_RIGHT;
   return 0;
+}
+
+void Frontend_SetFrameTickStart(Frontend *frontend) {
+  frontend->frame_start_tick = SDL_GetTicks();
 }
 
 void Frontend_Destroy(Frontend *frontend) {

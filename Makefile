@@ -1,5 +1,6 @@
 # Compiler and flags
 CC = gcc
+# CFLAGS = -Wall -Wextra -g -fsanitize=address -fno-omit-frame-pointer -Iinclude -Iinclude/ppu
 CFLAGS = -Wall -Wextra -g -Iinclude -Iinclude/ppu
 LDFLAGS = -lSDL2
 

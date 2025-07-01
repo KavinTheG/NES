@@ -68,8 +68,6 @@ int main() {
   cpu.apu_mmio = &apu_mmio;
 
   double apu_accumulator = 0.;
-  int sample_count = 0;
-  int cycle_count = 0;
   double apu_ticks_per_sample = APU_CLOCK_HZ / AUDIO_SAMPLE_RATE;
 
   while (1) {
@@ -87,7 +85,6 @@ int main() {
         uint8_t val = apu_output(&apu);
         int16_t sample = ((int)val - 8) * 4096;
 
-        sample_count++;
         audio_buffer_add(sample);
       }
     }
@@ -96,6 +93,7 @@ int main() {
       ppu.update_graphics = 0;
 
       Frontend_DrawFrame(&frontend, ppu.frame_buffer);
+      Frontend_SetFrameTickStart(&frontend);
       if (Frontend_HandleInput(&frontend) != 0)
         break;
     }

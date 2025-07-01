@@ -4,7 +4,7 @@ Author: Kavin Gnanapandithan
 */
 
 #include "ppu.h"
-#include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 // Nametable mirror arrangment flag
@@ -27,6 +27,8 @@ uint8_t oam_memory_secondary[OAM_SECONDARY_SIZE] = {0};
 
 // Internal latches, holds actual rendering data
 uint8_t oam_buffer_latches[OAM_SECONDARY_SIZE] = {0};
+
+int ppu_cycle_count;
 
 void ppu_init(PPU *ppu) {
   // Initial PPU MMIO Register values
@@ -182,6 +184,7 @@ void ppu_execute_cycle(PPU *ppu) {
   }
 
   ppu->current_scanline_cycle++;
+  ppu_cycle_count++;
 
   if (ppu->current_scanline_cycle >= 341) {
 
@@ -195,6 +198,8 @@ void ppu_execute_cycle(PPU *ppu) {
       // Set scanline back to pre-render
       ppu->scanline = -1;
       ppu->update_graphics = 1;
+
+      ppu_cycle_count = 0;
     }
   }
 
