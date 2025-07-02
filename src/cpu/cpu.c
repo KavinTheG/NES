@@ -26,12 +26,13 @@ uint8_t LB, HB;
 uint16_t address, zpg_addr;
 
 char new_carry;
-int cyc = 0;
 
 int instr_num = 0;
 
 unsigned char dma_active_flag;
 int page_crossed = 0;
+int branch_cycles = 0;
+int branch_instr = 0;
 int dma_cycles = 0;
 
 /**  Helper functions **/
@@ -81,12 +82,6 @@ void emulate_6502_cycle(int cycle) {
   // nanosleep(&ts, NULL);
 }
 
-void check_page_cross(uint16_t base, uint8_t index) {
-  uint16_t result = base + index;
-  if ((base & 0xFF00) != (result & 0xFF00)) {
-    cyc += 1;
-  }
-}
 /* PPU Functions */
 
 void cpu_ppu_write(Cpu6502 *cpu, uint16_t addr, uint8_t val) {
@@ -569,6 +564,7 @@ void instr_CPY(Cpu6502 *cpu, uint8_t M) {
 // Branch
 
 void instr_branch(Cpu6502 *cpu, char flag) {
+  branch_instr = 1;
 
   // Increment PC by to get signed offset
   cpu->PC += 1;
@@ -589,10 +585,10 @@ void instr_branch(Cpu6502 *cpu, char flag) {
 
     if ((cpu->PC & 0xFF00) != ((old_addr + 2) & 0xFF00)) {
       emulate_6502_cycle(4);
-      cyc = 4;
+      branch_cycles = 4;
     } else {
       emulate_6502_cycle(3);
-      cyc = 3;
+      branch_cycles = 3;
     }
 
     if (old_addr - 1 == cpu->PC) {
@@ -603,7 +599,7 @@ void instr_branch(Cpu6502 *cpu, char flag) {
   } else {
     cpu->PC++;
     emulate_6502_cycle(2);
-    cyc = 2;
+    branch_cycles = 2;
   }
 }
 
@@ -3282,7 +3278,8 @@ void cpu_execute(Cpu6502 *cpu) {
   if (dma_active_flag) {
     if (dma_cycles > 0) {
       dma_cycles--;
-      cpu->cycles++;
+      cpu->cycles = 1;
+      cpu->cpu_cycle_count++;
       ppu_exec(cpu);
       return;
     } else {
@@ -3290,7 +3287,7 @@ void cpu_execute(Cpu6502 *cpu) {
     }
   }
   Opcode opcode = lookup_table[instr];
-  cyc = opcode.cycles;
+  cpu->cycles = opcode.cycles;
   uint8_t val;
   uint16_t addr;
 
@@ -3318,15 +3315,19 @@ void cpu_execute(Cpu6502 *cpu) {
     opcode.instr_mem(cpu, &cpu->A);
   }
 
-  cyc += page_crossed ? opcode.page_cycles : 0;
+  if (page_crossed)
+    cpu->cycles += opcode.page_cycles;
 
-  for (int i = 0; i < cyc; i++) {
+  if (branch_instr) {
+    cpu->cycles = branch_cycles;
+    branch_instr = 0;
+  }
+
+  for (int i = 0; i < cpu->cycles; i++) {
     ppu_exec(cpu);
   }
-  //  cpu->cycles += cyc;
-  cpu->cycles = cyc;
 
-  cyc = 0;
+  cpu->cpu_cycle_count += cpu->cycles;
   page_crossed = 0;
 
   // PPU set NMI flag

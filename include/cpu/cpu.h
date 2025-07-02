@@ -48,6 +48,8 @@ typedef struct Cpu6502 {
   unsigned char strobe;
 
   APU_MMIO *apu_mmio;
+
+  int cpu_cycle_count;
 } Cpu6502;
 
 void cpu_init(Cpu6502 *cpu);

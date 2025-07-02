@@ -60,6 +60,3 @@ int rom_load_cartridge(Rom *rom, char *filename) {
   fclose(rom_file);
   return ROM_OK;
 }
-
-void rom_load_cpu_mem();
-void rom_load_ppu_mem();

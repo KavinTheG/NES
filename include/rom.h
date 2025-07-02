@@ -22,3 +22,4 @@ int rom_load_cartridge(Rom *rom, char *filename);
 
 void rom_load_cpu_mem();
 void rom_load_ppu_mem();
+void remo_destroy(Rom *rom);

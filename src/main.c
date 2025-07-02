@@ -68,18 +68,24 @@ int main() {
   cpu.apu_mmio = &apu_mmio;
 
   double apu_accumulator = 0.;
+  int sample_count = 0;
+  int cpu_tick_count = 0;
+  int apu_tick_count = 0;
   double apu_ticks_per_sample = APU_CLOCK_HZ / AUDIO_SAMPLE_RATE;
 
   while (1) {
     // Execute cpu cycle
     cpu_execute(&cpu);
+    cpu_tick_count += cpu.cycles;
 
     for (int i = 0; i < cpu.cycles; i += 2) {
       apu_execute(&apu);
+      apu_tick_count++;
 
       apu_accumulator += 1.0;
 
       if (apu_accumulator >= apu_ticks_per_sample) {
+        sample_count++;
         apu_accumulator -= apu_ticks_per_sample;
 
         uint8_t val = apu_output(&apu);
@@ -92,19 +98,31 @@ int main() {
     if (ppu.update_graphics) {
       ppu.update_graphics = 0;
 
+      printf("Sample Count: %d\n", sample_count);
+      printf("APU Count: %d\n", apu.apu_cycle_count);
+      printf("CPU Count: %d\n", cpu.cpu_cycle_count);
+      printf("CPU Tick Count: %d\n", cpu_tick_count);
+      printf("PPU Count: %d\n", ppu.ppu_cycle_count);
+      cpu.cpu_cycle_count = 0;
+      apu.apu_cycle_count = 0;
+      sample_count = 0;
+      cpu_tick_count = 0;
+      ppu.ppu_cycle_count = 0;
+
       Frontend_DrawFrame(&frontend, ppu.frame_buffer);
       Frontend_SetFrameTickStart(&frontend);
-      if (Frontend_HandleInput(&frontend) != 0)
-        break;
     }
     // if (Frontend_HandleInput(&frontend) != 0) {
     //   break;
     // } else {
     if (cpu.strobe) {
+      if (Frontend_HandleInput(&frontend) != 0)
+        break;
       cpu.ctrl_latch_state = frontend.controller;
     }
   }
 
   Frontend_Destroy(&frontend);
+  apu_destroy(&apu);
   return 0;
 }

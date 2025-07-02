@@ -482,6 +482,7 @@ void apu_clock_frame_counter(APU *apu) {
 }
 
 void apu_execute(APU *apu) {
+  apu->apu_cycle_count++;
   apu_update_parameters(apu);
 
   apu_pulse_sequencer_clocked(apu->pulse1);
@@ -496,4 +497,49 @@ void apu_execute(APU *apu) {
   // Clock frame counter
   apu_clock_frame_counter(apu);
   apu->apu_cycles++;
+}
+
+void apu_destroy(APU *apu) {
+  if (!apu)
+    return;
+
+  // Free Triangle
+  if (apu->triangle) {
+    free(apu->triangle->linear_counter);
+    free(apu->triangle);
+  }
+
+  // Free Pulse 1
+  if (apu->pulse1) {
+    if (apu->pulse1->envelope) {
+      free(apu->pulse1->envelope->divider);
+      free(apu->pulse1->envelope);
+    }
+    if (apu->pulse1->sweep) {
+      free(apu->pulse1->sweep->divider);
+      free(apu->pulse1->sweep);
+    }
+    free(apu->pulse1);
+  }
+
+  // Free Pulse 2
+  if (apu->pulse2) {
+    if (apu->pulse2->envelope) {
+      free(apu->pulse2->envelope->divider);
+      free(apu->pulse2->envelope);
+    }
+    if (apu->pulse2->sweep) {
+      free(apu->pulse2->sweep->divider);
+      free(apu->pulse2->sweep);
+    }
+    free(apu->pulse2);
+  }
+
+  // Free Frame Counter Divider
+  if (apu->frame_counter.divider) {
+    free(apu->frame_counter.divider);
+  }
+
+  // Optionally: clear the structure to catch use-after-free bugs
+  memset(apu, 0, sizeof(APU));
 }

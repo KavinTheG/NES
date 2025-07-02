@@ -84,6 +84,7 @@ typedef struct APU {
   FrameCounter frame_counter;
 
   int apu_cycles;
+  int apu_cycle_count;
 
 } APU;
 
@@ -94,3 +95,4 @@ void apu_update_parameters(APU *apu);
 int apu_sweep_clocked(Pulse *pulse, uint8_t one_comp);
 
 uint8_t apu_output(APU *apu);
+void apu_destroy(APU *apu);

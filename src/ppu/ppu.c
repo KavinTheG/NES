@@ -28,8 +28,6 @@ uint8_t oam_memory_secondary[OAM_SECONDARY_SIZE] = {0};
 // Internal latches, holds actual rendering data
 uint8_t oam_buffer_latches[OAM_SECONDARY_SIZE] = {0};
 
-int ppu_cycle_count;
-
 void ppu_init(PPU *ppu) {
   // Initial PPU MMIO Register values
   ppu->PPUCTRL = 0;
@@ -41,6 +39,7 @@ void ppu_init(PPU *ppu) {
   ppu->PPUADDR = 0;
   ppu->PPUDATA = 0;
 
+  ppu->ppu_cycle_count = 0;
   // Fetch tile id from name table
   memset(&ppu->bg_pipeline, 0, sizeof(ppu->bg_pipeline));
   memset(&ppu->sprite_pipeline, 0, sizeof(ppu->sprite_pipeline));
@@ -184,7 +183,7 @@ void ppu_execute_cycle(PPU *ppu) {
   }
 
   ppu->current_scanline_cycle++;
-  ppu_cycle_count++;
+  ppu->ppu_cycle_count++;
 
   if (ppu->current_scanline_cycle >= 341) {
 
@@ -199,7 +198,9 @@ void ppu_execute_cycle(PPU *ppu) {
       ppu->scanline = -1;
       ppu->update_graphics = 1;
 
-      ppu_cycle_count = 0;
+      // printf("\nPPU Cycle: %d\n\n", ppu->ppu_cycle_count);
+      // fflush(stdout);
+      // ppu->ppu_cycle_count = 0;
     }
   }
 

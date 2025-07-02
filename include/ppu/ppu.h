@@ -70,7 +70,7 @@ typedef struct PPU {
   int total_cycles;
   int scanline;
   int frame;
-
+  int ppu_cycle_count;
 } PPU;
 
 // === Global PPU Memory ===

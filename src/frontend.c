@@ -99,7 +99,7 @@ void Frontend_DrawFrame(Frontend *frontend,
 
   uint32_t delta = SDL_GetTicks() - frontend->frame_start_tick;
   if (delta < FRAME_REFRESH_RATE)
-    SDL_Delay((FRAME_REFRESH_RATE - delta) / 2);
+    SDL_Delay((FRAME_REFRESH_RATE - delta));
 }
 
 int Frontend_HandleInput(Frontend *frontend) {
@@ -136,5 +136,6 @@ void Frontend_Destroy(Frontend *frontend) {
   SDL_DestroyTexture(frontend->texture);
   SDL_DestroyRenderer(frontend->renderer);
   SDL_DestroyWindow(frontend->window);
+  SDL_CloseAudio();
   SDL_Quit();
 }
