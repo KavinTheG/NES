@@ -32,7 +32,7 @@ void load_ppu_palette(char *filename) {
   load_palette(palette);
 }
 
-int main() {
+int main(int argc, char *argv[]) {
 
   Cpu6502 cpu;
   PPU ppu;
@@ -51,8 +51,13 @@ int main() {
     printf("ROM LOAD FAILED\n");
   }
 #else
-  rom_load_cartridge(&rom, "rom/Donkey Kong.nes");
-  // rom_load_cartridge(&rom, "rom/Ice_Climber.nes");
+  if (argc < 2) {
+    printf("No ROM file specified. Usage: %s <path-to-rom>\n", argv[0]);
+    return 1;
+  }
+  rom_load_cartridge(&rom, argv[1]);
+  // rom_load_cartridge(&rom, "rom/Donkey Kong.nes");
+  //  rom_load_cartridge(&rom, "rom/Ice_Climber.nes");
 #endif
   load_cpu_memory(&cpu, rom.prg_data, rom.prg_size);
 

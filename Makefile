@@ -8,7 +8,7 @@ LDFLAGS = -lSDL2
 SRC_DIR = src
 BUILD_DIR = build
 BIN_DIR = bin
-BIN = $(BIN_DIR)/emulator
+BIN = $(BIN_DIR)/nes
 
 # Source files (including PPU sources)
 SRCS := $(shell find $(SRC_DIR) -name '*.c')
