@@ -6,6 +6,9 @@ emulator
 
 build/*
 bin/*
+video/*
+
+*.mp4
 
 log.txt
 

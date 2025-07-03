@@ -73,7 +73,7 @@ void Frontend_Init(Frontend *frontend, int w, int h, int scale) {
       .freq = 44100,
       .format = AUDIO_S16SYS,
       .channels = 1,
-      .samples = 512,
+      .samples = 735,
       .callback = audio_callback,
       .userdata = NULL,
   };

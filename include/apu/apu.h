@@ -29,6 +29,7 @@ typedef struct FrameCounter {
   Divider *divider;
   uint8_t interrupt_inhibit_flag;
   uint8_t mode;
+  uint8_t step;
   int initial_apu_cycle;
 } FrameCounter;
 

@@ -71,14 +71,14 @@ int main() {
   int sample_count = 0;
   int cpu_tick_count = 0;
   int apu_tick_count = 0;
-  double apu_ticks_per_sample = APU_CLOCK_HZ / AUDIO_SAMPLE_RATE;
+  double apu_ticks_per_sample = CPU_CLOCK_HZ / AUDIO_SAMPLE_RATE;
 
   while (1) {
     // Execute cpu cycle
     cpu_execute(&cpu);
     cpu_tick_count += cpu.cycles;
 
-    for (int i = 0; i < cpu.cycles; i += 2) {
+    for (int i = 0; i < cpu.cycles; i++) {
       apu_execute(&apu);
       apu_tick_count++;
 
@@ -98,11 +98,6 @@ int main() {
     if (ppu.update_graphics) {
       ppu.update_graphics = 0;
 
-      printf("Sample Count: %d\n", sample_count);
-      printf("APU Count: %d\n", apu.apu_cycle_count);
-      printf("CPU Count: %d\n", cpu.cpu_cycle_count);
-      printf("CPU Tick Count: %d\n", cpu_tick_count);
-      printf("PPU Count: %d\n", ppu.ppu_cycle_count);
       cpu.cpu_cycle_count = 0;
       apu.apu_cycle_count = 0;
       sample_count = 0;
