@@ -4,6 +4,7 @@
 // === Project Includes ===
 #include "config.h"
 #include "pipeline.h"
+#include "ppu_mmio.h"
 
 // === Constants ===
 #define PPU_MEMORY_SIZE 0x4000 // 16 KB
@@ -36,6 +37,7 @@ typedef struct PPU {
   uint8_t PPUDATA;
   uint8_t PPUDATA_READ_BUFFER;
   uint8_t OAMDMA;
+  PPU_MMIO *ppu_mmio;
 
   // Loopy registers and scroll
   uint16_t v, t; // Current and temporary VRAM address

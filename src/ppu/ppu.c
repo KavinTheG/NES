@@ -30,15 +30,6 @@ uint8_t oam_buffer_latches[OAM_SECONDARY_SIZE] = {0};
 
 void ppu_init(PPU *ppu) {
   // Initial PPU MMIO Register values
-  ppu->PPUCTRL = 0;
-  ppu->PPUMASK = 0;
-  ppu->PPUSTATUS = 0b00010000;
-  ppu->OAMADDR = 0;
-  ppu->w = 0;
-  ppu->PPUSCROLL = 0;
-  ppu->PPUADDR = 0;
-  ppu->PPUDATA = 0;
-
   ppu->ppu_cycle_count = 0;
   // Fetch tile id from name table
   memset(&ppu->bg_pipeline, 0, sizeof(ppu->bg_pipeline));
@@ -53,6 +44,86 @@ void ppu_init(PPU *ppu) {
   ppu->frame = 0;
 
   memset(&oam_memory_secondary, 0xFF, OAM_SECONDARY_SIZE);
+}
+
+void ppu_update_registers(PPU *ppu) {
+  if (!ppu->ppu_mmio->ppu_mmio_write_mask)
+    return;
+
+  int reg = __builtin_ctz(ppu->ppu_mmio->ppu_mmio_write_mask);
+  ppu->ppu_mmio->ppu_mmio_write_mask = 0;
+
+  uint8_t val = ppu->ppu_mmio->regs[reg];
+
+  switch (reg) {
+  // $2000 - PPUCTRL
+  case 0x00:
+    ppu->PPUCTRL = val;
+    ppu->t = (ppu->t & 0xF3FF) | ((val & 0x03) << 10);
+    ppu->sprite_height = (val & 0x20) ? 16 : 8;
+    break;
+
+  // $2001 - PPUMASK
+  case 0x01:
+    ppu->PPUMASK = val;
+    break;
+
+  // $2002 - PPUSTATUS (usually read-only; this is just for completeness)
+  case 0x02:
+    ppu->PPUSTATUS = val;
+    break;
+
+  // $2003 - OAMADDR
+  case 0x03:
+    ppu->OAMADDR = val;
+    break;
+
+  // $2004 - OAMDATA
+  case 0x04:
+    ppu->OAMDATA = val;
+    break;
+
+  // $2005 - PPUSCROLL
+  case 0x05:
+    if (ppu->ppu_mmio->write_toggle == 0) {
+      ppu->t = (ppu->t & 0xFFE0) | ((val >> 3) & 0x1F);
+      ppu->x = val & 0x07;
+      ppu->ppu_mmio->write_toggle = 1;
+    } else {
+      ppu->t = (ppu->t & 0x8FFF) | ((val & 0x07) << 12); // fine Y
+      ppu->t = (ppu->t & 0xFC1F) | ((val & 0xF8) << 2);  // coarse Y
+      ppu->ppu_mmio->write_toggle = 0;
+    }
+    break;
+
+  // $2006 - PPUADDR
+  case 0x06:
+    if (ppu->ppu_mmio->write_toggle == 0) {
+      ppu->t = (ppu->t & 0x00FF) | ((val & 0x3F) << 8);
+      ppu->ppu_mmio->write_toggle = 1;
+    } else {
+      ppu->t = (ppu->t & 0xFF00) | val;
+      ppu->v = ppu->t;
+      ppu->ppu_mmio->write_toggle = 0;
+    }
+    break;
+
+  // $2007 - PPUDATA
+  case 0x07:
+    // Delegate to ppu.c logic that handles memory write to VRAM
+    // Example:
+    write_mem(ppu, ppu->v & 0x3FFF, val);
+    ppu->v += (ppu->PPUCTRL & 0x04) ? 32 : 1;
+    break;
+
+  // $4014 - OAMDMA (technically outside $2000–$2007, but often mapped here)
+  case 0x14:
+    ppu->OAMDMA = val;
+    break;
+
+  default:
+    break;
+  }
 }
 
 void load_ppu_memory(PPU *ppu, unsigned char *chr_rom, int chr_size) {
