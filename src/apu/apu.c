@@ -198,7 +198,6 @@ void apu_update_parameters(APU *apu) {
   case 8:
     apu->triangle->control_flag = val & 0x80;
     apu->triangle->linear_counter->P = val & 0x7F;
-    apu->triangle->linear_counter->counter = val & 0x7F;
     break;
 
   case 10:
@@ -207,7 +206,7 @@ void apu_update_parameters(APU *apu) {
 
   case 11:
     apu->triangle->timer &= 0x00FF;
-    apu->triangle->timer = ((val & 0x07) << 8);
+    apu->triangle->timer |= ((val & 0x07) << 8);
 
     apu->triangle->length_counter_load = (val & 0xF8) >> 3;
     apu->triangle->length_counter =
@@ -294,8 +293,9 @@ void apu_tri_length_counter_clocked(Triangle *tri) {
 void apu_tri_linear_counter_clocked(Triangle *tri) {
   if (tri->linear_counter_reload_flag) {
     tri->linear_counter->counter = tri->linear_counter->P;
-  } else if (!tri->linear_counter->counter)
+  } else if (tri->linear_counter->counter > 0) {
     tri->linear_counter->counter--;
+  }
 
   if (tri->control_flag)
     tri->linear_counter_reload_flag = 0;
@@ -343,7 +343,7 @@ uint8_t apu_pulse_output(Pulse *pulse) {
 uint8_t apu_output(APU *apu) {
   uint8_t p1 = apu_pulse_output(apu->pulse1);
   uint8_t p2 = apu_pulse_output(apu->pulse2);
-  uint8_t tri = 0; // apu_triangle_output(apu->triangle);
+  uint8_t tri = apu_triangle_output(apu->triangle);
 
   return (p1 + p2 + tri) / 3;
 }
