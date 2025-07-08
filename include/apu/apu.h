@@ -73,6 +73,24 @@ typedef struct Triangle {
   uint8_t length_counter;
 } Triangle;
 
+typedef struct Noise {
+  uint8_t length_counter_halt_flag;
+  uint8_t mode_flag;
+  uint8_t muted;
+
+  uint16_t timer;
+  uint16_t counter;
+  int initial_apu_cycle;
+
+  uint16_t linear_feedback_shift_reg;
+
+  Envelope *envelope;
+
+  uint8_t length_counter_load;
+  uint8_t length_counter;
+
+} Noise;
+
 typedef struct APU {
   APU_MMIO *apu_mmio;
   /* Track cpu cycles */
@@ -81,6 +99,7 @@ typedef struct APU {
   Pulse *pulse1;
   Pulse *pulse2;
   Triangle *triangle;
+  Noise *noise;
 
   FrameCounter frame_counter;
 

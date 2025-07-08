@@ -13,6 +13,13 @@ static const uint8_t DUTY_PATTERNS[4][8] = {
     {1, 0, 0, 1, 1, 1, 1, 1}  // QUARTER_NEGATED
 };
 
+// static const uint16_t noise_period_table[16] = {
+//     4,   8,   16,  32,  64,  96,   128,  160,
+//     202, 254, 380, 508, 762, 1016, 2034, 4068 // (2046 in old hardware)
+// };
+static const uint16_t noise_period_table[16] = {
+    2, 4, 8, 16, 32, 48, 64, 80, 101, 127, 190, 254, 381, 508, 1017, 2034};
+
 static const uint8_t triangle_sequence[32] = {
     0,  1,  2,  3,  4,  5,  6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
     15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5,  4,  3,  2,  1,  0};
@@ -27,6 +34,33 @@ void apu_init(APU *apu, APU_MMIO *apu_mmio) {
   apu->apu_mmio = apu_mmio;
   apu->apu_status_register = 0;
   apu->apu_cycles = 0;
+
+  apu->noise = malloc(sizeof(Noise));
+  memset(apu->noise, 0, sizeof(Noise));
+
+  Noise *noise = apu->noise;
+
+  // Set initial values
+  noise->length_counter_halt_flag = 0;
+  noise->mode_flag = 0;
+  noise->muted = 0;
+
+  noise->timer = 0;
+  noise->counter = 0;
+  noise->initial_apu_cycle = 0;
+
+  noise->linear_feedback_shift_reg = 1; // LFSR must not start at 0!
+
+  noise->length_counter_load = 0;
+  noise->length_counter = 0;
+
+  // Allocate and zero envelope
+  noise->envelope = malloc(sizeof(Envelope));
+  memset(noise->envelope, 0, sizeof(Envelope));
+
+  // Allocate and zero envelope's divider
+  noise->envelope->divider = malloc(sizeof(Divider));
+  memset(noise->envelope->divider, 0, sizeof(Divider));
 
   apu->triangle = malloc(sizeof(Triangle));
   memset(apu->triangle, 0, sizeof(Triangle));
@@ -144,14 +178,14 @@ void apu_update_parameters(APU *apu) {
 
   // $4002
   case 2:
-    apu->pulse1->timer &= 0xFF00; // Clear low 8 bits
-    apu->pulse1->timer |= val;    // Set low 8 bits
+    apu->pulse1->timer &= 0xFF00;
+    apu->pulse1->timer |= val;
     break;
 
   // $4003
   case 3:
-    apu->pulse1->timer &= 0x00FF;            // Clear high 3 bits
-    apu->pulse1->timer |= (val & 0x07) << 8; // Set high 3 bits
+    apu->pulse1->timer &= 0x00FF;
+    apu->pulse1->timer |= (val & 0x07) << 8;
     apu->pulse1->counter = apu->pulse1->timer;
 
     apu->pulse1->length_counter_load = (val & 0xF8) >> 3;
@@ -215,6 +249,24 @@ void apu_update_parameters(APU *apu) {
     apu->triangle->linear_counter_reload_flag = 1;
     break;
 
+  case 12:
+    apu->noise->envelope->divider->P = val & 0xF;
+    apu->noise->length_counter_halt_flag = (val & 0x20) >> 5;
+    apu->noise->envelope->constant_volume_flag = (val & 0x10) >> 4;
+    break;
+
+  case 14:
+    apu->noise->mode_flag = (val & 0x80) >> 7;
+    apu->noise->timer = noise_period_table[val & 0xF];
+    apu->noise->counter = noise_period_table[val & 0xF];
+    break;
+
+  case 15:
+    apu->noise->length_counter_load = (val & 0xF8) >> 3;
+    apu->noise->length_counter = length_table[apu->noise->length_counter_load];
+    apu->noise->envelope->envelope_start_flag = 1;
+    break;
+
   // $4015
   case 21:
     apu->apu_status_register = val;
@@ -227,6 +279,8 @@ void apu_update_parameters(APU *apu) {
     } else {
       apu->triangle->muted = 0;
     }
+
+    apu->noise->muted = !(val & 0x08);
     break;
 
   // $4017
@@ -258,15 +312,10 @@ int apu_sweep_clocked(Pulse *pulse, uint8_t one_comp) {
       target_value = pulse->timer + change_value;
     }
 
-    if (target_value <= 0x7FF) {
-      pulse->timer = target_value;
-      pulse->muted = 0;
+    if (target_value < 8 || target_value > 0x7FF) {
+      pulse->muted = 1;
     } else {
-      pulse->muted = 1;
-    }
-
-    if (target_value < 8) {
-      pulse->muted = 1;
+      pulse->timer = target_value;
     }
   }
 
@@ -301,7 +350,36 @@ void apu_tri_linear_counter_clocked(Triangle *tri) {
     tri->linear_counter_reload_flag = 0;
 }
 
+void apu_noise_timer_clocked(Noise *noise) {
+  if (noise->length_counter == 0 || noise->muted)
+    return;
+
+  if (noise->counter == 0) {
+    uint16_t feedback;
+
+    if (noise->mode_flag) {
+      // bit 6
+      feedback = (noise->linear_feedback_shift_reg & 0x1) ^
+                 (noise->linear_feedback_shift_reg & 0x20) >> 6;
+    } else {
+      // bit 1
+      feedback = (noise->linear_feedback_shift_reg & 0x1) ^
+                 (noise->linear_feedback_shift_reg & 0x2) >> 1;
+    }
+
+    noise->linear_feedback_shift_reg >>= 1;
+    noise->linear_feedback_shift_reg |= (feedback << 14);
+
+    noise->counter = noise->timer;
+  } else {
+    noise->counter--;
+  }
+}
+
 void apu_pulse_sequencer_clocked(Pulse *pulse) {
+  if (pulse->length_counter == 0 || pulse->muted)
+    return;
+
   if (pulse->counter == 0) {
     pulse->sequencer_step_index = (pulse->sequencer_step_index + 1) & 0x07;
 
@@ -331,21 +409,34 @@ uint8_t apu_triangle_output(Triangle *tri) {
   return triangle_sequence[tri->sequencer_step_index];
 }
 
+uint8_t apu_noise_output(Noise *noise) {
+  if (noise->muted || noise->length_counter == 0)
+    return 0;
+
+  return (noise->linear_feedback_shift_reg & 0x01) == 0
+             ? noise->envelope->volume
+             : 0;
+}
+
 uint8_t apu_pulse_output(Pulse *pulse) {
   if (pulse->length_counter == 0 || pulse->muted)
     return 0;
 
   uint8_t duty_value = DUTY_PATTERNS[pulse->duty][pulse->sequencer_step_index];
 
-  return duty_value ? pulse->envelope->volume : 0;
+  return duty_value ? pulse->envelope->constant_volume_flag
+                          ? pulse->envelope->divider->P
+                          : pulse->envelope->envelope_decay_level_counter
+                    : 0;
 }
 
 uint8_t apu_output(APU *apu) {
   uint8_t p1 = apu_pulse_output(apu->pulse1);
   uint8_t p2 = apu_pulse_output(apu->pulse2);
   uint8_t tri = apu_triangle_output(apu->triangle);
+  uint8_t noise = apu_noise_output(apu->noise);
 
-  return (p1 + p2 + tri) / 3;
+  return (p1 + p2 + tri + noise) / 3;
 }
 void apu_envelope_clocked(Envelope *envelope, uint8_t loop_flag) {
   if (envelope->envelope_start_flag == 0) {
@@ -386,6 +477,9 @@ void apu_clock_frame_counter(APU *apu) {
                          apu->pulse2->length_counter_halt_flag);
 
     apu_tri_linear_counter_clocked(apu->triangle);
+
+    apu_envelope_clocked(apu->noise->envelope,
+                         apu->noise->length_counter_halt_flag);
     break;
 
   case 7456 * 2:
@@ -411,6 +505,9 @@ void apu_clock_frame_counter(APU *apu) {
     // Decrement triangle length counter
     apu_tri_linear_counter_clocked(apu->triangle);
     apu_tri_length_counter_clocked(apu->triangle);
+
+    apu_envelope_clocked(apu->noise->envelope,
+                         apu->noise->length_counter_halt_flag);
     break;
 
   case 11185 * 2:
@@ -422,6 +519,9 @@ void apu_clock_frame_counter(APU *apu) {
     apu_envelope_clocked(apu->pulse2->envelope,
                          apu->pulse2->length_counter_halt_flag);
     apu_tri_linear_counter_clocked(apu->triangle);
+
+    apu_envelope_clocked(apu->noise->envelope,
+                         apu->noise->length_counter_halt_flag);
     break;
 
   case 14914 * 2:
@@ -452,6 +552,8 @@ void apu_clock_frame_counter(APU *apu) {
       apu_tri_linear_counter_clocked(apu->triangle);
       apu_tri_length_counter_clocked(apu->triangle);
 
+      apu_envelope_clocked(apu->noise->envelope,
+                           apu->noise->length_counter_halt_flag);
       apu->frame_counter.initial_apu_cycle = apu->apu_cycles;
     }
     break;
@@ -481,6 +583,9 @@ void apu_clock_frame_counter(APU *apu) {
       // Decrement triangle length counter
       apu_tri_linear_counter_clocked(apu->triangle);
       apu_tri_length_counter_clocked(apu->triangle);
+
+      apu_envelope_clocked(apu->noise->envelope,
+                           apu->noise->length_counter_halt_flag);
       apu->frame_counter.initial_apu_cycle = apu->apu_cycles;
     }
     break;
@@ -489,16 +594,16 @@ void apu_clock_frame_counter(APU *apu) {
 
 void apu_execute(APU *apu) {
   apu->apu_cycle_count++;
-  apu_update_parameters(apu);
+  if (apu->apu_mmio->apu_mmio_write_mask)
+    apu_update_parameters(apu);
 
   if (apu->apu_cycles % 2 == 0) {
     apu_pulse_sequencer_clocked(apu->pulse1);
     apu_pulse_sequencer_clocked(apu->pulse2);
+    apu_noise_timer_clocked(apu->noise);
   }
 
   apu_tri_sequencer_clocked(apu->triangle);
-
-  // uint8_t volume = apu_pulse_output(apu->pulse1);
 
   // Clock frame counter
   apu_clock_frame_counter(apu);

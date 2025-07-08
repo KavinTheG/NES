@@ -73,41 +73,33 @@ int main(int argc, char *argv[]) {
   cpu.apu_mmio = &apu_mmio;
 
   double apu_accumulator = 0.;
-  int sample_count = 0;
-  int cpu_tick_count = 0;
-  int apu_tick_count = 0;
+  double sample_accumulator = 0.;
   double apu_ticks_per_sample = CPU_CLOCK_HZ / AUDIO_SAMPLE_RATE;
 
   while (1) {
     // Execute cpu cycle
     cpu_execute(&cpu);
-    cpu_tick_count += cpu.cycles;
 
     for (int i = 0; i < cpu.cycles; i++) {
       apu_execute(&apu);
-      apu_tick_count++;
 
+      sample_accumulator += apu_output(&apu);
       apu_accumulator += 1.0;
 
       if (apu_accumulator >= apu_ticks_per_sample) {
-        sample_count++;
         apu_accumulator -= apu_ticks_per_sample;
 
-        uint8_t val = apu_output(&apu);
-        int16_t sample = ((int)val - 8) * 4096;
+        int16_t sample =
+            ((int)(sample_accumulator / apu_ticks_per_sample) - 8) * 4096;
 
         audio_buffer_add(sample);
+
+        sample_accumulator = 0.0;
       }
     }
 
     if (ppu.update_graphics) {
       ppu.update_graphics = 0;
-
-      cpu.cpu_cycle_count = 0;
-      apu.apu_cycle_count = 0;
-      sample_count = 0;
-      cpu_tick_count = 0;
-      ppu.ppu_cycle_count = 0;
 
       Frontend_DrawFrame(&frontend, ppu.frame_buffer);
       Frontend_SetFrameTickStart(&frontend);
