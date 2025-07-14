@@ -149,26 +149,26 @@ Git clone the repository with the following command:
 git clone https://github.com/KavinTheG/chip8.git
 ```
 
-Change directory to my chip8 project directory
+Change directory to the NES project directory
 
 ```
 cd NES
 ```
 
-Enter the following command to build the project
+Enter the following command to build the project. Ensure a build directory exists. 
 
 ```
 make
 ```
 
-This will create a binary file located in the bin/ folder. Currently, I am only testing on the nes-test.nes rom and donkey kong rom. Place the respective rom files in test/ or rom/. Run the command below to execute.
+This will create a binary file located in the bin/ folder. Currently, I am only testing on the nes-test.nes rom and donkey kong rom. Run the command below to execute.
 
 ```
-./bin/emulator
+./bin/emulator game-title.nes
 ```
 
 ### Progress 
-Able to run Donkey Kong with minor issues.
+Able to run Donkey Kong.
 ![image](https://github.com/user-attachments/assets/76d6df8b-2864-4093-95c5-c1831ef01364)
 
 ![image](https://github.com/user-attachments/assets/f319269c-a6a1-4a1e-a45f-04f62f8f5c8d)
